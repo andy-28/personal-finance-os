@@ -1,0 +1,20 @@
+{
+    "name":  "personal-finance-os",
+    "version":  "0.1.0",
+    "private":  true,
+    "scripts":  {
+                    "setup":  "docker compose up -d --wait \u0026\u0026 npm run setup:backend \u0026\u0026 npm run setup:frontend",
+                    "setup:backend":  "cd backend \u0026\u0026 dotnet tool restore \u0026\u0026 dotnet restore",
+                    "setup:frontend":  "cd frontend \u0026\u0026 npm install",
+                    "dev":  "concurrently -n api,web -c blue,green \"npm run dev:api\" \"npm run dev:web\"",
+                    "dev:api":  "cd backend \u0026\u0026 dotnet watch --project src/PersonalFinance.Api",
+                    "dev:web":  "cd frontend \u0026\u0026 npm run dev",
+                    "migrate":  "cd backend \u0026\u0026 dotnet ef database update --project src/PersonalFinance.Infrastructure --startup-project src/PersonalFinance.Api",
+                    "db:reset":  "docker compose down -v \u0026\u0026 docker compose up -d --wait",
+                    "test":  "cd backend \u0026\u0026 dotnet test",
+                    "down":  "docker compose down"
+                },
+    "devDependencies":  {
+                            "concurrently":  "9.1.2"
+                        }
+}

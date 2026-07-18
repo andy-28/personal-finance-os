@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Jwt__Issuer": "PersonalFinance.Api",
+        "Jwt__Audience": "PersonalFinance.Web",
+        "Jwt__SigningKey": "development_signing_key_for_personal_finance_os_please_replace",
+        "Jwt__AccessTokenMinutes": "15",
+        "Jwt__RefreshTokenDays": "30"
+      }
+    }
+  }
+}

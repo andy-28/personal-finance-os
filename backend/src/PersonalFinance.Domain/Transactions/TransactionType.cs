@@ -1,0 +1,9 @@
+namespace PersonalFinance.Domain.Transactions;
+
+public enum TransactionType
+{
+    Income,
+    Expense,
+    Transfer,
+    OpeningBalance
+}
