@@ -52,7 +52,28 @@ Register a new development account from `/register`; no seed user is created.
 - Account summary groups assets, liabilities, and net balance by currency.
 - Transaction list, detail, create, edit, and void flows.
 
+## Sprint 3 Features
+
+- Credit card configuration for `CreditCard` accounts.
+- Credit card purchase, refund, and payment workflows built on ledger entries.
+- Credit card summary with outstanding amount, available credit, utilization, statement period, estimated statement amount, and payment dates.
+- Statement period calculation that handles short months and leap years.
+- Installment plan and schedule model for forecast-only commitments.
+
+## Sprint 4 Features
+
+- Quick Add global workflow for income, expense, transfer, credit card purchase, and credit card payment.
+- Recurring transaction templates with pending occurrences for weekly, monthly, and yearly schedules.
+- Upcoming page for overdue, today, next 7 days, and later items.
+- User-confirmed recurring occurrence posting; no background auto-posting.
+- Installment schedule item posting into real credit card purchase transactions.
+- Credit card credit balance and estimated statement split fields.
+
 Sprint 2 intentionally does not include credit card statements, credit card payment matching, installments, budgets, goals, recurring transactions, CSV import, bank sync, dashboards, forecasting, AI, attachments, shared accounts, or split bills.
+
+Sprint 3 intentionally does not include PDF statement parsing, bank APIs, Gmail APIs, stock prices, exchange-rate sync, budgets, goals, AI categorization, or complex rules.
+
+Sprint 4 intentionally does not include background jobs, automatic bank posting, recurring rule engines, or notification delivery.
 
 ## Ledger Rules
 
@@ -61,6 +82,10 @@ Sprint 2 intentionally does not include credit card statements, credit card paym
 - The `accounts` table does not store balance, current balance, available balance, initial balance, or opening balance columns.
 - Opening balance is a posted `OpeningBalance` transaction with one entry.
 - Void transaction does not hard delete data.
+- Credit card outstanding amount is calculated from posted credit card ledger entries and displayed as a positive liability value.
+- Credit card credit balance is calculated as `max(-ledgerBalance, 0)` and displayed separately from outstanding amount.
+- Installment plans are forecasts; creating a plan does not post ledger entries.
+- Recurring templates and pending occurrences are forecasts; only posting an occurrence creates ledger entries.
 - `npm run db:reset` recreates the local database and requires `npm run migrate` afterward.
 
 ## Scripts
@@ -73,6 +98,15 @@ Sprint 2 intentionally does not include credit card statements, credit card paym
 - `npm run down`: stops Docker services.
 
 The setup helpers in `scripts/setup.ps1`, `scripts/setup.cmd`, and `scripts/setup.sh` are thin wrappers that delegate to `npm run setup`.
+
+The default Docker ports are PostgreSQL `55432` and Redis `56379` so this project can run alongside other local apps that use `5432` or `6379`. Override them only when needed:
+
+```bash
+POSTGRES_PORT=55433 REDIS_PORT=56380 \
+ConnectionStrings__Postgres='Host=localhost;Port=55433;Database=personal_finance;Username=pfos;Password=pfos_dev_password' \
+ConnectionStrings__Redis='localhost:56380' \
+npm run dev
+```
 
 ## Reset Database
 

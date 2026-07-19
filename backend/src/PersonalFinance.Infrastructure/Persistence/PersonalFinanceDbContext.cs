@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using System.Data;
 using PersonalFinance.Application.Abstractions.Persistence;
 using PersonalFinance.Domain.Accounts;
 using PersonalFinance.Domain.Categories;
+using PersonalFinance.Domain.CreditCards;
+using PersonalFinance.Domain.Recurring;
 using PersonalFinance.Domain.Transactions;
 using PersonalFinance.Domain.Users;
 
@@ -16,6 +19,12 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<CreditCardAccount> CreditCardAccounts => Set<CreditCardAccount>();
+    public DbSet<CreditCardTransactionMetadata> CreditCardTransactionMetadata => Set<CreditCardTransactionMetadata>();
+    public DbSet<InstallmentPlan> InstallmentPlans => Set<InstallmentPlan>();
+    public DbSet<InstallmentScheduleItem> InstallmentScheduleItems => Set<InstallmentScheduleItem>();
+    public DbSet<RecurringTransactionTemplate> RecurringTransactionTemplates => Set<RecurringTransactionTemplate>();
+    public DbSet<RecurringTransactionOccurrence> RecurringTransactionOccurrences => Set<RecurringTransactionOccurrence>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<TransactionEntry> TransactionEntries => Set<TransactionEntry>();
 
@@ -23,6 +32,12 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
     IQueryable<RefreshToken> IApplicationDbContext.RefreshTokens => RefreshTokens;
     IQueryable<Account> IApplicationDbContext.Accounts => Accounts;
     IQueryable<Category> IApplicationDbContext.Categories => Categories;
+    IQueryable<CreditCardAccount> IApplicationDbContext.CreditCardAccounts => CreditCardAccounts;
+    IQueryable<CreditCardTransactionMetadata> IApplicationDbContext.CreditCardTransactionMetadata => CreditCardTransactionMetadata;
+    IQueryable<InstallmentPlan> IApplicationDbContext.InstallmentPlans => InstallmentPlans;
+    IQueryable<InstallmentScheduleItem> IApplicationDbContext.InstallmentScheduleItems => InstallmentScheduleItems;
+    IQueryable<RecurringTransactionTemplate> IApplicationDbContext.RecurringTransactionTemplates => RecurringTransactionTemplates;
+    IQueryable<RecurringTransactionOccurrence> IApplicationDbContext.RecurringTransactionOccurrences => RecurringTransactionOccurrences;
     IQueryable<Transaction> IApplicationDbContext.Transactions => Transactions;
     IQueryable<TransactionEntry> IApplicationDbContext.TransactionEntries => TransactionEntries;
 
@@ -30,6 +45,11 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
     public void AddRefreshToken(RefreshToken refreshToken) => RefreshTokens.Add(refreshToken);
     public void AddAccount(Account account) => Accounts.Add(account);
     public void AddCategory(Category category) => Categories.Add(category);
+    public void AddCreditCardAccount(CreditCardAccount creditCardAccount) => CreditCardAccounts.Add(creditCardAccount);
+    public void AddCreditCardTransactionMetadata(CreditCardTransactionMetadata metadata) => CreditCardTransactionMetadata.Add(metadata);
+    public void AddInstallmentPlan(InstallmentPlan installmentPlan) => InstallmentPlans.Add(installmentPlan);
+    public void AddRecurringTransactionTemplate(RecurringTransactionTemplate template) => RecurringTransactionTemplates.Add(template);
+    public void AddRecurringTransactionOccurrence(RecurringTransactionOccurrence occurrence) => RecurringTransactionOccurrences.Add(occurrence);
     public void AddTransaction(Transaction transaction) => Transactions.Add(transaction);
     public void AddTransactionEntries(IEnumerable<TransactionEntry> entries) => TransactionEntries.AddRange(entries);
     public void RemoveTransactionEntries(IEnumerable<TransactionEntry> entries) => TransactionEntries.RemoveRange(entries);
@@ -42,7 +62,7 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
             return;
         }
 
-        await using IDbContextTransaction transaction = await Database.BeginTransactionAsync(cancellationToken);
+        await using IDbContextTransaction transaction = await Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         await operation(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
@@ -53,4 +73,3 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
         base.OnModelCreating(modelBuilder);
     }
 }
-

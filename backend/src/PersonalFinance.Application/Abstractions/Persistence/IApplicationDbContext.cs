@@ -1,5 +1,7 @@
 using PersonalFinance.Domain.Accounts;
 using PersonalFinance.Domain.Categories;
+using PersonalFinance.Domain.CreditCards;
+using PersonalFinance.Domain.Recurring;
 using PersonalFinance.Domain.Transactions;
 using PersonalFinance.Domain.Users;
 
@@ -11,6 +13,12 @@ public interface IApplicationDbContext
     IQueryable<RefreshToken> RefreshTokens { get; }
     IQueryable<Account> Accounts { get; }
     IQueryable<Category> Categories { get; }
+    IQueryable<CreditCardAccount> CreditCardAccounts { get; }
+    IQueryable<CreditCardTransactionMetadata> CreditCardTransactionMetadata { get; }
+    IQueryable<InstallmentPlan> InstallmentPlans { get; }
+    IQueryable<InstallmentScheduleItem> InstallmentScheduleItems { get; }
+    IQueryable<RecurringTransactionTemplate> RecurringTransactionTemplates { get; }
+    IQueryable<RecurringTransactionOccurrence> RecurringTransactionOccurrences { get; }
     IQueryable<Transaction> Transactions { get; }
     IQueryable<TransactionEntry> TransactionEntries { get; }
 
@@ -18,10 +26,14 @@ public interface IApplicationDbContext
     void AddRefreshToken(RefreshToken refreshToken);
     void AddAccount(Account account);
     void AddCategory(Category category);
+    void AddCreditCardAccount(CreditCardAccount creditCardAccount);
+    void AddCreditCardTransactionMetadata(CreditCardTransactionMetadata metadata);
+    void AddInstallmentPlan(InstallmentPlan installmentPlan);
+    void AddRecurringTransactionTemplate(RecurringTransactionTemplate template);
+    void AddRecurringTransactionOccurrence(RecurringTransactionOccurrence occurrence);
     void AddTransaction(Transaction transaction);
     void AddTransactionEntries(IEnumerable<TransactionEntry> entries);
     void RemoveTransactionEntries(IEnumerable<TransactionEntry> entries);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
     Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken);
 }
-

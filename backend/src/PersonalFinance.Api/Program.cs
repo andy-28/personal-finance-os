@@ -149,6 +149,8 @@ app.MapAuthEndpoints();
 app.MapAccountEndpoints();
 app.MapCategoryEndpoints();
 app.MapTransactionEndpoints();
+app.MapCreditCardEndpoints();
+app.MapRecurringTransactionEndpoints();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
@@ -181,4 +183,3 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 app.Run();
 
 public partial class Program;
-

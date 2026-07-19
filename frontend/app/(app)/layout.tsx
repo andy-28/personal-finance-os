@@ -4,9 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "../auth-context";
+import { QuickAdd } from "./quick-add";
 
 const links = [
   ["/accounts", "Accounts"],
+  ["/upcoming", "Upcoming"],
+  ["/credit-cards", "Credit Cards"],
+  ["/recurring-transactions", "Recurring"],
   ["/transactions", "Transactions"],
   ["/categories", "Categories"],
   ["/system-status", "System Status"]
@@ -33,6 +37,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               const isActive = pathname === href || pathname.startsWith(`${href}/`);
               return <Link key={href} href={href} className={`rounded px-3 py-2 text-sm ${isActive ? "bg-stone-950 text-white" : "border border-stone-300 bg-white"}`}>{label}</Link>;
             })}
+            <QuickAdd />
             <button className="rounded border border-stone-300 px-3 py-2 text-sm" onClick={async () => { await logout(); router.replace("/login"); }}>Logout</button>
           </nav>
         </div>

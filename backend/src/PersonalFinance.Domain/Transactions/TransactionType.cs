@@ -5,5 +5,8 @@ public enum TransactionType
     Income,
     Expense,
     Transfer,
-    OpeningBalance
+    OpeningBalance,
+    CreditCardPurchase,
+    CreditCardRefund,
+    CreditCardPayment
 }

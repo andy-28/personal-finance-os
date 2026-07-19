@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PersonalFinance.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using PersonalFinance.Infrastructure.Persistence;
 namespace PersonalFinance.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PersonalFinanceDbContext))]
-    partial class PersonalFinanceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260718103759_AddCreditCardsAndInstallmentPlans")]
+    partial class AddCreditCardsAndInstallmentPlans
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -414,178 +417,6 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("PersonalFinance.Domain.Recurring.RecurringTransactionOccurrence", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<Guid?>("PostedTransactionId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("posted_transaction_id");
-
-                    b.Property<DateOnly>("ScheduledDate")
-                        .HasColumnType("date")
-                        .HasColumnName("scheduled_date");
-
-                    b.Property<DateTimeOffset?>("SkippedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("skipped_at_utc");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("TemplateId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("template_id");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at_utc");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PostedTransactionId");
-
-                    b.HasIndex("Status", "ScheduledDate");
-
-                    b.HasIndex("TemplateId", "ScheduledDate")
-                        .IsUnique();
-
-                    b.ToTable("recurring_transaction_occurrences", (string)null);
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.Recurring.RecurringTransactionTemplate", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<decimal>("Amount")
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("amount");
-
-                    b.Property<Guid?>("CategoryId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("category_id");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<string>("CurrencyCode")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)")
-                        .HasColumnName("currency");
-
-                    b.Property<int?>("DayOfMonth")
-                        .HasColumnType("integer")
-                        .HasColumnName("day_of_month");
-
-                    b.Property<string>("DayOfWeek")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("day_of_week");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("description");
-
-                    b.Property<Guid?>("DestinationAccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("destination_account_id");
-
-                    b.Property<DateOnly?>("EndDate")
-                        .HasColumnType("date")
-                        .HasColumnName("end_date");
-
-                    b.Property<string>("Frequency")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("frequency");
-
-                    b.Property<int>("Interval")
-                        .HasColumnType("integer")
-                        .HasColumnName("interval");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("Merchant")
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("merchant");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("name");
-
-                    b.Property<DateOnly?>("NextOccurrenceDate")
-                        .HasColumnType("date")
-                        .HasColumnName("next_occurrence_date");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("note");
-
-                    b.Property<Guid?>("SourceAccountId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("source_account_id");
-
-                    b.Property<DateOnly>("StartDate")
-                        .HasColumnType("date")
-                        .HasColumnName("start_date");
-
-                    b.Property<string>("TransactionType")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("transaction_type");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at_utc");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CategoryId");
-
-                    b.HasIndex("DestinationAccountId");
-
-                    b.HasIndex("SourceAccountId");
-
-                    b.HasIndex("UserId", "IsActive", "NextOccurrenceDate");
-
-                    b.ToTable("recurring_transaction_templates", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_recurring_transaction_templates_amount_positive", "amount > 0");
-
-                            t.HasCheckConstraint("ck_recurring_transaction_templates_day_of_month", "day_of_month IS NULL OR day_of_month BETWEEN 1 AND 31");
-
-                            t.HasCheckConstraint("ck_recurring_transaction_templates_interval_positive", "interval > 0");
-                        });
-                });
-
             modelBuilder.Entity("PersonalFinance.Domain.Transactions.Transaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -865,44 +696,6 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("TransactionId")
                         .OnDelete(DeleteBehavior.Restrict);
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.Recurring.RecurringTransactionOccurrence", b =>
-                {
-                    b.HasOne("PersonalFinance.Domain.Transactions.Transaction", null)
-                        .WithMany()
-                        .HasForeignKey("PostedTransactionId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("PersonalFinance.Domain.Recurring.RecurringTransactionTemplate", null)
-                        .WithMany()
-                        .HasForeignKey("TemplateId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.Recurring.RecurringTransactionTemplate", b =>
-                {
-                    b.HasOne("PersonalFinance.Domain.Categories.Category", null)
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("PersonalFinance.Domain.Accounts.Account", null)
-                        .WithMany()
-                        .HasForeignKey("DestinationAccountId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("PersonalFinance.Domain.Accounts.Account", null)
-                        .WithMany()
-                        .HasForeignKey("SourceAccountId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("PersonalFinance.Domain.Users.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("PersonalFinance.Domain.Transactions.Transaction", b =>

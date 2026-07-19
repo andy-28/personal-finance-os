@@ -69,6 +69,32 @@ public sealed class Transaction : Entity
         return transaction;
     }
 
+    public static Transaction CreateCreditCardPurchase(Guid userId, Guid creditCardAccountId, Guid categoryId, decimal amount, DateOnly purchaseDate, string? merchant, string? note, DateTimeOffset utcNow)
+    {
+        EnsurePositive(amount);
+        var transaction = new Transaction(Guid.NewGuid(), userId, TransactionType.CreditCardPurchase, purchaseDate, categoryId, merchant, note, utcNow);
+        transaction.AddEntry(creditCardAccountId, amount, utcNow);
+        return transaction;
+    }
+
+    public static Transaction CreateCreditCardRefund(Guid userId, Guid creditCardAccountId, decimal amount, DateOnly refundDate, string? note, DateTimeOffset utcNow)
+    {
+        EnsurePositive(amount);
+        var transaction = new Transaction(Guid.NewGuid(), userId, TransactionType.CreditCardRefund, refundDate, null, null, note, utcNow);
+        transaction.AddEntry(creditCardAccountId, -amount, utcNow);
+        return transaction;
+    }
+
+    public static Transaction CreateCreditCardPayment(Guid userId, Guid paymentAccountId, Guid creditCardAccountId, decimal amount, DateOnly paymentDate, string? note, DateTimeOffset utcNow)
+    {
+        EnsurePositive(amount);
+        if (paymentAccountId == creditCardAccountId) throw new ArgumentException("Payment accounts must be different.", nameof(creditCardAccountId));
+        var transaction = new Transaction(Guid.NewGuid(), userId, TransactionType.CreditCardPayment, paymentDate, null, null, note, utcNow);
+        transaction.AddEntry(paymentAccountId, -amount, utcNow);
+        transaction.AddEntry(creditCardAccountId, -amount, utcNow);
+        return transaction;
+    }
+
     public void UpdateIncome(Guid accountId, Guid categoryId, decimal amount, DateOnly transactionDate, string? payee, string? note, DateTimeOffset utcNow)
     {
         EnsureCanUpdate(TransactionType.Income);
@@ -100,6 +126,31 @@ public sealed class Transaction : Entity
         if (amount == 0) throw new ArgumentException("Opening balance amount cannot be zero.", nameof(amount));
         ReplaceCore(transactionDate, null, null, note, utcNow);
         ReplaceEntries([new PendingEntry(accountId, amount)], utcNow);
+    }
+
+    public void UpdateCreditCardPurchase(Guid creditCardAccountId, Guid categoryId, decimal amount, DateOnly purchaseDate, string? merchant, string? note, DateTimeOffset utcNow)
+    {
+        EnsureCanUpdate(TransactionType.CreditCardPurchase);
+        EnsurePositive(amount);
+        ReplaceCore(purchaseDate, categoryId, merchant, note, utcNow);
+        ReplaceEntries([new PendingEntry(creditCardAccountId, amount)], utcNow);
+    }
+
+    public void UpdateCreditCardRefund(Guid creditCardAccountId, decimal amount, DateOnly refundDate, string? note, DateTimeOffset utcNow)
+    {
+        EnsureCanUpdate(TransactionType.CreditCardRefund);
+        EnsurePositive(amount);
+        ReplaceCore(refundDate, null, null, note, utcNow);
+        ReplaceEntries([new PendingEntry(creditCardAccountId, -amount)], utcNow);
+    }
+
+    public void UpdateCreditCardPayment(Guid paymentAccountId, Guid creditCardAccountId, decimal amount, DateOnly paymentDate, string? note, DateTimeOffset utcNow)
+    {
+        EnsureCanUpdate(TransactionType.CreditCardPayment);
+        EnsurePositive(amount);
+        if (paymentAccountId == creditCardAccountId) throw new ArgumentException("Payment accounts must be different.", nameof(creditCardAccountId));
+        ReplaceCore(paymentDate, null, null, note, utcNow);
+        ReplaceEntries([new PendingEntry(paymentAccountId, -amount), new PendingEntry(creditCardAccountId, -amount)], utcNow);
     }
 
     public void Void(DateTimeOffset utcNow)

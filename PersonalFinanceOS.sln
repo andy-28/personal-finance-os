@@ -1,0 +1,82 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{BF43EA75-9DBA-41C2-9C47-B6CF443A3DDB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{DA5331A8-7D19-423C-B53C-A30F9D4F791E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Domain", "backend\src\PersonalFinance.Domain\PersonalFinance.Domain.csproj", "{DA6B4FE7-ACCD-4681-AC2C-15CCCD74DC99}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Application", "backend\src\PersonalFinance.Application\PersonalFinance.Application.csproj", "{E9359F3B-CE2A-44B0-842E-96C4EC5229B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Infrastructure", "backend\src\PersonalFinance.Infrastructure\PersonalFinance.Infrastructure.csproj", "{66D1164B-45E9-47DB-8D76-E794288D0D36}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Api", "backend\src\PersonalFinance.Api\PersonalFinance.Api.csproj", "{3E67940C-97CE-4691-BD24-A36965ED5B36}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EDC535D9-144B-4482-AB01-949CF3528068}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Domain.Tests", "backend\tests\PersonalFinance.Domain.Tests\PersonalFinance.Domain.Tests.csproj", "{F2FBC162-2D51-4B46-BE2A-4C4B4E16CF70}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Application.Tests", "backend\tests\PersonalFinance.Application.Tests\PersonalFinance.Application.Tests.csproj", "{966B9325-F8A6-4F3D-8B4D-71F9D3DB1AA9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.IntegrationTests", "backend\tests\PersonalFinance.IntegrationTests\PersonalFinance.IntegrationTests.csproj", "{54978DE9-5FDA-4895-AFDE-F4874EA48E27}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.ArchitectureTests", "backend\tests\PersonalFinance.ArchitectureTests\PersonalFinance.ArchitectureTests.csproj", "{391246F9-56D1-4DE6-A41E-FF5078BA0A95}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DA6B4FE7-ACCD-4681-AC2C-15CCCD74DC99}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA6B4FE7-ACCD-4681-AC2C-15CCCD74DC99}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA6B4FE7-ACCD-4681-AC2C-15CCCD74DC99}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA6B4FE7-ACCD-4681-AC2C-15CCCD74DC99}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E9359F3B-CE2A-44B0-842E-96C4EC5229B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E9359F3B-CE2A-44B0-842E-96C4EC5229B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E9359F3B-CE2A-44B0-842E-96C4EC5229B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E9359F3B-CE2A-44B0-842E-96C4EC5229B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{66D1164B-45E9-47DB-8D76-E794288D0D36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66D1164B-45E9-47DB-8D76-E794288D0D36}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66D1164B-45E9-47DB-8D76-E794288D0D36}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66D1164B-45E9-47DB-8D76-E794288D0D36}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E67940C-97CE-4691-BD24-A36965ED5B36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E67940C-97CE-4691-BD24-A36965ED5B36}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E67940C-97CE-4691-BD24-A36965ED5B36}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E67940C-97CE-4691-BD24-A36965ED5B36}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F2FBC162-2D51-4B46-BE2A-4C4B4E16CF70}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F2FBC162-2D51-4B46-BE2A-4C4B4E16CF70}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F2FBC162-2D51-4B46-BE2A-4C4B4E16CF70}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F2FBC162-2D51-4B46-BE2A-4C4B4E16CF70}.Release|Any CPU.Build.0 = Release|Any CPU
+		{966B9325-F8A6-4F3D-8B4D-71F9D3DB1AA9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{966B9325-F8A6-4F3D-8B4D-71F9D3DB1AA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{966B9325-F8A6-4F3D-8B4D-71F9D3DB1AA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{966B9325-F8A6-4F3D-8B4D-71F9D3DB1AA9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{54978DE9-5FDA-4895-AFDE-F4874EA48E27}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54978DE9-5FDA-4895-AFDE-F4874EA48E27}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54978DE9-5FDA-4895-AFDE-F4874EA48E27}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54978DE9-5FDA-4895-AFDE-F4874EA48E27}.Release|Any CPU.Build.0 = Release|Any CPU
+		{391246F9-56D1-4DE6-A41E-FF5078BA0A95}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{391246F9-56D1-4DE6-A41E-FF5078BA0A95}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{391246F9-56D1-4DE6-A41E-FF5078BA0A95}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{391246F9-56D1-4DE6-A41E-FF5078BA0A95}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DA5331A8-7D19-423C-B53C-A30F9D4F791E} = {BF43EA75-9DBA-41C2-9C47-B6CF443A3DDB}
+		{DA6B4FE7-ACCD-4681-AC2C-15CCCD74DC99} = {DA5331A8-7D19-423C-B53C-A30F9D4F791E}
+		{E9359F3B-CE2A-44B0-842E-96C4EC5229B4} = {DA5331A8-7D19-423C-B53C-A30F9D4F791E}
+		{66D1164B-45E9-47DB-8D76-E794288D0D36} = {DA5331A8-7D19-423C-B53C-A30F9D4F791E}
+		{3E67940C-97CE-4691-BD24-A36965ED5B36} = {DA5331A8-7D19-423C-B53C-A30F9D4F791E}
+		{EDC535D9-144B-4482-AB01-949CF3528068} = {BF43EA75-9DBA-41C2-9C47-B6CF443A3DDB}
+		{F2FBC162-2D51-4B46-BE2A-4C4B4E16CF70} = {EDC535D9-144B-4482-AB01-949CF3528068}
+		{966B9325-F8A6-4F3D-8B4D-71F9D3DB1AA9} = {EDC535D9-144B-4482-AB01-949CF3528068}
+		{54978DE9-5FDA-4895-AFDE-F4874EA48E27} = {EDC535D9-144B-4482-AB01-949CF3528068}
+		{391246F9-56D1-4DE6-A41E-FF5078BA0A95} = {EDC535D9-144B-4482-AB01-949CF3528068}
+	EndGlobalSection
+EndGlobal
