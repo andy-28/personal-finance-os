@@ -4,10 +4,63 @@
 
 :root {
   color-scheme: light;
+  --background: 246 247 242;
+  --surface: 255 255 255;
+  --surface-muted: 239 242 235;
+  --border: 213 218 207;
+  --foreground: 23 33 27;
+  --muted-foreground: 95 105 96;
+  --primary: 20 24 21;
+  --success: 27 128 87;
+  --warning: 184 120 25;
+  --danger: 190 45 72;
+  --income: 26 130 91;
+  --expense: 201 61 85;
+  --transfer: 46 106 170;
+  --credit: 102 74 164;
 }
 
 body {
   margin: 0;
-  background: #f7f7f2;
-  color: #17211b;
+  background: rgb(var(--background));
+  color: rgb(var(--foreground));
+  font-feature-settings: "tnum";
+}
+
+* {
+  border-color: rgb(var(--border));
+}
+
+::selection {
+  background: rgb(var(--primary) / 0.14);
+}
+
+@layer components {
+  .ui-focus {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2;
+  }
+
+  .ui-input {
+    @apply ui-focus min-h-10 w-full rounded-ui border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted;
+  }
+
+  .ui-label {
+    @apply grid gap-1.5 text-sm font-medium text-foreground;
+  }
+
+  .ui-card {
+    @apply rounded-ui border bg-surface p-4 shadow-panel;
+  }
+
+  .ui-table {
+    @apply w-full border-collapse text-left text-sm;
+  }
+
+  .ui-table th {
+    @apply bg-surface-muted px-3 py-2 text-xs font-semibold text-muted;
+  }
+
+  .ui-table td {
+    @apply border-t px-3 py-3 align-middle;
+  }
 }

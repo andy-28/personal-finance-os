@@ -4,10 +4,15 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { ErrorState } from "@/components/ui/states";
 import { apiFetch, problemMessage, type AccountDto, type CategoryDto, type TransactionDto, type TransactionType } from "@/lib/api-client";
+import { todayInputValue } from "@/lib/formatters";
+import { accountTypeLabels, transactionTypeLabels } from "@/lib/labels";
 import { useAuth } from "../../../auth-context";
 
-const today = new Date().toISOString().slice(0, 10);
 const transactionTypes: TransactionType[] = ["Expense", "Income", "Transfer", "OpeningBalance"];
 
 export default function NewTransactionPage() {
@@ -17,7 +22,7 @@ export default function NewTransactionPage() {
   const [incomeCategories, setIncomeCategories] = useState<CategoryDto[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<CategoryDto[]>([]);
   const [type, setType] = useState<TransactionType>("Expense");
-  const [form, setForm] = useState({ accountId: "", categoryId: "", fromAccountId: "", toAccountId: "", amount: "", transactionDate: today, payee: "", note: "" });
+  const [form, setForm] = useState({ accountId: "", categoryId: "", fromAccountId: "", toAccountId: "", amount: "", transactionDate: todayInputValue(), payee: "", note: "" });
   const [error, setError] = useState<string | null>(null);
 
   const flatIncome = useMemo(() => incomeCategories.flatMap((category) => [category, ...category.children]), [incomeCategories]);
@@ -25,6 +30,7 @@ export default function NewTransactionPage() {
   const activeAccounts = accounts.filter((account) => !account.isArchived);
   const transferAccounts = activeAccounts.filter((account) => account.type !== "CreditCard" && account.type !== "Loan");
   const selectedAccount = activeAccounts.find((account) => account.id === form.accountId);
+  const categoryOptions = type === "Income" ? flatIncome : flatExpense;
 
   async function load() {
     try {
@@ -65,9 +71,30 @@ export default function NewTransactionPage() {
     }
   }
 
-  const categoryOptions = type === "Income" ? flatIncome : flatExpense;
-
   return (
-    <section className="grid gap-6"><header><h1 className="text-3xl font-semibold">New transaction</h1><p className="text-stone-600">Create posted ledger entries for Sprint 2 transaction types.</p></header>{error && <p className="rounded border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}<form onSubmit={submit} className="grid gap-4 rounded border border-stone-300 bg-white p-4"><div className="grid gap-3 sm:grid-cols-4"><label className="grid gap-1 text-sm">Type<select className="rounded border px-3 py-2" value={type} onChange={(e) => setType(e.target.value as TransactionType)}>{transactionTypes.map((candidate) => <option key={candidate}>{candidate}</option>)}</select></label><label className="grid gap-1 text-sm">Date<input className="rounded border px-3 py-2" type="date" value={form.transactionDate} onChange={(e) => setForm({ ...form, transactionDate: e.target.value })} /></label><label className="grid gap-1 text-sm">Amount<input className="rounded border px-3 py-2" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></label>{type !== "Transfer" && <label className="grid gap-1 text-sm">Account<select className="rounded border px-3 py-2" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}><option value="">Choose account</option>{activeAccounts.map((account) => <option key={account.id} value={account.id}>{account.name} / {account.currencyCode}</option>)}</select></label>}</div>{type === "Transfer" && <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm">From account<select className="rounded border px-3 py-2" value={form.fromAccountId} onChange={(e) => setForm({ ...form, fromAccountId: e.target.value })}><option value="">Choose source</option>{transferAccounts.map((account) => <option key={account.id} value={account.id}>{account.name} / {account.currencyCode}</option>)}</select></label><label className="grid gap-1 text-sm">To account<select className="rounded border px-3 py-2" value={form.toAccountId} onChange={(e) => setForm({ ...form, toAccountId: e.target.value })}><option value="">Choose destination</option>{transferAccounts.filter((account) => !form.fromAccountId || account.currencyCode === accounts.find((a) => a.id === form.fromAccountId)?.currencyCode).map((account) => <option key={account.id} value={account.id}>{account.name} / {account.currencyCode}</option>)}</select></label></div>}{(type === "Income" || type === "Expense") && <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm">Category<select className="rounded border px-3 py-2" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}><option value="">Choose category</option>{categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label className="grid gap-1 text-sm">Payee<input className="rounded border px-3 py-2" value={form.payee} onChange={(e) => setForm({ ...form, payee: e.target.value })} /></label></div>}{type === "OpeningBalance" && selectedAccount?.hasOpeningBalance && <p className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">This account already has an active opening balance. Void the existing opening balance before creating another one.</p>}<label className="grid gap-1 text-sm">Note<textarea className="min-h-24 rounded border px-3 py-2" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label><div><button className="rounded bg-stone-950 px-4 py-2 text-white">Create transaction</button></div></form></section>
+    <section className="grid gap-6">
+      <PageHeader title="新增交易" description="建立交易後會立即產生已入帳分錄，並更新相關帳戶餘額。" />
+      {error && <ErrorState message={error} />}
+      <Card>
+        <CardTitle title="交易內容" description="依交易類型填寫必要欄位；轉帳會建立一正一負兩筆分錄。" />
+        <form onSubmit={submit} className="mt-4 grid gap-4">
+          <div className="grid gap-3 md:grid-cols-4">
+            <label className="ui-label">類型<select className="ui-input" value={type} onChange={(e) => setType(e.target.value as TransactionType)}>{transactionTypes.map((candidate) => <option key={candidate} value={candidate}>{transactionTypeLabels[candidate]}</option>)}</select></label>
+            <label className="ui-label">日期<input className="ui-input" type="date" value={form.transactionDate} onChange={(e) => setForm({ ...form, transactionDate: e.target.value })} /></label>
+            <label className="ui-label">金額<input className="ui-input" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></label>
+            {type !== "Transfer" && <label className="ui-label">帳戶<select className="ui-input" value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })}><option value="">選擇帳戶</option>{activeAccounts.map((account) => <option key={account.id} value={account.id}>{account.name} / {accountTypeLabels[account.type]} / {account.currencyCode}</option>)}</select></label>}
+          </div>
+          {type === "Transfer" && <div className="grid gap-3 md:grid-cols-2"><AccountSelect label="轉出帳戶" accounts={transferAccounts} value={form.fromAccountId} onChange={(value) => setForm({ ...form, fromAccountId: value })} /><AccountSelect label="轉入帳戶" accounts={transferAccounts.filter((account) => !form.fromAccountId || account.currencyCode === accounts.find((candidate) => candidate.id === form.fromAccountId)?.currencyCode)} value={form.toAccountId} onChange={(value) => setForm({ ...form, toAccountId: value })} /></div>}
+          {(type === "Income" || type === "Expense") && <div className="grid gap-3 md:grid-cols-2"><label className="ui-label">分類<select className="ui-input" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}><option value="">選擇分類</option>{categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label className="ui-label">商家 / 對象<input className="ui-input" value={form.payee} onChange={(e) => setForm({ ...form, payee: e.target.value })} /></label></div>}
+          {type === "OpeningBalance" && selectedAccount?.hasOpeningBalance && <p className="rounded-ui border border-warning/30 bg-warning/10 p-3 text-sm text-warning">此帳戶已經有有效的期初餘額。若要重設，請先作廢既有期初餘額交易。</p>}
+          <label className="ui-label">備註<textarea className="ui-input min-h-24" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
+          <div><Button type="submit">建立交易</Button></div>
+        </form>
+      </Card>
+    </section>
   );
+}
+
+function AccountSelect({ label, accounts, value, onChange }: { label: string; accounts: AccountDto[]; value: string; onChange: (value: string) => void }) {
+  return <label className="ui-label">{label}<select className="ui-input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">選擇帳戶</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name} / {account.currencyCode}</option>)}</select></label>;
 }

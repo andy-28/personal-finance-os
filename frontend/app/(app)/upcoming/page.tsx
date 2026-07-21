@@ -4,15 +4,14 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { apiFetch, money, problemMessage, type UpcomingDto } from "@/lib/api-client";
+import { formatDate, todayInputValue } from "@/lib/formatters";
+import { installmentStatusLabels, transactionTypeLabels } from "@/lib/labels";
 import { useAuth } from "../../auth-context";
-
-const localDate = (date = new Date()) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
 
 export default function UpcomingPage() {
   const { accessToken, refreshSession } = useAuth();
@@ -24,7 +23,7 @@ export default function UpcomingPage() {
     const now = new Date();
     const next7 = new Date(now);
     next7.setDate(now.getDate() + 7);
-    return { today: localDate(now), in7: localDate(next7) };
+    return { today: todayInputValue(), in7: `${next7.getFullYear()}-${String(next7.getMonth() + 1).padStart(2, "0")}-${String(next7.getDate()).padStart(2, "0")}` };
   });
 
   async function load() {
@@ -61,21 +60,32 @@ export default function UpcomingPage() {
 
   const groups = useMemo(() => {
     const rows = [
-      ...data.recurringOccurrences.map((item) => ({ id: item.id, kind: "Recurring", date: item.scheduledDate, title: item.templateName, amount: item.amount, currency: item.currency, meta: `${item.transactionType} / ${item.sourceAccountName ?? ""}${item.destinationAccountName ? ` -> ${item.destinationAccountName}` : ""}`, actions: <><button className="rounded border px-2 py-1 disabled:opacity-60" disabled={pendingActionId !== null} onClick={() => postOccurrence(item.id)}>{pendingActionId === item.id ? "Posting..." : "Post"}</button><button className="rounded border px-2 py-1 disabled:opacity-60" disabled={pendingActionId !== null} onClick={() => skipOccurrence(item.id)}>{pendingActionId === item.id ? "Skipping..." : "Skip"}</button><Link className="rounded border px-2 py-1" href="/recurring-transactions">Edit Template</Link></> })),
-      ...data.installments.map((item) => ({ id: item.itemId, kind: "Installment", date: item.dueDate, title: item.merchant, amount: item.amount, currency: "TWD", meta: item.status, actions: <><button className="rounded border px-2 py-1 disabled:opacity-60" disabled={pendingActionId !== null} onClick={() => postInstallment(item.planId, item.itemId)}>{pendingActionId === item.itemId ? "Posting..." : "Post Installment"}</button><Link className="rounded border px-2 py-1" href="/credit-cards">View Plan</Link></> })),
-      ...data.creditCardReminders.map((item) => ({ id: `${item.accountId}-${item.kind}-${item.date}`, kind: "Credit Card", date: item.date, title: item.accountName, amount: 0, currency: "TWD", meta: item.kind === "Closing" ? "Closing date" : "Payment due date", actions: <Link className="rounded border px-2 py-1" href="/credit-cards">View Credit Card</Link> }))
+      ...data.recurringOccurrences.map((item) => ({ id: item.id, kind: "循環交易", date: item.scheduledDate, title: item.templateName, amount: item.amount, currency: item.currency, meta: `${transactionTypeLabels[item.transactionType]} / ${item.sourceAccountName ?? ""}${item.destinationAccountName ? ` -> ${item.destinationAccountName}` : ""}`, actions: <><Button variant="outline" size="sm" disabled={pendingActionId !== null} isLoading={pendingActionId === item.id} onClick={() => postOccurrence(item.id)}>入帳</Button><Button variant="ghost" size="sm" disabled={pendingActionId !== null} onClick={() => skipOccurrence(item.id)}>略過</Button><Link href="/recurring-transactions"><Button variant="outline" size="sm">編輯樣板</Button></Link></> })),
+      ...data.installments.map((item) => ({ id: item.itemId, kind: "分期", date: item.dueDate, title: item.merchant, amount: item.amount, currency: "TWD", meta: installmentStatusLabels[item.status] ?? item.status, actions: <><Button variant="outline" size="sm" disabled={pendingActionId !== null} isLoading={pendingActionId === item.itemId} onClick={() => postInstallment(item.planId, item.itemId)}>分期入帳</Button><Link href="/credit-cards"><Button variant="outline" size="sm">查看分期</Button></Link></> })),
+      ...data.creditCardReminders.map((item) => ({ id: `${item.accountId}-${item.kind}-${item.date}`, kind: "信用卡", date: item.date, title: item.accountName, amount: 0, currency: "TWD", meta: item.kind === "Closing" ? "結帳日" : "繳款截止日", actions: <Link href="/credit-cards"><Button variant="outline" size="sm">查看信用卡</Button></Link> }))
     ].sort((a, b) => a.date.localeCompare(b.date));
     return {
-      overdue: rows.filter((row) => row.date < dateWindow.today),
-      today: rows.filter((row) => row.date === dateWindow.today),
-      next7: rows.filter((row) => row.date > dateWindow.today && row.date <= dateWindow.in7),
-      later: rows.filter((row) => row.date > dateWindow.in7)
+      "已逾期": rows.filter((row) => row.date < dateWindow.today),
+      "今天": rows.filter((row) => row.date === dateWindow.today),
+      "未來 7 天": rows.filter((row) => row.date > dateWindow.today && row.date <= dateWindow.in7),
+      "本月稍後": rows.filter((row) => row.date > dateWindow.in7)
     };
   }, [data, dateWindow, pendingActionId]);
 
-  return <section className="grid gap-6">
-    <header><h1 className="text-3xl font-semibold">Upcoming</h1><p className="text-stone-600">Pending recurring items, installment postings, and credit card reminders.</p></header>
-    {error && <p className="rounded border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
-    {isLoading ? <p>Loading...</p> : <div className="grid gap-4">{Object.entries({ Overdue: groups.overdue, Today: groups.today, "Next 7 Days": groups.next7, "Later This Month": groups.later }).map(([label, rows]) => <section key={label} className="rounded border border-stone-300 bg-white p-4"><h2 className="mb-3 font-semibold">{label}</h2>{rows.length === 0 ? <p className="text-sm text-stone-600">No items.</p> : <div className="grid gap-2">{rows.map((row) => <article key={row.id} className="flex flex-col gap-2 border-b border-stone-200 py-2 last:border-0 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{row.title}</p><p className="text-sm text-stone-600">{row.kind} / {row.date} / {row.meta}</p></div><div className="flex flex-wrap items-center gap-2 text-sm">{row.amount > 0 && <span className="font-semibold">{money(row.amount, row.currency)}</span>}{row.actions}</div></article>)}</div>}</section>)}</div>}
-  </section>;
+  return (
+    <section className="grid gap-6">
+      <PageHeader title="即將發生" description="集中處理循環交易、分期入帳與信用卡結帳/繳款提醒。" />
+      {error && <ErrorState message={error} />}
+      {isLoading ? <LoadingState /> : (
+        <div className="grid gap-4">
+          {Object.entries(groups).map(([label, rows]) => (
+            <Card key={label}>
+              <h2 className="mb-3 font-semibold">{label}</h2>
+              {rows.length === 0 ? <EmptyState title="這個區段沒有待辦" /> : <div className="grid gap-2">{rows.map((row) => <article key={row.id} className="flex flex-col gap-2 border-b py-3 last:border-0 md:flex-row md:items-center md:justify-between"><div><p className="font-medium">{row.title}</p><p className="text-sm text-muted">{row.kind} / {formatDate(row.date)} / {row.meta}</p></div><div className="flex flex-wrap items-center gap-2 text-sm">{row.amount > 0 && <span className="font-semibold">{money(row.amount, row.currency)}</span>}{row.actions}</div></article>)}</div>}
+            </Card>
+          ))}
+        </div>
+      )}
+    </section>
+  );
 }

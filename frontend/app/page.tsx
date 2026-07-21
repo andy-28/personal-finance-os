@@ -12,6 +12,5 @@ export default function Home() {
     if (!isLoading) router.replace(user ? "/transactions" : "/login");
   }, [isLoading, router, user]);
 
-  return <main className="grid min-h-screen place-items-center text-stone-700">Loading...</main>;
+  return <main className="grid min-h-screen place-items-center bg-background text-muted">載入中...</main>;
 }
-

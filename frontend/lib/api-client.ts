@@ -1,3 +1,6 @@
+import { messageFromProblem } from "./error-messages";
+import { formatCurrency } from "./formatters";
+
 export type HealthStatus = "Healthy" | "Degraded" | "Unhealthy";
 export type HealthCheck = { name: string; status: HealthStatus; duration: number; description?: string | null; error?: string | null; tags: string[] };
 export type HealthResponse = { status: HealthStatus; totalDuration: number; checks: HealthCheck[] };
@@ -151,14 +154,14 @@ export async function apiFetch<T>(path: string, accessToken: string | null, init
 }
 
 export function problemMessage(error: unknown): string {
-  if (error instanceof ApiError) return error.problem.errors?.[0]?.message ?? error.message;
+  if (error instanceof ApiError) return messageFromProblem(error.problem, error.status);
   if (error && typeof error === "object") {
     const problem = error as ProblemDetails;
-    return problem.errors?.[0]?.message ?? problem.detail ?? problem.title ?? "Unexpected error";
+    return messageFromProblem(problem);
   }
-  return error instanceof Error ? error.message : "Unexpected error";
+  return error instanceof Error ? error.message : "發生未預期的錯誤，請稍後再試。";
 }
 
 export function money(value: number, currency = "TWD") {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+  return formatCurrency(value, currency);
 }
