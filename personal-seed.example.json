@@ -1,0 +1,26 @@
+{
+  "travelTransactions": [
+    {
+      "enabled": false,
+      "type": "CreditCardPurchase",
+      "merchant": "Airfare",
+      "amount": 13000,
+      "currency": "TWD",
+      "categoryPath": ["旅遊", "機票"],
+      "transactionDate": null,
+      "creditCardAccountName": null,
+      "note": "Fill date and card before importing manually. Disabled by default."
+    },
+    {
+      "enabled": false,
+      "type": "CreditCardPurchase",
+      "merchant": "Booking.com",
+      "amount": 17722,
+      "currency": "TWD",
+      "categoryPath": ["旅遊", "住宿"],
+      "transactionDate": null,
+      "creditCardAccountName": null,
+      "note": "Trip 10/8-10/13. Fill date and card before importing manually. Disabled by default."
+    }
+  ]
+}

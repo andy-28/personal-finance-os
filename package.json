@@ -12,7 +12,8 @@
                     "migrate":  "cd backend \u0026\u0026 dotnet ef database update --project src/PersonalFinance.Infrastructure --startup-project src/PersonalFinance.Api",
                     "db:reset":  "docker compose down -v \u0026\u0026 docker compose up -d --wait",
                     "test":  "cd backend \u0026\u0026 dotnet test",
-                    "down":  "docker compose down"
+                    "down":  "docker compose down",
+                    "seed":  "dotnet run --project backend/src/PersonalFinance.Api -- --seed-development"
                 },
     "devDependencies":  {
                             "concurrently":  "9.1.2"

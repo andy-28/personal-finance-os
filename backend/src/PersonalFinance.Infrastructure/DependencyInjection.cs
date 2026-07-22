@@ -6,6 +6,7 @@ using PersonalFinance.Application.Abstractions.Persistence;
 using PersonalFinance.Application.Abstractions.Time;
 using PersonalFinance.Infrastructure.Authentication;
 using PersonalFinance.Infrastructure.Persistence;
+using PersonalFinance.Infrastructure.Seeding;
 using PersonalFinance.Infrastructure.Time;
 
 namespace PersonalFinance.Infrastructure;
@@ -15,12 +16,19 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
+        services.Configure<DevelopmentSeedOptions>(configuration.GetSection(DevelopmentSeedOptions.SectionName));
+        services.PostConfigure<DevelopmentSeedOptions>(options =>
+        {
+            options.Email = configuration["PFOS_SEED_EMAIL"] ?? options.Email;
+            options.Password = configuration["PFOS_SEED_PASSWORD"] ?? options.Password;
+        });
         services.AddDbContext<PersonalFinanceDbContext>(options =>
             options.UseNpgsql(configuration.GetConnectionString("Postgres")));
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<PersonalFinanceDbContext>());
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<DevelopmentDataSeeder>();
         return services;
     }
 }

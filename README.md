@@ -88,6 +88,41 @@ Sprint 4 intentionally does not include background jobs, automatic bank posting,
 - Recurring templates and pending occurrences are forecasts; only posting an occurrence creates ledger entries.
 - `npm run db:reset` recreates the local database and requires `npm run migrate` afterward.
 
+
+## Development Personal Seed
+
+The development seed is an explicit local-only command. It does not run during production startup and it does not write account balances directly. Opening balances are posted through ledger transactions, recurring items are templates only, and installment plans create forecast schedules only.
+
+Default local credentials are configured in `backend/src/PersonalFinance.Api/appsettings.Development.json`:
+
+```text
+Email: admin01@example.local
+Password: Admin01!dev
+```
+
+Override them without editing files when needed:
+
+```bash
+PFOS_SEED_EMAIL=admin01@example.local PFOS_SEED_PASSWORD='your-dev-password' npm run seed
+```
+
+Dry-run first to see creates, skips, disabled records, and missing configuration without writing to PostgreSQL:
+
+```bash
+npm run seed -- --dry-run
+```
+
+Run the seed after setup and migrations:
+
+```bash
+npm install
+npm run setup
+npm run migrate
+npm run seed
+npm run dev
+```
+
+The seed is idempotent. Running it again should report existing users, accounts, categories, credit cards, opening balances, recurring templates, and installment plans as skipped. Optional travel rows live in `personal-seed.example.json` and remain disabled until dates and card/account choices are supplied manually.
 ## Scripts
 
 - `npm run setup`: starts Docker services, restores .NET tools/packages, and installs frontend packages.

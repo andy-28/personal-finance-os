@@ -13,6 +13,7 @@ using PersonalFinance.Application;
 using PersonalFinance.Application.Abstractions.Authentication;
 using PersonalFinance.Infrastructure;
 using PersonalFinance.Infrastructure.Authentication;
+using PersonalFinance.Infrastructure.Seeding;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -108,6 +109,22 @@ builder.Services
 
 var app = builder.Build();
 
+if (args.Contains("--seed-development", StringComparer.OrdinalIgnoreCase))
+{
+    if (!app.Environment.IsDevelopment())
+    {
+        Console.Error.WriteLine("Development seed can only run in the Development environment.");
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    var dryRun = args.Contains("--dry-run", StringComparer.OrdinalIgnoreCase);
+    using var scope = app.Services.CreateScope();
+    var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentDataSeeder>();
+    var report = await seeder.SeedAsync(new DevelopmentSeedRunOptions(dryRun), CancellationToken.None);
+    Console.WriteLine(report);
+    return;
+}
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
