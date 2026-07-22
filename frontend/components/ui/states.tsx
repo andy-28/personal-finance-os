@@ -3,7 +3,7 @@ export function LoadingState({ label = "載入中..." }: { label?: string }) {
 }
 
 export function ErrorState({ message }: { message: string }) {
-  return <div className="rounded-ui border border-danger/30 bg-danger/10 p-3 text-sm text-danger">{message}</div>;
+  return <div className="game-panel border-danger/40 bg-danger/10 text-sm text-danger">{message}</div>;
 }
 
 export function EmptyState({ title = "目前沒有資料", description }: { title?: string; description?: string }) {

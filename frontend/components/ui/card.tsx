@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
+import { GameCard } from "./game-theme";
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`ui-card ${className}`}>{children}</section>;
+export function Card({ children, className = "", ...props }: HTMLAttributes<HTMLElement> & { children: ReactNode }) {
+  return <GameCard className={className} {...props}>{children}</GameCard>;
 }
 
 export function CardTitle({ title, description }: { title: string; description?: string }) {

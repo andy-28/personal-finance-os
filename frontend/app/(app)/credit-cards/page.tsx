@@ -3,6 +3,11 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardTitle } from "@/components/ui/card";
+import { GameProgress, GameTab, GameTabs } from "@/components/ui/game-theme";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState, ErrorState } from "@/components/ui/states";
 import { apiFetch, money, problemMessage, type AccountDto, type CategoryDto, type CreditCardDetailDto, type CreditCardDto } from "@/lib/api-client";
 import { formatDate, todayInputValue } from "@/lib/formatters";
 import { installmentStatusLabels, transactionTypeLabels } from "@/lib/labels";
@@ -148,23 +153,31 @@ export default function CreditCardsPage() {
 
   return (
     <section className="grid gap-6">
-      <header>
-        <h1 className="text-3xl font-semibold">信用卡</h1>
-        <p className="text-stone-600">未清償金額、溢繳餘額與可用額度都由已入帳分錄計算。</p>
-      </header>
+      <PageHeader title="信用卡" description="未清償金額、溢繳餘額與可用額度都由已入帳分錄計算。" />
 
-      {error && <p className="rounded border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
+      {error && <ErrorState message={error} />}
+
+      {cards.length > 0 && (
+        <GameTabs className="w-fit max-w-full flex-wrap">
+          {cards.map((card) => (
+            <GameTab key={card.accountId} isActive={detail?.summary.accountId === card.accountId} onClick={async () => { selectDefaults(card.accountId); await load(card.accountId); }}>
+              {card.accountName}
+            </GameTab>
+          ))}
+        </GameTabs>
+      )}
 
       <div className="grid gap-3 lg:grid-cols-3">
         {cards.map((card) => (
-          <button key={card.accountId} className="rounded border border-stone-300 bg-white p-4 text-left" onClick={async () => { selectDefaults(card.accountId); await load(card.accountId); }}>
+          <button key={card.accountId} className="game-panel text-left transition hover:-translate-y-0.5 hover:brightness-[1.02] active:translate-y-0" onClick={async () => { selectDefaults(card.accountId); await load(card.accountId); }}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="font-semibold">{card.accountName}</h2>
-                <p className="text-sm text-stone-600">{card.issuerName} / {card.cardName}{card.lastFourDigits ? ` / ${card.lastFourDigits}` : ""}</p>
+                <h2 className="font-bold">{card.accountName}</h2>
+                <p className="text-sm text-muted">{card.issuerName} / {card.cardName}{card.lastFourDigits ? ` / ${card.lastFourDigits}` : ""}</p>
               </div>
-              <span className="rounded border border-stone-300 px-2 py-1 text-xs">{Math.round((card.creditUtilization ?? 0) * 100)}%</span>
+              <span className="game-badge game-badge-credit">{Math.round((card.creditUtilization ?? 0) * 100)}%</span>
             </div>
+            <GameProgress value={Math.round((card.creditUtilization ?? 0) * 100)} label={`${card.accountName} credit utilization`} className="mt-4" />
             <dl className="mt-4 grid gap-2 text-sm">
               <Row label="未清償金額" value={money(card.outstandingAmount, card.currencyCode)} />
               <Row label="溢繳餘額" value={money(card.creditBalance, card.currencyCode)} />
@@ -175,38 +188,38 @@ export default function CreditCardsPage() {
             </dl>
           </button>
         ))}
-        {!isLoading && cards.length === 0 && <p className="rounded border border-stone-300 bg-white p-5 text-stone-600 lg:col-span-3">尚未建立信用卡。</p>}
+        {!isLoading && cards.length === 0 && <div className="lg:col-span-3"><EmptyState title="尚未建立信用卡" description="先新增信用卡帳戶，再建立卡片設定與帳單週期。" /></div>}
       </div>
 
-      <form onSubmit={submitCard} className="grid gap-3 rounded border border-stone-300 bg-white p-4 md:grid-cols-4">
-        <h2 className="md:col-span-4 font-semibold">{editingId ? "編輯信用卡" : "新增信用卡"}</h2>
-        <select className="rounded border px-3 py-2" value={cardForm.accountId} onChange={(e) => setCardForm({ ...cardForm, accountId: e.target.value })}>
+      <form onSubmit={submitCard} className="game-panel grid gap-3 md:grid-cols-4">
+        <div className="md:col-span-4"><CardTitle title={editingId ? "編輯信用卡" : "新增信用卡"} description="建立卡片帳戶、帳單日與預設扣繳來源。" /></div>
+        <select className="ui-input" value={cardForm.accountId} onChange={(e) => setCardForm({ ...cardForm, accountId: e.target.value })}>
           <option value="">建立新的信用卡帳戶</option>
           {availableCreditCardAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
         </select>
-        {!cardForm.accountId && <input className="rounded border px-3 py-2" placeholder="帳戶名稱" value={cardForm.accountName} onChange={(e) => setCardForm({ ...cardForm, accountName: e.target.value })} />}
-        <input className="rounded border px-3 py-2" placeholder="發卡機構" value={cardForm.issuerName} onChange={(e) => setCardForm({ ...cardForm, issuerName: e.target.value })} />
-        <input className="rounded border px-3 py-2" placeholder="卡片名稱" value={cardForm.cardName} onChange={(e) => setCardForm({ ...cardForm, cardName: e.target.value })} />
-        <input className="rounded border px-3 py-2" placeholder="末四碼" maxLength={4} value={cardForm.lastFourDigits} onChange={(e) => setCardForm({ ...cardForm, lastFourDigits: e.target.value.replace(/\D/g, "") })} />
-        <input className="rounded border px-3 py-2" placeholder="信用額度" type="number" min="0" step="0.01" value={cardForm.creditLimit} onChange={(e) => setCardForm({ ...cardForm, creditLimit: e.target.value })} />
-        <input className="rounded border px-3 py-2" placeholder="結帳日" type="number" min="1" max="31" value={cardForm.statementClosingDay} onChange={(e) => setCardForm({ ...cardForm, statementClosingDay: Number(e.target.value) })} />
-        <input className="rounded border px-3 py-2" placeholder="繳款日" type="number" min="1" max="31" value={cardForm.paymentDueDay} onChange={(e) => setCardForm({ ...cardForm, paymentDueDay: Number(e.target.value) })} />
-        <select className="rounded border px-3 py-2" value={cardForm.paymentAccountId} onChange={(e) => setCardForm({ ...cardForm, paymentAccountId: e.target.value })}>
+        {!cardForm.accountId && <input className="ui-input" placeholder="帳戶名稱" value={cardForm.accountName} onChange={(e) => setCardForm({ ...cardForm, accountName: e.target.value })} />}
+        <input className="ui-input" placeholder="發卡機構" value={cardForm.issuerName} onChange={(e) => setCardForm({ ...cardForm, issuerName: e.target.value })} />
+        <input className="ui-input" placeholder="卡片名稱" value={cardForm.cardName} onChange={(e) => setCardForm({ ...cardForm, cardName: e.target.value })} />
+        <input className="ui-input" placeholder="末四碼" maxLength={4} value={cardForm.lastFourDigits} onChange={(e) => setCardForm({ ...cardForm, lastFourDigits: e.target.value.replace(/\D/g, "") })} />
+        <input className="ui-input" placeholder="信用額度" type="number" min="0" step="0.01" value={cardForm.creditLimit} onChange={(e) => setCardForm({ ...cardForm, creditLimit: e.target.value })} />
+        <input className="ui-input" placeholder="結帳日" type="number" min="1" max="31" value={cardForm.statementClosingDay} onChange={(e) => setCardForm({ ...cardForm, statementClosingDay: Number(e.target.value) })} />
+        <input className="ui-input" placeholder="繳款日" type="number" min="1" max="31" value={cardForm.paymentDueDay} onChange={(e) => setCardForm({ ...cardForm, paymentDueDay: Number(e.target.value) })} />
+        <select className="ui-input" value={cardForm.paymentAccountId} onChange={(e) => setCardForm({ ...cardForm, paymentAccountId: e.target.value })}>
           <option value="">不設定預設付款帳戶</option>
           {activePaymentAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
         </select>
-        <button className="rounded bg-stone-950 px-4 py-2 text-white">{editingId ? "更新" : "新增"}</button>
+        <Button type="submit">{editingId ? "更新" : "新增"}</Button>
       </form>
 
       {detail && (
         <section className="grid gap-4">
-          <div className="rounded border border-stone-300 bg-white p-4">
+          <Card>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold">{detail.summary.accountName}</h2>
-                <p className="text-sm text-stone-600">{formatDate(detail.summary.currentStatementPeriod.startDate)} 至 {formatDate(detail.summary.currentStatementPeriod.endDate)}</p>
+                <h2 className="text-xl font-bold">{detail.summary.accountName}</h2>
+                <p className="text-sm text-muted">{formatDate(detail.summary.currentStatementPeriod.startDate)} 至 {formatDate(detail.summary.currentStatementPeriod.endDate)}</p>
               </div>
-              <button className="rounded border px-3 py-1 text-sm" onClick={() => { setEditingId(detail.summary.accountId); setCardForm({ accountId: detail.summary.accountId, accountName: detail.summary.accountName, currencyCode: detail.summary.currencyCode, issuerName: detail.summary.issuerName, cardName: detail.summary.cardName, lastFourDigits: detail.summary.lastFourDigits ?? "", creditLimit: detail.summary.creditLimit?.toString() ?? "", statementClosingDay: detail.summary.statementClosingDay, paymentDueDay: detail.summary.paymentDueDay, paymentAccountId: detail.summary.paymentAccountId ?? "" }); }}>編輯設定</button>
+              <Button variant="outline" size="sm" onClick={() => { setEditingId(detail.summary.accountId); setCardForm({ accountId: detail.summary.accountId, accountName: detail.summary.accountName, currencyCode: detail.summary.currencyCode, issuerName: detail.summary.issuerName, cardName: detail.summary.cardName, lastFourDigits: detail.summary.lastFourDigits ?? "", creditLimit: detail.summary.creditLimit?.toString() ?? "", statementClosingDay: detail.summary.statementClosingDay, paymentDueDay: detail.summary.paymentDueDay, paymentAccountId: detail.summary.paymentAccountId ?? "" }); }}>編輯設定</Button>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <Metric label="未清償金額" value={money(detail.summary.outstandingAmount, detail.summary.currencyCode)} />
@@ -220,49 +233,49 @@ export default function CreditCardsPage() {
               <Metric label="下次結帳" value={formatDate(detail.summary.nextClosingDate)} />
               <Metric label="下次繳款" value={formatDate(detail.summary.nextPaymentDueDate)} />
             </div>
-          </div>
+          </Card>
 
           <div className="grid gap-4 xl:grid-cols-2">
             <TransactionForm title="信用卡消費" onSubmit={submitPurchase}>
               <CreditCardSelect value={purchaseForm.creditCardAccountId} cards={cards} onChange={(value) => setPurchaseForm({ ...purchaseForm, creditCardAccountId: value })} />
-              <select className="rounded border px-3 py-2" value={purchaseForm.categoryId} onChange={(e) => setPurchaseForm({ ...purchaseForm, categoryId: e.target.value })}><option value="">支出分類</option>{expenseCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+              <select className="ui-input" value={purchaseForm.categoryId} onChange={(e) => setPurchaseForm({ ...purchaseForm, categoryId: e.target.value })}><option value="">支出分類</option>{expenseCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
               <MoneyInput value={purchaseForm.amount} onChange={(value) => setPurchaseForm({ ...purchaseForm, amount: value })} />
-              <input className="rounded border px-3 py-2" type="date" value={purchaseForm.purchaseDate} onChange={(e) => setPurchaseForm({ ...purchaseForm, purchaseDate: e.target.value })} />
-              <input className="rounded border px-3 py-2" type="date" value={purchaseForm.postedDate} onChange={(e) => setPurchaseForm({ ...purchaseForm, postedDate: e.target.value })} />
-              <input className="rounded border px-3 py-2" placeholder="商家" value={purchaseForm.merchant} onChange={(e) => setPurchaseForm({ ...purchaseForm, merchant: e.target.value })} />
-              <input className="rounded border px-3 py-2 xl:col-span-2" placeholder="備註" value={purchaseForm.note} onChange={(e) => setPurchaseForm({ ...purchaseForm, note: e.target.value })} />
+              <input className="ui-input" type="date" value={purchaseForm.purchaseDate} onChange={(e) => setPurchaseForm({ ...purchaseForm, purchaseDate: e.target.value })} />
+              <input className="ui-input" type="date" value={purchaseForm.postedDate} onChange={(e) => setPurchaseForm({ ...purchaseForm, postedDate: e.target.value })} />
+              <input className="ui-input" placeholder="商家" value={purchaseForm.merchant} onChange={(e) => setPurchaseForm({ ...purchaseForm, merchant: e.target.value })} />
+              <input className="ui-input xl:col-span-2" placeholder="備註" value={purchaseForm.note} onChange={(e) => setPurchaseForm({ ...purchaseForm, note: e.target.value })} />
             </TransactionForm>
 
             <TransactionForm title="信用卡退款" onSubmit={submitRefund}>
               <CreditCardSelect value={refundForm.creditCardAccountId} cards={cards} onChange={(value) => setRefundForm({ ...refundForm, creditCardAccountId: value })} />
               <MoneyInput value={refundForm.amount} onChange={(value) => setRefundForm({ ...refundForm, amount: value })} />
-              <input className="rounded border px-3 py-2" type="date" value={refundForm.refundDate} onChange={(e) => setRefundForm({ ...refundForm, refundDate: e.target.value })} />
-              <select className="rounded border px-3 py-2" value={refundForm.originalTransactionId} onChange={(e) => setRefundForm({ ...refundForm, originalTransactionId: e.target.value })}><option value="">可選原消費</option>{detail.recentTransactions.filter((t) => t.type === "CreditCardPurchase").map((t) => <option key={t.id} value={t.id}>{formatDate(t.transactionDate)} / {money(t.displayAmount, detail.summary.currencyCode)}</option>)}</select>
-              <input className="rounded border px-3 py-2 xl:col-span-2" placeholder="備註" value={refundForm.note} onChange={(e) => setRefundForm({ ...refundForm, note: e.target.value })} />
+              <input className="ui-input" type="date" value={refundForm.refundDate} onChange={(e) => setRefundForm({ ...refundForm, refundDate: e.target.value })} />
+              <select className="ui-input" value={refundForm.originalTransactionId} onChange={(e) => setRefundForm({ ...refundForm, originalTransactionId: e.target.value })}><option value="">可選原消費</option>{detail.recentTransactions.filter((t) => t.type === "CreditCardPurchase").map((t) => <option key={t.id} value={t.id}>{formatDate(t.transactionDate)} / {money(t.displayAmount, detail.summary.currencyCode)}</option>)}</select>
+              <input className="ui-input xl:col-span-2" placeholder="備註" value={refundForm.note} onChange={(e) => setRefundForm({ ...refundForm, note: e.target.value })} />
             </TransactionForm>
 
             <TransactionForm title="信用卡付款" onSubmit={submitPayment}>
               <CreditCardSelect value={paymentForm.creditCardAccountId} cards={cards} onChange={(value) => setPaymentForm({ ...paymentForm, creditCardAccountId: value })} />
-              <select className="rounded border px-3 py-2" value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm({ ...paymentForm, paymentAccountId: e.target.value })}><option value="">預設付款帳戶</option>{activePaymentAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select>
+              <select className="ui-input" value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm({ ...paymentForm, paymentAccountId: e.target.value })}><option value="">預設付款帳戶</option>{activePaymentAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select>
               <MoneyInput value={paymentForm.amount} onChange={(value) => setPaymentForm({ ...paymentForm, amount: value })} />
-              <input className="rounded border px-3 py-2" type="date" value={paymentForm.paymentDate} onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })} />
-              <input className="rounded border px-3 py-2 xl:col-span-2" placeholder="備註" value={paymentForm.note} onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })} />
+              <input className="ui-input" type="date" value={paymentForm.paymentDate} onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })} />
+              <input className="ui-input xl:col-span-2" placeholder="備註" value={paymentForm.note} onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })} />
             </TransactionForm>
 
             <TransactionForm title="分期計畫" onSubmit={submitInstallment}>
               <CreditCardSelect value={installmentForm.creditCardAccountId} cards={cards} onChange={(value) => setInstallmentForm({ ...installmentForm, creditCardAccountId: value })} />
-              <input className="rounded border px-3 py-2" placeholder="商家" value={installmentForm.merchant} onChange={(e) => setInstallmentForm({ ...installmentForm, merchant: e.target.value })} />
+              <input className="ui-input" placeholder="商家" value={installmentForm.merchant} onChange={(e) => setInstallmentForm({ ...installmentForm, merchant: e.target.value })} />
               <MoneyInput value={installmentForm.originalAmount} onChange={(value) => setInstallmentForm({ ...installmentForm, originalAmount: value })} />
-              <input className="rounded border px-3 py-2" type="number" min="1" value={installmentForm.installmentCount} onChange={(e) => setInstallmentForm({ ...installmentForm, installmentCount: Number(e.target.value) })} />
-              <input className="rounded border px-3 py-2" type="date" value={installmentForm.purchaseDate} onChange={(e) => setInstallmentForm({ ...installmentForm, purchaseDate: e.target.value })} />
-              <input className="rounded border px-3 py-2" type="date" value={installmentForm.firstInstallmentDate} onChange={(e) => setInstallmentForm({ ...installmentForm, firstInstallmentDate: e.target.value })} />
-              <input className="rounded border px-3 py-2 xl:col-span-2" placeholder="說明" value={installmentForm.description} onChange={(e) => setInstallmentForm({ ...installmentForm, description: e.target.value })} />
+              <input className="ui-input" type="number" min="1" value={installmentForm.installmentCount} onChange={(e) => setInstallmentForm({ ...installmentForm, installmentCount: Number(e.target.value) })} />
+              <input className="ui-input" type="date" value={installmentForm.purchaseDate} onChange={(e) => setInstallmentForm({ ...installmentForm, purchaseDate: e.target.value })} />
+              <input className="ui-input" type="date" value={installmentForm.firstInstallmentDate} onChange={(e) => setInstallmentForm({ ...installmentForm, firstInstallmentDate: e.target.value })} />
+              <input className="ui-input xl:col-span-2" placeholder="說明" value={installmentForm.description} onChange={(e) => setInstallmentForm({ ...installmentForm, description: e.target.value })} />
             </TransactionForm>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Panel title="近期交易">{detail.recentTransactions.length === 0 ? <p className="text-sm text-stone-600">尚無交易。</p> : detail.recentTransactions.map((transaction) => <Row key={transaction.id} label={`${formatDate(transaction.transactionDate)} ${transactionTypeLabels[transaction.type]}`} value={money(transaction.displayAmount, detail.summary.currencyCode)} />)}</Panel>
-            <Panel title="分期">{detail.installmentPlans.length === 0 ? <p className="text-sm text-stone-600">尚無分期計畫。</p> : detail.installmentPlans.map((plan) => <div key={plan.id} className="border-b border-stone-200 py-2 last:border-0"><Row label={`${plan.merchant} / ${installmentStatusLabels[plan.status] ?? plan.status}`} value={money(plan.remainingCommitmentAmount, detail.summary.currencyCode)} /><div className="mt-2 grid gap-1">{plan.scheduleItems.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 text-xs text-stone-600"><span>{item.installmentNumber}. {formatDate(item.dueDate)} / {money(item.amount, detail.summary.currencyCode)} / {installmentStatusLabels[item.status] ?? item.status}</span><button className="rounded border px-2 py-1 disabled:opacity-50" disabled={item.status !== "Pending"} onClick={() => postInstallment(plan.id, item.id)}>入帳</button></div>)}</div></div>)}</Panel>
+            <Panel title="近期交易">{detail.recentTransactions.length === 0 ? <p className="text-sm text-muted">尚無交易。</p> : detail.recentTransactions.map((transaction) => <Row key={transaction.id} label={`${formatDate(transaction.transactionDate)} ${transactionTypeLabels[transaction.type]}`} value={money(transaction.displayAmount, detail.summary.currencyCode)} />)}</Panel>
+            <Panel title="分期">{detail.installmentPlans.length === 0 ? <p className="text-sm text-muted">尚無分期計畫。</p> : detail.installmentPlans.map((plan) => <div key={plan.id} className="border-b border-border/55 py-2 last:border-0"><Row label={`${plan.merchant} / ${installmentStatusLabels[plan.status] ?? plan.status}`} value={money(plan.remainingCommitmentAmount, detail.summary.currencyCode)} /><div className="mt-2 grid gap-1">{plan.scheduleItems.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 text-xs text-muted"><span>{item.installmentNumber}. {formatDate(item.dueDate)} / {money(item.amount, detail.summary.currencyCode)} / {installmentStatusLabels[item.status] ?? item.status}</span><Button type="button" variant="outline" size="sm" disabled={item.status !== "Pending"} onClick={() => postInstallment(plan.id, item.id)}>入帳</Button></div>)}</div></div>)}</Panel>
           </div>
         </section>
       )}
@@ -271,25 +284,25 @@ export default function CreditCardsPage() {
 }
 
 function Row({ label, value }: { label: string; value: string }) {
-  return <p className="flex justify-between gap-3"><span className="text-stone-600">{label}</span><span className="font-medium">{value}</span></p>;
+  return <p className="flex justify-between gap-3"><span className="text-muted">{label}</span><span className="font-semibold">{value}</span></p>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="rounded border border-stone-200 p-3"><p className="text-sm text-stone-600">{label}</p><p className="mt-1 font-semibold">{value}</p></div>;
+  return <div className="rounded-ui border border-border/55 bg-fantasy-beige/45 p-3 shadow-inner"><p className="text-sm text-muted">{label}</p><p className="mt-1 font-bold">{value}</p></div>;
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div className="rounded border border-stone-300 bg-white p-4"><h2 className="mb-3 font-semibold">{title}</h2><div className="grid gap-2 text-sm">{children}</div></div>;
+  return <Card><h2 className="mb-3 font-bold">{title}</h2><div className="grid gap-2 text-sm">{children}</div></Card>;
 }
 
 function TransactionForm({ title, onSubmit, children }: { title: string; onSubmit: (event: FormEvent) => void; children: React.ReactNode }) {
-  return <form onSubmit={onSubmit} className="grid gap-3 rounded border border-stone-300 bg-white p-4 sm:grid-cols-2"><h2 className="font-semibold sm:col-span-2">{title}</h2>{children}<button className="rounded bg-stone-950 px-4 py-2 text-white sm:col-span-2">儲存</button></form>;
+  return <form onSubmit={onSubmit} className="game-panel grid gap-3 sm:grid-cols-2"><h2 className="font-bold sm:col-span-2">{title}</h2>{children}<Button type="submit" className="sm:col-span-2">儲存</Button></form>;
 }
 
 function CreditCardSelect({ value, cards, onChange }: { value: string; cards: CreditCardDto[]; onChange: (value: string) => void }) {
-  return <select className="rounded border px-3 py-2" value={value} onChange={(e) => onChange(e.target.value)}><option value="">選擇信用卡</option>{cards.map((card) => <option key={card.accountId} value={card.accountId}>{card.accountName}</option>)}</select>;
+  return <select className="ui-input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">選擇信用卡</option>{cards.map((card) => <option key={card.accountId} value={card.accountId}>{card.accountName}</option>)}</select>;
 }
 
 function MoneyInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return <input className="rounded border px-3 py-2" placeholder="金額" type="number" min="0" step="0.01" value={value} onChange={(e) => onChange(e.target.value)} />;
+  return <input className="ui-input" placeholder="金額" type="number" min="0" step="0.01" value={value} onChange={(e) => onChange(e.target.value)} />;
 }

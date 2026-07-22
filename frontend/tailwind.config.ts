@@ -18,10 +18,18 @@ const config: Config = {
         income: "rgb(var(--income) / <alpha-value>)",
         expense: "rgb(var(--expense) / <alpha-value>)",
         transfer: "rgb(var(--transfer) / <alpha-value>)",
-        credit: "rgb(var(--credit) / <alpha-value>)"
+        credit: "rgb(var(--credit) / <alpha-value>)",
+        "fantasy-brown": "rgb(var(--fantasy-brown) / <alpha-value>)",
+        "fantasy-beige": "rgb(var(--fantasy-beige) / <alpha-value>)",
+        "adventure-green": "rgb(var(--adventure-green) / <alpha-value>)",
+        "sky-blue": "rgb(var(--sky-blue) / <alpha-value>)",
+        "quest-yellow": "rgb(var(--quest-yellow) / <alpha-value>)",
+        "warning-orange": "rgb(var(--warning-orange) / <alpha-value>)",
+        "success-green": "rgb(var(--success-green) / <alpha-value>)",
+        "danger-red": "rgb(var(--danger-red) / <alpha-value>)"
       },
       boxShadow: {
-        panel: "0 1px 2px rgb(20 24 21 / 0.06), 0 8px 24px rgb(20 24 21 / 0.06)"
+        panel: "inset 0 1px 0 rgb(255 255 255 / 0.72), 0 2px 0 rgb(98 63 34 / 0.18), 0 12px 28px rgb(69 45 22 / 0.12)"
       },
       borderRadius: {
         ui: "0.5rem"

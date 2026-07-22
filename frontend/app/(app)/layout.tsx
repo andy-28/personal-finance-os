@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { GameTheme } from "@/components/ui/game-theme";
 import { LoadingState } from "@/components/ui/states";
 import { useAuth } from "../auth-context";
 import { QuickAdd } from "./quick-add";
@@ -33,7 +34,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const nav = (
-    <nav className="grid gap-1">
+    <nav className="grid gap-2">
       {links.map(([href, label, hint]) => {
         const isActive = pathname === href || pathname.startsWith(`${href}/`);
         return (
@@ -41,10 +42,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             key={href}
             href={href}
             onClick={() => setIsMenuOpen(false)}
-            className={`rounded-ui px-3 py-2 transition ${isActive ? "bg-primary text-white" : "text-muted hover:bg-surface-muted hover:text-foreground"}`}
+            className={`ui-focus rounded-ui border px-3 py-2 transition ${
+              isActive
+                ? "border-fantasy-brown bg-gradient-to-b from-quest-yellow/70 to-warning-orange/70 text-foreground shadow-panel"
+                : "border-transparent text-muted hover:border-border/50 hover:bg-fantasy-beige/55 hover:text-foreground"
+            }`}
           >
             <span className="block text-sm font-medium">{label}</span>
-            <span className={`block text-xs ${isActive ? "text-white/70" : "text-muted"}`}>{hint}</span>
+            <span className={`block text-xs ${isActive ? "text-foreground/70" : "text-muted"}`}>{hint}</span>
           </Link>
         );
       })}
@@ -52,20 +57,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r bg-surface px-4 py-5 lg:block">
+    <GameTheme>
+      <main className="min-h-screen text-foreground">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-fantasy-brown/45 bg-gradient-to-b from-fantasy-beige via-surface to-surface-muted px-4 py-5 shadow-panel lg:block">
         <div className="mb-8">
-          <p className="text-lg font-semibold">PersonalFinanceOS</p>
-          <p className="text-sm text-muted">在地化財務工作區</p>
+          <p className="text-lg font-bold">PersonalFinanceOS</p>
+          <p className="text-sm text-muted">冒險者財務工作區</p>
         </div>
         {nav}
       </aside>
 
       {isMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-primary/30 p-3 lg:hidden" onClick={() => setIsMenuOpen(false)}>
-          <div className="h-full w-72 rounded-ui border bg-surface p-4 shadow-panel" onClick={(event) => event.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-fantasy-brown/45 p-3 lg:hidden" onClick={() => setIsMenuOpen(false)}>
+          <div className="game-panel h-full w-72" onClick={(event) => event.stopPropagation()}>
             <div className="mb-5 flex items-center justify-between">
-              <p className="font-semibold">PersonalFinanceOS</p>
+              <p className="font-bold">PersonalFinanceOS</p>
               <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(false)}>關閉</Button>
             </div>
             {nav}
@@ -74,12 +80,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
 
       <section className="lg:pl-64">
-        <header className="sticky top-0 z-30 border-b bg-surface/95 backdrop-blur">
+        <header className="sticky top-0 z-30 border-b border-fantasy-brown/35 bg-surface/90 shadow-panel backdrop-blur">
           <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6">
             <div className="flex items-center gap-3">
               <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsMenuOpen(true)}>選單</Button>
               <div>
-                <p className="text-sm font-medium">{user.displayName}</p>
+                <p className="text-sm font-bold">{user.displayName}</p>
                 <p className="text-xs text-muted">{user.email}</p>
               </div>
             </div>
@@ -91,6 +97,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6">{children}</div>
       </section>
-    </main>
+      </main>
+    </GameTheme>
   );
 }
