@@ -38,10 +38,8 @@ DECLARE
   v_card_account_id uuid;
   v_seed_tx_id uuid;
   v_seed_amount numeric;
-  v_balance_without_seed numeric;
-  v_delta numeric;
-  v_tx_type text;
-  v_entry_amount numeric;
+  v_has_posted_statement boolean;
+  v_legacy_seed_id uuid;
 BEGIN
   SELECT id INTO v_user_id
   FROM users
@@ -179,11 +177,53 @@ BEGIN
 
   FOR v_card IN
     SELECT * FROM jsonb_array_elements('[
-      {"account":"Richart GoGo","target":16682,"payee":"PersonalBaselineSeed Richart baseline"},
-      {"account":"玉山 Pi 拍錢包","target":15760,"payee":"PersonalBaselineSeed Yushan pending"}
+      {"account":"Richart GoGo","amount":12983,"payee":"PersonalBaselineSeed Richart statement baseline","kind":"statement","statementAmount":12983},
+      {"account":"Richart GoGo","amount":3699,"payee":"PersonalBaselineSeed Richart unbilled baseline","kind":"unbilled","statementAmount":12983},
+      {"account":"玉山 Pi 拍錢包","amount":15760,"payee":"PersonalBaselineSeed Yushan pending","kind":"unbilled","statementAmount":null}
     ]'::jsonb)
   LOOP
     SELECT id INTO v_card_account_id FROM accounts WHERE user_id = v_user_id AND name = v_card->>'account' LIMIT 1;
+
+    IF v_card->>'account' = 'Richart GoGo' THEN
+      SELECT t.id
+      INTO v_legacy_seed_id
+      FROM transactions t
+      JOIN transaction_entries e ON e.transaction_id = t.id
+      WHERE t.user_id = v_user_id
+        AND e.account_id = v_card_account_id
+        AND t.note = 'PersonalBaselineSeed'
+        AND t.payee = 'PersonalBaselineSeed Richart baseline'
+        AND t.status = 'Posted'
+      LIMIT 1;
+
+      IF v_legacy_seed_id IS NOT NULL THEN
+        UPDATE transactions
+        SET status = 'Voided',
+            voided_at_utc = v_now,
+            updated_at_utc = v_now
+        WHERE id = v_legacy_seed_id;
+      END IF;
+    END IF;
+
+    SELECT EXISTS (
+      SELECT 1
+      FROM statement_import_batches b
+      WHERE b.user_id = v_user_id
+        AND b.credit_card_account_id = v_card_account_id
+        AND b.status IN ('Completed', 'PartiallyPosted')
+        AND b.statement_amount = NULLIF(v_card->>'statementAmount', 'null')::numeric
+        AND (
+          SELECT COALESCE(sum(e.amount), 0)
+          FROM statement_import_rows r
+          JOIN transactions t ON t.id = r.created_transaction_id
+          JOIN transaction_entries e ON e.transaction_id = t.id
+          WHERE r.batch_id = b.id
+            AND r.review_status = 'Posted'
+            AND t.status = 'Posted'
+            AND e.account_id = v_card_account_id
+        ) = b.statement_amount
+    )
+    INTO v_has_posted_statement;
 
     SELECT t.id INTO v_seed_tx_id
     FROM transactions t
@@ -195,32 +235,35 @@ BEGIN
       AND t.status = 'Posted'
     LIMIT 1;
 
-    SELECT COALESCE(sum(e.amount), 0)
-    INTO v_balance_without_seed
-    FROM transaction_entries e
-    JOIN transactions t ON t.id = e.transaction_id
-    WHERE t.user_id = v_user_id
-      AND t.status = 'Posted'
-      AND e.account_id = v_card_account_id
-      AND (v_seed_tx_id IS NULL OR t.id <> v_seed_tx_id);
-
-    IF v_seed_tx_id IS NOT NULL THEN
-      DELETE FROM credit_card_transaction_metadata WHERE transaction_id = v_seed_tx_id;
-      DELETE FROM transaction_entries WHERE transaction_id = v_seed_tx_id;
-      DELETE FROM transactions WHERE id = v_seed_tx_id;
+    IF v_card->>'kind' = 'statement' AND v_has_posted_statement THEN
+      IF v_seed_tx_id IS NOT NULL THEN
+        UPDATE transactions
+        SET status = 'Voided',
+            voided_at_utc = v_now,
+            updated_at_utc = v_now
+        WHERE id = v_seed_tx_id;
+      END IF;
+      CONTINUE;
     END IF;
 
-    v_delta := (v_card->>'target')::numeric - COALESCE(v_balance_without_seed, 0);
-    IF v_delta <> 0 THEN
-      v_tx_type := CASE WHEN v_delta > 0 THEN 'CreditCardPurchase' ELSE 'CreditCardRefund' END;
-      v_seed_amount := abs(v_delta);
-      v_entry_amount := v_delta;
+    IF v_seed_tx_id IS NULL THEN
       v_seed_tx_id := gen_random_uuid();
-
       INSERT INTO transactions (id, user_id, type, status, transaction_date, category_id, payee, note, created_at_utc, updated_at_utc, voided_at_utc)
-      VALUES (v_seed_tx_id, v_user_id, v_tx_type, 'Posted', v_baseline_date, CASE WHEN v_tx_type = 'CreditCardPurchase' THEN v_category_id ELSE NULL END, v_card->>'payee', 'PersonalBaselineSeed', v_now, v_now, NULL);
+      VALUES (v_seed_tx_id, v_user_id, 'CreditCardPurchase', 'Posted', v_baseline_date, v_category_id, v_card->>'payee', 'PersonalBaselineSeed', v_now, v_now, NULL);
       INSERT INTO transaction_entries (id, transaction_id, account_id, amount, created_at_utc)
-      VALUES (gen_random_uuid(), v_seed_tx_id, v_card_account_id, v_entry_amount, v_now);
+      VALUES (gen_random_uuid(), v_seed_tx_id, v_card_account_id, (v_card->>'amount')::numeric, v_now);
+    ELSE
+      UPDATE transactions
+      SET type = 'CreditCardPurchase',
+          transaction_date = v_baseline_date,
+          category_id = v_category_id,
+          payee = v_card->>'payee',
+          note = 'PersonalBaselineSeed',
+          updated_at_utc = v_now
+      WHERE id = v_seed_tx_id;
+      UPDATE transaction_entries
+      SET amount = (v_card->>'amount')::numeric
+      WHERE transaction_id = v_seed_tx_id AND account_id = v_card_account_id;
     END IF;
   END LOOP;
 END $$;

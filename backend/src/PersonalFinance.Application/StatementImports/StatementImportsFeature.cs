@@ -162,6 +162,8 @@ public sealed class StatementImportsHandler :
                 try { PostRow(userId.Value, card, row, request.Request.DefaultCategoryId); }
                 catch (Exception ex) { row.MarkFailed(ex.Message); }
             }
+            await _db.SaveChangesAsync(ct);
+            ReplacePersonalBaselineStatement(userId.Value, batch);
             var refreshedRows = Rows(batch.Id);
             var hasFailuresOrPending = refreshedRows.Any(row => row.ReviewStatus is StatementImportReviewStatus.Failed or StatementImportReviewStatus.ReadyToPost or StatementImportReviewStatus.New);
             batch.MarkPosted(hasFailuresOrPending, _dateTimeProvider.UtcNow);
@@ -216,6 +218,37 @@ public sealed class StatementImportsHandler :
         _db.AddTransaction(transaction);
         _db.AddCreditCardTransactionMetadata(metadata);
         row.MarkPosted(transaction.Id);
+    }
+
+    private void ReplacePersonalBaselineStatement(Guid userId, StatementImportBatch batch)
+    {
+        if (batch.StatementAmount is null or <= 0) return;
+
+        var postedRows = Rows(batch.Id).Where(row => row.ReviewStatus == StatementImportReviewStatus.Posted && row.CreatedTransactionId is not null).ToArray();
+        if (postedRows.Length == 0) return;
+
+        var createdTransactionIds = postedRows.Select(row => row.CreatedTransactionId!.Value).ToArray();
+        var importedCardAmount = _db.TransactionEntries
+            .Where(entry => createdTransactionIds.Contains(entry.TransactionId) && entry.AccountId == batch.CreditCardAccountId)
+            .Select(entry => entry.Amount)
+            .ToArray()
+            .Sum();
+        if (Math.Abs(importedCardAmount - batch.StatementAmount.Value) > 0.01m) return;
+
+        var candidateIds = _db.TransactionEntries
+            .Where(entry => entry.AccountId == batch.CreditCardAccountId && entry.Amount == batch.StatementAmount.Value)
+            .Select(entry => entry.TransactionId)
+            .ToArray();
+        var baseline = _db.Transactions
+            .Where(transaction => transaction.UserId == userId
+                && candidateIds.Contains(transaction.Id)
+                && transaction.Status == TransactionStatus.Posted
+                && transaction.Type == TransactionType.CreditCardPurchase
+                && transaction.Note == "PersonalBaselineSeed")
+            .ToArray()
+            .FirstOrDefault(transaction => transaction.Payee?.Contains("statement baseline", StringComparison.OrdinalIgnoreCase) == true);
+
+        baseline?.Void(_dateTimeProvider.UtcNow);
     }
 
     private StatementImportRow ToEntity(Guid batchId, Guid creditCardAccountId, ParsedStatementRow row, DateTimeOffset utcNow)
