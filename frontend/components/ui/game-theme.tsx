@@ -44,7 +44,7 @@ export function GameButton({
       disabled={props.disabled || isLoading}
       className={`ui-focus game-button inline-flex items-center justify-center font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${buttonVariants[variant]} ${buttonSizes[size]} ${className}`}
     >
-      {isLoading ? "處理中..." : children}
+      {isLoading ? "Loading..." : children}
     </button>
   );
 }
@@ -59,8 +59,8 @@ export function GameWindow({ title, description, actions, children, className = 
       {(title || description || actions) && (
         <div className="game-window-titlebar">
           <div>
-            {title && <h2 className="text-base font-bold text-foreground">{title}</h2>}
-            {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
+            {title && <h2 className="text-lg font-bold text-foreground">{title}</h2>}
+            {description && <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.08em] text-muted">{description}</p>}
           </div>
           {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </div>
@@ -71,7 +71,32 @@ export function GameWindow({ title, description, actions, children, className = 
 }
 
 export function GameCard({ children, className = "", ...props }: HTMLAttributes<HTMLElement> & { children: ReactNode }) {
-  return <GamePanel className={className} {...props}>{children}</GamePanel>;
+  return <GamePanel className={`game-card ${className}`} {...props}>{children}</GamePanel>;
+}
+
+export function GameInspectPanel({ title, subtitle, icon, children, footer, className = "" }: { title: string; subtitle?: string; icon?: ReactNode; children: ReactNode; footer?: ReactNode; className?: string }) {
+  return (
+    <section className={`game-inspect-panel ${className}`}>
+      <div className="game-inspect-header">
+        {icon && <div className="game-slot game-slot-sm">{icon}</div>}
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-bold text-foreground">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="game-inspect-body">{children}</div>
+      {footer && <div className="game-inspect-footer">{footer}</div>}
+    </section>
+  );
+}
+
+export function GameInspectRow({ label, value, strong }: { label: string; value: ReactNode; strong?: boolean }) {
+  return (
+    <div className="game-inspect-row">
+      <span>{label}</span>
+      <strong className={strong ? "text-primary" : ""}>{value}</strong>
+    </div>
+  );
 }
 
 export function GameTabs({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -104,7 +129,7 @@ export function GameDialog({ title, children, footer, className = "" }: { title:
     <div className="game-dialog-backdrop">
       <GameWindow title={title} className={`game-dialog ${className}`}>
         <div>{children}</div>
-        {footer && <div className="mt-4 flex flex-wrap justify-end gap-2">{footer}</div>}
+        {footer && <div className="game-dialog-footer">{footer}</div>}
       </GameWindow>
     </div>
   );

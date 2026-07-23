@@ -29,7 +29,7 @@ const config: Config = {
         "danger-red": "rgb(var(--danger-red) / <alpha-value>)"
       },
       boxShadow: {
-        panel: "inset 0 1px 0 rgb(255 255 255 / 0.72), 0 2px 0 rgb(98 63 34 / 0.18), 0 12px 28px rgb(69 45 22 / 0.12)"
+        panel: "inset 0 1px 0 rgb(255 255 255 / 0.08), 0 12px 30px rgb(0 0 0 / 0.24)"
       },
       borderRadius: {
         ui: "0.5rem"

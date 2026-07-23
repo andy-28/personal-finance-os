@@ -5,11 +5,14 @@ export function Card({ children, className = "", ...props }: HTMLAttributes<HTML
   return <GameCard className={className} {...props}>{children}</GameCard>;
 }
 
-export function CardTitle({ title, description }: { title: string; description?: string }) {
+export function CardTitle({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
-    <div>
-      <h2 className="text-base font-semibold text-foreground">{title}</h2>
-      {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+    <div className="game-card-header">
+      <div className="min-w-0">
+        <h2 className="truncate text-lg font-bold text-foreground">{title}</h2>
+        {description && <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.08em] text-muted">{description}</p>}
+      </div>
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );
 }

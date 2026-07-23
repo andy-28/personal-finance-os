@@ -9,14 +9,27 @@ import { LoadingState } from "@/components/ui/states";
 import { useAuth } from "../auth-context";
 import { QuickAdd } from "./quick-add";
 
-const links = [
-  ["/accounts", "總覽", "帳戶"],
-  ["/transactions", "交易", "交易流水"],
-  ["/upcoming", "待辦", "即將發生"],
-  ["/credit-cards", "信用卡", "卡片與分期"],
-  ["/recurring-transactions", "定期", "循環交易"],
-  ["/categories", "分類", "收支分類"],
-  ["/system-status", "系統", "服務狀態"]
+const navGroups = [
+  {
+    title: "Finance",
+    links: [
+      ["/accounts", "Accounts", "Assets and liabilities"],
+      ["/transactions", "Ledger", "Transaction log"],
+      ["/credit-cards", "Cards", "Statements and plans"]
+    ]
+  },
+  {
+    title: "Planning",
+    links: [
+      ["/upcoming", "Upcoming", "Scheduled items"],
+      ["/recurring-transactions", "Recurring", "Templates"],
+      ["/categories", "Categories", "Taxonomy"]
+    ]
+  },
+  {
+    title: "System",
+    links: [["/system-status", "Health", "Service checks"]]
+  }
 ] as const;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -30,73 +43,83 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isLoading, router, user]);
 
   if (isLoading || !user) {
-    return <main className="grid min-h-screen place-items-center bg-background p-5"><LoadingState label="正在確認登入狀態..." /></main>;
+    return <main className="grid min-h-screen place-items-center bg-background p-5"><LoadingState label="Loading interface..." /></main>;
   }
 
   const nav = (
-    <nav className="grid gap-2">
-      {links.map(([href, label, hint]) => {
-        const isActive = pathname === href || pathname.startsWith(`${href}/`);
-        return (
-          <Link
-            key={href}
-            href={href}
-            onClick={() => setIsMenuOpen(false)}
-            className={`ui-focus rounded-ui border px-3 py-2 transition ${
-              isActive
-                ? "border-fantasy-brown bg-gradient-to-b from-quest-yellow/70 to-warning-orange/70 text-foreground shadow-panel"
-                : "border-transparent text-muted hover:border-border/50 hover:bg-fantasy-beige/55 hover:text-foreground"
-            }`}
-          >
-            <span className="block text-sm font-medium">{label}</span>
-            <span className={`block text-xs ${isActive ? "text-foreground/70" : "text-muted"}`}>{hint}</span>
-          </Link>
-        );
-      })}
+    <nav className="grid gap-5">
+      {navGroups.map((group) => (
+        <section key={group.title} className="grid gap-2">
+          <p className="px-2 text-xs font-bold uppercase tracking-[0.14em] text-primary/75">{group.title}</p>
+          <div className="grid gap-1.5">
+            {group.links.map(([href, label, hint]) => {
+              const isActive = pathname === href || pathname.startsWith(`${href}/`);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`ui-focus relative overflow-hidden rounded-ui border px-3 py-2 transition duration-200 ${
+                    isActive
+                      ? "border-primary/65 bg-primary/12 text-foreground shadow-panel before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary after:absolute after:inset-y-0 after:right-0 after:w-12 after:bg-gradient-to-l after:from-primary/10 after:to-transparent"
+                      : "border-transparent text-muted hover:border-border/70 hover:bg-surface-muted/60 hover:text-foreground"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold">{label}</span>
+                  <span className={`block text-xs ${isActive ? "text-primary/85" : "text-muted"}`}>{hint}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ))}
     </nav>
   );
 
   return (
     <GameTheme>
       <main className="min-h-screen text-foreground">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-fantasy-brown/45 bg-gradient-to-b from-fantasy-beige via-surface to-surface-muted px-4 py-5 shadow-panel lg:block">
-        <div className="mb-8">
-          <p className="text-lg font-bold">PersonalFinanceOS</p>
-          <p className="text-sm text-muted">冒險者財務工作區</p>
-        </div>
-        {nav}
-      </aside>
-
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-50 bg-fantasy-brown/45 p-3 lg:hidden" onClick={() => setIsMenuOpen(false)}>
-          <div className="game-panel h-full w-72" onClick={(event) => event.stopPropagation()}>
-            <div className="mb-5 flex items-center justify-between">
-              <p className="font-bold">PersonalFinanceOS</p>
-              <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(false)}>關閉</Button>
-            </div>
-            {nav}
+        <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/70 bg-surface/72 px-4 py-5 shadow-panel backdrop-blur-xl lg:block">
+          <div className="mb-8 border-b border-border/55 pb-5">
+            <p className="text-lg font-bold tracking-normal">PersonalFinanceOS</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">Aether command menu</p>
           </div>
-        </div>
-      )}
+          {nav}
+        </aside>
 
-      <section className="lg:pl-64">
-        <header className="sticky top-0 z-30 border-b border-fantasy-brown/35 bg-surface/90 shadow-panel backdrop-blur">
-          <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6">
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsMenuOpen(true)}>選單</Button>
-              <div>
-                <p className="text-sm font-bold">{user.displayName}</p>
-                <p className="text-xs text-muted">{user.email}</p>
+        {isMenuOpen && (
+          <div className="fixed inset-0 z-50 bg-background/70 p-3 backdrop-blur-lg lg:hidden" onClick={() => setIsMenuOpen(false)}>
+            <div className="game-panel h-full w-72" onClick={(event) => event.stopPropagation()}>
+              <div className="mb-5 flex items-center justify-between border-b border-border/55 pb-4">
+                <div>
+                  <p className="font-bold">PersonalFinanceOS</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">Aether command menu</p>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(false)}>Close</Button>
+              </div>
+              {nav}
+            </div>
+          </div>
+        )}
+
+        <section className="lg:pl-64">
+          <header className="sticky top-0 z-30 border-b border-border/65 bg-background/78 shadow-panel backdrop-blur-xl">
+            <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-2 sm:flex-nowrap sm:px-6 sm:py-0">
+              <div className="flex min-w-0 items-center gap-3">
+                <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsMenuOpen(true)}>Menu</Button>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold">{user.displayName}</p>
+                  <p className="truncate text-xs text-muted">{user.email}</p>
+                </div>
+              </div>
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                <QuickAdd />
+                <Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace("/login"); }}>Logout</Button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <QuickAdd />
-              <Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace("/login"); }}>登出</Button>
-            </div>
-          </div>
-        </header>
-        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6">{children}</div>
-      </section>
+          </header>
+          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-7 sm:px-6">{children}</div>
+        </section>
       </main>
     </GameTheme>
   );
