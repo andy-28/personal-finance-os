@@ -3,10 +3,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PersonalFinance.Application.Abstractions.Authentication;
 using PersonalFinance.Application.Abstractions.Persistence;
+using PersonalFinance.Application.Abstractions.StatementImports;
 using PersonalFinance.Application.Abstractions.Time;
 using PersonalFinance.Infrastructure.Authentication;
 using PersonalFinance.Infrastructure.Persistence;
 using PersonalFinance.Infrastructure.Seeding;
+using PersonalFinance.Infrastructure.StatementImports;
 using PersonalFinance.Infrastructure.Time;
 
 namespace PersonalFinance.Infrastructure;
@@ -29,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<DevelopmentDataSeeder>();
+        services.AddScoped<IStatementImporter, RichartPdfStatementImporter>();
         return services;
     }
 }

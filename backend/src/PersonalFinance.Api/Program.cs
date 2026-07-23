@@ -168,6 +168,7 @@ app.MapCategoryEndpoints();
 app.MapTransactionEndpoints();
 app.MapCreditCardEndpoints();
 app.MapRecurringTransactionEndpoints();
+app.MapStatementImportEndpoints();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {

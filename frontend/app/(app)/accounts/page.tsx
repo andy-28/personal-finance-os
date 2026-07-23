@@ -9,7 +9,8 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { GameInspectPanel, GameInspectRow, GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
-import { apiFetch, money, problemMessage, type AccountDto, type AccountSummaryDto, type AccountType } from "@/lib/api-client";
+import { apiFetch, money, problemMessage, type AccountDto, type AccountSummaryDto, type AccountType, type PagedTransactionsDto, type TransactionDto } from "@/lib/api-client";
+import { todayInputValue } from "@/lib/formatters";
 import { accountTypeLabels, commonLabels } from "@/lib/labels";
 import { useAuth } from "../../auth-context";
 
@@ -22,6 +23,8 @@ export default function AccountsPage() {
   const [summary, setSummary] = useState<AccountSummaryDto>({ currencies: [] });
   const [includeArchived, setIncludeArchived] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [balanceForm, setBalanceForm] = useState({ targetBalance: "", openingAmount: 0, date: todayInputValue() });
+  const [openingTransaction, setOpeningTransaction] = useState<TransactionDto | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -68,9 +71,15 @@ export default function AccountsPage() {
     event.preventDefault();
     try {
       const body = JSON.stringify({ ...form, institutionName: form.institutionName || null });
-      if (targetId) await apiFetch<AccountDto>(`/api/accounts/${targetId}`, accessToken, { method: "PUT", body }, refreshSession);
-      else await apiFetch<AccountDto>("/api/accounts", accessToken, { method: "POST", body }, refreshSession);
+      if (targetId) {
+        await apiFetch<AccountDto>(`/api/accounts/${targetId}`, accessToken, { method: "PUT", body }, refreshSession);
+        await saveBalanceTarget(targetId);
+      } else {
+        await apiFetch<AccountDto>("/api/accounts", accessToken, { method: "POST", body }, refreshSession);
+      }
       setForm(emptyForm);
+      setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() });
+      setOpeningTransaction(null);
       setEditingId(null);
       await load();
     } catch (err) {
@@ -81,9 +90,35 @@ export default function AccountsPage() {
   async function archive(id: string) { await apiFetch<void>(`/api/accounts/${id}`, accessToken, { method: "DELETE" }, refreshSession); await load(); }
   async function restore(id: string) { await apiFetch<AccountDto>(`/api/accounts/${id}/restore`, accessToken, { method: "POST" }, refreshSession); await load(); }
 
-  function edit(account: AccountDto) {
+  async function saveBalanceTarget(accountId: string) {
+    const targetBalance = Number(balanceForm.targetBalance);
+    if (!Number.isFinite(targetBalance)) return;
+    const account = accounts.find((candidate) => candidate.id === accountId);
+    if (!account) return;
+    const existingOpeningAmount = openingTransaction?.entries.find((entry) => entry.accountId === accountId)?.amount ?? balanceForm.openingAmount;
+    const nonOpeningBalance = account.balance - existingOpeningAmount;
+    const nextOpeningAmount = targetBalance - nonOpeningBalance;
+    if (Math.abs(nextOpeningAmount - existingOpeningAmount) < 0.005) return;
+    const body = JSON.stringify({ accountId, amount: nextOpeningAmount, transactionDate: balanceForm.date || todayInputValue(), note: "Opening balance adjustment" });
+    if (openingTransaction) await apiFetch<TransactionDto>(`/api/transactions/${openingTransaction.id}`, accessToken, { method: "PUT", body }, refreshSession);
+    else if (nextOpeningAmount !== 0) await apiFetch<TransactionDto>("/api/transactions/opening-balance", accessToken, { method: "POST", body }, refreshSession);
+  }
+
+  async function edit(account: AccountDto) {
     setEditingId(account.id);
     setForm({ name: account.name, type: account.type, currencyCode: account.currencyCode, institutionName: account.institutionName ?? "" });
+    setBalanceForm({ targetBalance: String(account.balance), openingAmount: 0, date: todayInputValue() });
+    setOpeningTransaction(null);
+    try {
+      const query = new URLSearchParams({ accountId: account.id, type: "OpeningBalance", status: "Posted", page: "1", pageSize: "1" });
+      const result = await apiFetch<PagedTransactionsDto>(`/api/transactions?${query}`, accessToken, {}, refreshSession);
+      const opening = result.items[0] ?? null;
+      setOpeningTransaction(opening);
+      const openingAmount = opening?.entries.find((entry) => entry.accountId === account.id)?.amount ?? 0;
+      setBalanceForm({ targetBalance: String(account.balance), openingAmount, date: opening?.transactionDate ?? todayInputValue() });
+    } catch (err) {
+      setError(problemMessage(err));
+    }
   }
 
   function resetDragState() {
@@ -157,7 +192,7 @@ export default function AccountsPage() {
       </Card>
 
       {editingId && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setEditingId(null); setForm(emptyForm); }}>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setEditingId(null); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setOpeningTransaction(null); }}>
           <GameWindow title="Inspect Account" description="Account information" className="w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
             <GameInspectPanel title={form.name || "New account"} subtitle={form.type} icon={<AccountGlyph type={form.type} />}>
               <form onSubmit={(event) => submit(event, editingId)} className="grid gap-4 sm:grid-cols-2">
@@ -165,8 +200,11 @@ export default function AccountsPage() {
                 <label className="ui-label">Type<select className="ui-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })}>{accountTypes.map((type) => <option key={type} value={type}>{accountTypeLabels[type]}</option>)}</select></label>
                 <label className="ui-label">Currency<input className="ui-input" value={form.currencyCode} onChange={(e) => setForm({ ...form, currencyCode: e.target.value.toUpperCase() })} maxLength={3} /></label>
                 <label className="ui-label sm:col-span-2">Institution<input className="ui-input" value={form.institutionName} onChange={(e) => setForm({ ...form, institutionName: e.target.value })} /></label>
+                <label className="ui-label">目前餘額<input className="ui-input" type="number" step="0.01" value={balanceForm.targetBalance} onChange={(e) => setBalanceForm({ ...balanceForm, targetBalance: e.target.value })} /></label>
+                <label className="ui-label">餘額日期<input className="ui-input" type="date" value={balanceForm.date} onChange={(e) => setBalanceForm({ ...balanceForm, date: e.target.value })} /></label>
+                <p className="text-xs text-muted sm:col-span-2">目前餘額會透過期初餘額交易調整，Ledger 仍會保留完整計算來源。</p>
                 <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
-                  <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); }}>{commonLabels.cancel}</Button>
+                  <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setOpeningTransaction(null); }}>{commonLabels.cancel}</Button>
                   <Button type="submit">{commonLabels.update}</Button>
                 </div>
               </form>
@@ -197,9 +235,9 @@ export default function AccountsPage() {
                   pointerMovedRef.current = false;
                   return;
                 }
-                edit(account);
+                void edit(account);
               }}
-              onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); edit(account); } }}
+              onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); void edit(account); } }}
               onPointerDown={(event) => {
                 if (account.isArchived) return;
                 if (event.button !== 0) return;

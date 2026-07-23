@@ -6,6 +6,7 @@ using PersonalFinance.Domain.Accounts;
 using PersonalFinance.Domain.Categories;
 using PersonalFinance.Domain.CreditCards;
 using PersonalFinance.Domain.Recurring;
+using PersonalFinance.Domain.StatementImports;
 using PersonalFinance.Domain.Transactions;
 using PersonalFinance.Domain.Users;
 
@@ -23,6 +24,8 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
     public DbSet<CreditCardTransactionMetadata> CreditCardTransactionMetadata => Set<CreditCardTransactionMetadata>();
     public DbSet<InstallmentPlan> InstallmentPlans => Set<InstallmentPlan>();
     public DbSet<InstallmentScheduleItem> InstallmentScheduleItems => Set<InstallmentScheduleItem>();
+    public DbSet<StatementImportBatch> StatementImportBatches => Set<StatementImportBatch>();
+    public DbSet<StatementImportRow> StatementImportRows => Set<StatementImportRow>();
     public DbSet<RecurringTransactionTemplate> RecurringTransactionTemplates => Set<RecurringTransactionTemplate>();
     public DbSet<RecurringTransactionOccurrence> RecurringTransactionOccurrences => Set<RecurringTransactionOccurrence>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
@@ -36,6 +39,8 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
     IQueryable<CreditCardTransactionMetadata> IApplicationDbContext.CreditCardTransactionMetadata => CreditCardTransactionMetadata;
     IQueryable<InstallmentPlan> IApplicationDbContext.InstallmentPlans => InstallmentPlans;
     IQueryable<InstallmentScheduleItem> IApplicationDbContext.InstallmentScheduleItems => InstallmentScheduleItems;
+    IQueryable<StatementImportBatch> IApplicationDbContext.StatementImportBatches => StatementImportBatches;
+    IQueryable<StatementImportRow> IApplicationDbContext.StatementImportRows => StatementImportRows;
     IQueryable<RecurringTransactionTemplate> IApplicationDbContext.RecurringTransactionTemplates => RecurringTransactionTemplates;
     IQueryable<RecurringTransactionOccurrence> IApplicationDbContext.RecurringTransactionOccurrences => RecurringTransactionOccurrences;
     IQueryable<Transaction> IApplicationDbContext.Transactions => Transactions;
@@ -48,6 +53,8 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
     public void AddCreditCardAccount(CreditCardAccount creditCardAccount) => CreditCardAccounts.Add(creditCardAccount);
     public void AddCreditCardTransactionMetadata(CreditCardTransactionMetadata metadata) => CreditCardTransactionMetadata.Add(metadata);
     public void AddInstallmentPlan(InstallmentPlan installmentPlan) => InstallmentPlans.Add(installmentPlan);
+    public void AddStatementImportBatch(StatementImportBatch batch) => StatementImportBatches.Add(batch);
+    public void AddStatementImportRows(IEnumerable<StatementImportRow> rows) => StatementImportRows.AddRange(rows);
     public void AddRecurringTransactionTemplate(RecurringTransactionTemplate template) => RecurringTransactionTemplates.Add(template);
     public void AddRecurringTransactionOccurrence(RecurringTransactionOccurrence occurrence) => RecurringTransactionOccurrences.Add(occurrence);
     public void AddTransaction(Transaction transaction) => Transactions.Add(transaction);

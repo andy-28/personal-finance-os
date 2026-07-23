@@ -9,6 +9,7 @@ using PersonalFinance.Application.Transactions.Models;
 using PersonalFinance.Domain.Accounts;
 using PersonalFinance.Domain.Categories;
 using PersonalFinance.Domain.CreditCards;
+using PersonalFinance.Domain.StatementImports;
 using PersonalFinance.Domain.Transactions;
 
 namespace PersonalFinance.Application.CreditCards;
@@ -302,6 +303,7 @@ public sealed class CreditCardsHandler :
                 var creditBalance = Math.Max(-ledgerBalance, 0m);
                 var schedule = StatementPeriodCalculator.Calculate(today, card.StatementClosingDay, card.PaymentDueDay);
                 var statement = GetEstimatedStatement(userId, card.AccountId, schedule.CurrentStatementPeriod);
+                var billed = GetLatestBilledStatement(userId, card.AccountId, outstanding);
                 decimal? available = card.CreditLimit is null ? null : Math.Max(card.CreditLimit.Value - outstanding + creditBalance, 0m);
                 decimal? utilization = card.CreditLimit is null ? null : outstanding / card.CreditLimit.Value;
                 var paymentName = card.PaymentAccountId is { } paymentId && accounts.TryGetValue(paymentId, out var paymentAccount) ? paymentAccount.Name : null;
@@ -322,6 +324,9 @@ public sealed class CreditCardsHandler :
                     creditBalance,
                     available,
                     utilization,
+                    billed.StatementAmount,
+                    billed.OutstandingAmount,
+                    Math.Max(outstanding - billed.OutstandingAmount, 0m),
                     ToPeriodDto(schedule.CurrentStatementPeriod),
                     ToPeriodDto(schedule.PreviousStatementPeriod),
                     statement.Charges,
@@ -346,6 +351,51 @@ public sealed class CreditCardsHandler :
         var charges = amounts.Where(amount => amount > 0).Sum();
         var credits = Math.Abs(amounts.Where(amount => amount < 0).Sum());
         return new StatementAmounts(charges, credits, charges - credits);
+    }
+
+    private BilledStatementAmounts GetLatestBilledStatement(Guid userId, Guid creditCardAccountId, decimal currentOutstanding)
+    {
+        var latestBatch = _db.StatementImportBatches
+            .Where(batch => batch.UserId == userId
+                && batch.CreditCardAccountId == creditCardAccountId
+                && batch.Status != StatementImportBatchStatus.Failed
+                && batch.Status != StatementImportBatchStatus.Duplicate
+                && batch.Status != StatementImportBatchStatus.Discarded
+                && batch.StatementAmount != null
+                && batch.StatementPeriodEnd != null)
+            .OrderByDescending(batch => batch.StatementPeriodEnd)
+            .ThenByDescending(batch => batch.CreatedAtUtc)
+            .FirstOrDefault();
+
+        if (latestBatch is null)
+        {
+            return new BilledStatementAmounts(0m, 0m);
+        }
+
+        var statementAmount = Math.Max(latestBatch.StatementAmount ?? 0m, 0m);
+        var periodEnd = latestBatch.StatementPeriodEnd!.Value;
+        var paymentTransactionIds = _db.CreditCardTransactionMetadata
+            .Where(row => row.UserId == userId
+                && row.CreditCardAccountId == creditCardAccountId
+                && row.PurchaseDate > periodEnd)
+            .Select(row => row.TransactionId)
+            .ToArray();
+        var postedPaymentTransactionIds = _db.Transactions
+            .Where(transaction => transaction.UserId == userId
+                && paymentTransactionIds.Contains(transaction.Id)
+                && transaction.Status == TransactionStatus.Posted
+                && transaction.Type == TransactionType.CreditCardPayment)
+            .Select(transaction => transaction.Id)
+            .ToArray();
+        var paidAfterStatement = _db.TransactionEntries
+            .Where(entry => postedPaymentTransactionIds.Contains(entry.TransactionId))
+            .Where(entry => entry.AccountId == creditCardAccountId && entry.Amount < 0)
+            .Select(entry => -entry.Amount)
+            .ToArray()
+            .Sum();
+
+        var billedOutstanding = Math.Max(statementAmount - paidAfterStatement, 0m);
+        return new BilledStatementAmounts(statementAmount, Math.Min(billedOutstanding, currentOutstanding));
     }
 
     private IReadOnlyList<TransactionDto> BuildCreditCardTransactionDtos(Guid userId, Guid creditCardAccountId)
@@ -438,6 +488,7 @@ public sealed class CreditCardsHandler :
     }
 
     private sealed record StatementAmounts(decimal Charges, decimal Credits, decimal Net);
+    private sealed record BilledStatementAmounts(decimal StatementAmount, decimal OutstandingAmount);
 
     private TransactionDto ToTransactionDto(Transaction transaction)
     {

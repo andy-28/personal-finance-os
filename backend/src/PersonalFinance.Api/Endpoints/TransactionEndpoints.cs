@@ -24,6 +24,9 @@ public static class TransactionEndpoints
         group.MapPost("/transfer", async ([FromBody] TransferRequest request, ISender sender, CancellationToken ct) =>
             (await sender.Send(new CreateTransferCommand(request.FromAccountId, request.ToAccountId, request.Amount, request.TransactionDate, request.Note), ct))
                 .ToHttpResult(value => Results.Created($"/api/transactions/{value.Id}", value)));
+        group.MapPost("/opening-balance", async ([FromBody] OpeningBalanceRequest request, ISender sender, CancellationToken ct) =>
+            (await sender.Send(new CreateOpeningBalanceCommand(request.AccountId, request.Amount, request.TransactionDate, request.Note), ct))
+                .ToHttpResult(value => Results.Created($"/api/transactions/{value.Id}", value)));
         group.MapPut("/{id:guid}", async (Guid id, [FromBody] TransactionMutationDto request, ISender sender, CancellationToken ct) =>
             (await sender.Send(new UpdateTransactionCommand(id, request), ct)).ToHttpResult());
         group.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
@@ -34,4 +37,5 @@ public static class TransactionEndpoints
     public sealed record TransactionQuery(DateOnly? From, DateOnly? To, Guid? AccountId, Guid? CategoryId, TransactionType? Type, TransactionStatus? Status, int? Page, int? PageSize);
     public sealed record IncomeExpenseRequest(Guid AccountId, Guid CategoryId, decimal Amount, DateOnly TransactionDate, string? Payee, string? Note);
     public sealed record TransferRequest(Guid FromAccountId, Guid ToAccountId, decimal Amount, DateOnly TransactionDate, string? Note);
+    public sealed record OpeningBalanceRequest(Guid AccountId, decimal Amount, DateOnly TransactionDate, string? Note);
 }

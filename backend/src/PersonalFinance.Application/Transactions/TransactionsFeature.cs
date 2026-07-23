@@ -162,13 +162,13 @@ public sealed class TransactionsHandler :
         if (userId is null) return Task.FromResult(Result<PagedTransactionsDto>.Failure(Error.Unauthorized("Auth", "Authentication is required.")));
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize <= 0 ? 50 : request.PageSize, 1, 100);
-        var from = request.From ?? DateOnly.FromDateTime(_dateTimeProvider.UtcNow.AddDays(-30).Date);
         var status = request.Status ?? TransactionStatus.Posted;
 
         if (request.AccountId is { } accountId && !_db.Accounts.Any(account => account.Id == accountId && account.UserId == userId)) return Task.FromResult(Result<PagedTransactionsDto>.Failure(Error.NotFound("Account", "Account was not found.")));
         if (request.CategoryId is { } categoryId && !_db.Categories.Any(category => category.Id == categoryId && category.UserId == userId)) return Task.FromResult(Result<PagedTransactionsDto>.Failure(Error.NotFound("Category", "Category was not found.")));
 
-        var query = _db.Transactions.Where(transaction => transaction.UserId == userId && transaction.TransactionDate >= from && transaction.Status == status);
+        var query = _db.Transactions.Where(transaction => transaction.UserId == userId && transaction.Status == status);
+        if (request.From is { } from) query = query.Where(transaction => transaction.TransactionDate >= from);
         if (request.To is { } to) query = query.Where(transaction => transaction.TransactionDate <= to);
         if (request.Type is { } type) query = query.Where(transaction => transaction.Type == type);
         if (request.CategoryId is { } categoryFilter) query = query.Where(transaction => transaction.CategoryId == categoryFilter);

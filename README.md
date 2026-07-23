@@ -123,6 +123,30 @@ npm run dev
 ```
 
 The seed is idempotent. Running it again should report existing users, accounts, categories, credit cards, opening balances, recurring templates, and installment plans as skipped. Optional travel rows live in `personal-seed.example.json` and remain disabled until dates and card/account choices are supplied manually.
+
+### Personal Baseline Seed
+
+The personal baseline seed is development-only and must be explicitly enabled. It never stores PDF passwords, PDF paths, local machine paths, or production secrets in the repository. Register the target user first, then run:
+
+```bash
+export ALLOW_PERSONAL_SEED=true
+export PERSONAL_SEED_EMAIL='you@example.local'
+npm run seed:personal:dry-run
+npm run seed:personal
+npm run verify:personal-seed
+```
+
+PowerShell equivalent:
+
+```powershell
+$env:ALLOW_PERSONAL_SEED="true"
+$env:PERSONAL_SEED_EMAIL="you@example.local"
+npm run seed:personal:dry-run
+npm run seed:personal
+npm run verify:personal-seed
+```
+
+The seed targets ledger-backed baseline values for development dogfooding: asset opening balances, credit-card limits, Richart baseline outstanding, and a Yushan pending-card baseline. It is idempotent; running it again updates only seed-owned baseline adjustment transactions.
 ## Scripts
 
 - `npm run setup`: starts Docker services, restores .NET tools/packages, and installs frontend packages.

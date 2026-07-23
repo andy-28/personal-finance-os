@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/states";
 import { apiFetch, problemMessage, type AccountDto, type CategoryDto, type CreditCardDto, type TransactionType } from "@/lib/api-client";
 import { commonLabels, transactionTypeLabels } from "@/lib/labels";
+import { t } from "@/lib/i18n";
 import { todayInputValue } from "@/lib/formatters";
 import { useAuth } from "../auth-context";
 
@@ -83,7 +84,7 @@ export function QuickAdd() {
       if (type === "CreditCardPurchase") { path = "/api/credit-cards/purchase"; body = { creditCardAccountId: form.creditCardAccountId, categoryId: form.categoryId, amount, purchaseDate: form.date, postedDate: null, merchant: form.merchant || null, note: form.note || null }; }
       if (type === "CreditCardPayment") { path = "/api/credit-cards/payment"; body = { creditCardAccountId: form.creditCardAccountId, paymentAccountId: form.paymentAccountId || null, amount, paymentDate: form.date, note: form.note || null }; }
       await apiFetch(path, accessToken, { method: "POST", body: JSON.stringify(body) }, refreshSession);
-      setMessage("Saved.");
+      setMessage(t("saved"));
       setForm((current) => ({ ...current, amount: "", merchant: "", note: "", date: todayInputValue() }));
     } catch (err) {
       setError(problemMessage(err));
@@ -97,28 +98,28 @@ export function QuickAdd() {
 
   return (
     <>
-      <Button size="sm" onClick={() => { setError(null); setMessage(null); setIsOpen(true); }}>Quick Add</Button>
+      <Button size="sm" onClick={() => { setError(null); setMessage(null); setIsOpen(true); }}>{t("quickAdd")}</Button>
       {isOpen && (
         <div className="fixed inset-0 z-50 grid place-items-end bg-background/70 p-3 backdrop-blur-lg sm:place-items-center" role="dialog" aria-modal="true" aria-labelledby="quick-add-title">
           <form onSubmit={submit} className="game-window w-full max-w-2xl p-4 shadow-panel">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 id="quick-add-title" className="font-semibold">Quick Add</h2>
-                <p className="text-sm text-muted">Post a transaction without leaving the current page.</p>
+                <h2 id="quick-add-title" className="font-semibold">{t("quickAdd")}</h2>
+                <p className="text-sm text-muted">{t("quickAddDescription")}</p>
               </div>
-              <Button type="button" variant="ghost" size="sm" onClick={close}>Close</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={close}>{t("close")}</Button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="ui-label">Type<select className="ui-input" value={type} onChange={(e) => setType(e.target.value as QuickType)}>{types.map((item) => <option key={item} value={item}>{transactionTypeLabels[item]}</option>)}</select></label>
-              <label className="ui-label">Amount<input ref={amountRef} className="ui-input" type="number" min="0" step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></label>
+              <label className="ui-label">{t("transactionKind")}<select className="ui-input" value={type} onChange={(e) => setType(e.target.value as QuickType)}>{types.map((item) => <option key={item} value={item}>{transactionTypeLabels[item]}</option>)}</select></label>
+              <label className="ui-label">{t("amount")}<input ref={amountRef} className="ui-input" type="number" min="0" step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></label>
               {(type === "Expense" || type === "Income") && <AccountSelect accounts={paymentAccounts} value={form.accountId} onChange={(value) => setForm({ ...form, accountId: value })} />}
-              {type === "Transfer" && <><AccountSelect label="From account" accounts={paymentAccounts} value={form.fromAccountId || form.accountId} onChange={(value) => setForm({ ...form, fromAccountId: value, accountId: value })} /><AccountSelect label="To account" accounts={paymentAccounts} value={form.toAccountId} onChange={(value) => setForm({ ...form, toAccountId: value })} /></>}
-              {(type === "CreditCardPurchase" || type === "CreditCardPayment") && <label className="ui-label">Credit card<select className="ui-input" value={form.creditCardAccountId} onChange={(e) => setForm({ ...form, creditCardAccountId: e.target.value })}><option value="">Select card</option>{cards.map((card) => <option key={card.accountId} value={card.accountId}>{card.accountName}</option>)}</select></label>}
-              {type === "CreditCardPayment" && <AccountSelect label="Payment account" accounts={paymentAccounts} value={form.paymentAccountId} onChange={(value) => setForm({ ...form, paymentAccountId: value })} />}
-              {type !== "Transfer" && type !== "CreditCardPayment" && <label className="ui-label">Category<select className="ui-input" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}><option value="">Select category</option>{filteredCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>}
-              <label className="ui-label">Date<input className="ui-input" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
-              {type !== "Transfer" && type !== "CreditCardPayment" && <label className="ui-label">Merchant / description<input className="ui-input" value={form.merchant} onChange={(e) => setForm({ ...form, merchant: e.target.value })} /></label>}
-              <label className="ui-label sm:col-span-2">Note<input className="ui-input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
+              {type === "Transfer" && <><AccountSelect label={t("fromAccount")} accounts={paymentAccounts} value={form.fromAccountId || form.accountId} onChange={(value) => setForm({ ...form, fromAccountId: value, accountId: value })} /><AccountSelect label={t("toAccount")} accounts={paymentAccounts} value={form.toAccountId} onChange={(value) => setForm({ ...form, toAccountId: value })} /></>}
+              {(type === "CreditCardPurchase" || type === "CreditCardPayment") && <label className="ui-label">{t("creditCards")}<select className="ui-input" value={form.creditCardAccountId} onChange={(e) => setForm({ ...form, creditCardAccountId: e.target.value })}><option value="">{t("selectCreditCard")}</option>{cards.map((card) => <option key={card.accountId} value={card.accountId}>{card.accountName}</option>)}</select></label>}
+              {type === "CreditCardPayment" && <AccountSelect label={t("paymentAccount")} accounts={paymentAccounts} value={form.paymentAccountId} onChange={(value) => setForm({ ...form, paymentAccountId: value })} />}
+              {type !== "Transfer" && type !== "CreditCardPayment" && <label className="ui-label">{t("category")}<select className="ui-input" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}><option value="">{t("selectCategory")}</option>{filteredCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>}
+              <label className="ui-label">{t("date")}<input className="ui-input" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></label>
+              {type !== "Transfer" && type !== "CreditCardPayment" && <label className="ui-label">{t("merchantOrDescription")}<input className="ui-input" value={form.merchant} onChange={(e) => setForm({ ...form, merchant: e.target.value })} /></label>}
+              <label className="ui-label sm:col-span-2">{t("note")}<input className="ui-input" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></label>
             </div>
             {message && <p className="mt-3 rounded-ui border border-success/30 bg-success/10 p-2 text-sm text-success">{message}</p>}
             {error && <div className="mt-3"><ErrorState message={error} /></div>}
@@ -130,6 +131,6 @@ export function QuickAdd() {
   );
 }
 
-function AccountSelect({ accounts, value, onChange, label = "Account" }: { accounts: AccountDto[]; value: string; onChange: (value: string) => void; label?: string }) {
-  return <label className="ui-label">{label}<select className="ui-input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">Select account</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>;
+function AccountSelect({ accounts, value, onChange, label = t("account") }: { accounts: AccountDto[]; value: string; onChange: (value: string) => void; label?: string }) {
+  return <label className="ui-label">{label}<select className="ui-input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">{t("selectAccount")}</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>;
 }

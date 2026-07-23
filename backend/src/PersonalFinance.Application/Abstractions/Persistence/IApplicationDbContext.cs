@@ -2,6 +2,7 @@ using PersonalFinance.Domain.Accounts;
 using PersonalFinance.Domain.Categories;
 using PersonalFinance.Domain.CreditCards;
 using PersonalFinance.Domain.Recurring;
+using PersonalFinance.Domain.StatementImports;
 using PersonalFinance.Domain.Transactions;
 using PersonalFinance.Domain.Users;
 
@@ -17,6 +18,8 @@ public interface IApplicationDbContext
     IQueryable<CreditCardTransactionMetadata> CreditCardTransactionMetadata { get; }
     IQueryable<InstallmentPlan> InstallmentPlans { get; }
     IQueryable<InstallmentScheduleItem> InstallmentScheduleItems { get; }
+    IQueryable<StatementImportBatch> StatementImportBatches { get; }
+    IQueryable<StatementImportRow> StatementImportRows { get; }
     IQueryable<RecurringTransactionTemplate> RecurringTransactionTemplates { get; }
     IQueryable<RecurringTransactionOccurrence> RecurringTransactionOccurrences { get; }
     IQueryable<Transaction> Transactions { get; }
@@ -29,6 +32,8 @@ public interface IApplicationDbContext
     void AddCreditCardAccount(CreditCardAccount creditCardAccount);
     void AddCreditCardTransactionMetadata(CreditCardTransactionMetadata metadata);
     void AddInstallmentPlan(InstallmentPlan installmentPlan);
+    void AddStatementImportBatch(StatementImportBatch batch);
+    void AddStatementImportRows(IEnumerable<StatementImportRow> rows);
     void AddRecurringTransactionTemplate(RecurringTransactionTemplate template);
     void AddRecurringTransactionOccurrence(RecurringTransactionOccurrence occurrence);
     void AddTransaction(Transaction transaction);

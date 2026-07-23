@@ -7,28 +7,29 @@ import { Button } from "@/components/ui/button";
 import { GameTheme } from "@/components/ui/game-theme";
 import { LoadingState } from "@/components/ui/states";
 import { useAuth } from "../auth-context";
+import { t } from "@/lib/i18n";
 import { QuickAdd } from "./quick-add";
 
 const navGroups = [
   {
-    title: "Finance",
+    title: t("finance"),
     links: [
-      ["/accounts", "Accounts", "Assets and liabilities"],
-      ["/transactions", "Ledger", "Transaction log"],
-      ["/credit-cards", "Cards", "Statements and plans"]
+      ["/accounts", t("accounts"), t("accountsHint")],
+      ["/transactions", t("ledger"), t("ledgerHint")],
+      ["/credit-cards", t("creditCards"), t("creditCardsHint")]
     ]
   },
   {
-    title: "Planning",
+    title: t("planning"),
     links: [
-      ["/upcoming", "Upcoming", "Scheduled items"],
-      ["/recurring-transactions", "Recurring", "Templates"],
-      ["/categories", "Categories", "Taxonomy"]
+      ["/upcoming", t("upcoming"), t("upcomingHint")],
+      ["/recurring-transactions", t("recurring"), t("recurringHint")],
+      ["/categories", t("categories"), t("categoriesHint")]
     ]
   },
   {
-    title: "System",
-    links: [["/system-status", "Health", "Service checks"]]
+    title: t("system"),
+    links: [["/system-status", t("health"), t("healthHint")]]
   }
 ] as const;
 
@@ -43,7 +44,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isLoading, router, user]);
 
   if (isLoading || !user) {
-    return <main className="grid min-h-screen place-items-center bg-background p-5"><LoadingState label="Loading interface..." /></main>;
+    return <main className="grid min-h-screen place-items-center bg-background p-5"><LoadingState label={t("loadingInterface")} /></main>;
   }
 
   const nav = (
@@ -82,7 +83,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/70 bg-surface/72 px-4 py-5 shadow-panel backdrop-blur-xl lg:block">
           <div className="mb-8 border-b border-border/55 pb-5">
             <p className="text-lg font-bold tracking-normal">PersonalFinanceOS</p>
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">Aether command menu</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">{t("aetherCommandMenu")}</p>
           </div>
           {nav}
         </aside>
@@ -93,9 +94,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="mb-5 flex items-center justify-between border-b border-border/55 pb-4">
                 <div>
                   <p className="font-bold">PersonalFinanceOS</p>
-                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">Aether command menu</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">{t("aetherCommandMenu")}</p>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(false)}>Close</Button>
+                <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(false)}>{t("close")}</Button>
               </div>
               {nav}
             </div>
@@ -106,7 +107,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <header className="sticky top-0 z-30 border-b border-border/65 bg-background/78 shadow-panel backdrop-blur-xl">
             <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-2 sm:flex-nowrap sm:px-6 sm:py-0">
               <div className="flex min-w-0 items-center gap-3">
-                <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsMenuOpen(true)}>Menu</Button>
+                <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsMenuOpen(true)}>{t("menu")}</Button>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold">{user.displayName}</p>
                   <p className="truncate text-xs text-muted">{user.email}</p>
@@ -114,7 +115,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
               <div className="ml-auto flex shrink-0 items-center gap-2">
                 <QuickAdd />
-                <Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace("/login"); }}>Logout</Button>
+                <Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace("/login"); }}>{t("logout")}</Button>
               </div>
             </div>
           </header>

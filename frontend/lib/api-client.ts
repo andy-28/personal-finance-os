@@ -40,6 +40,9 @@ export type CreditCardDto = {
   creditBalance: number;
   availableCredit?: number | null;
   creditUtilization?: number | null;
+  latestStatementAmount: number;
+  billedOutstandingAmount: number;
+  unbilledAmount: number;
   currentStatementPeriod: StatementPeriodDto;
   previousStatementPeriod: StatementPeriodDto;
   statementCharges: number;
@@ -67,6 +70,56 @@ export type InstallmentPlanDto = {
   scheduleItems: InstallmentScheduleItemDto[];
 };
 export type CreditCardDetailDto = { summary: CreditCardDto; recentTransactions: TransactionDto[]; installmentPlans: InstallmentPlanDto[] };
+export type StatementImportBatchStatus = "Uploaded" | "Parsed" | "ReviewRequired" | "PartiallyPosted" | "Completed" | "Failed" | "Duplicate" | "Discarded";
+export type StatementImportRowType = "Purchase" | "Refund" | "Payment" | "Fee" | "Interest" | "Adjustment" | "Installment" | "Unknown";
+export type StatementImportMatchStatus = "New" | "PossibleDuplicate" | "Matched";
+export type StatementImportReviewStatus = "New" | "Ignored" | "ReadyToPost" | "Posted" | "Failed";
+export type StatementImportRowDto = {
+  id: string;
+  sourceRowNumber: number;
+  transactionDate?: string | null;
+  postingDate?: string | null;
+  rawDescription: string;
+  normalizedDescription: string;
+  amount: number;
+  currency: string;
+  foreignAmount?: number | null;
+  foreignCurrency?: string | null;
+  type: StatementImportRowType;
+  isInstallment: boolean;
+  installmentCurrentNumber?: number | null;
+  installmentTotalNumber?: number | null;
+  rawText?: string | null;
+  matchStatus: StatementImportMatchStatus;
+  matchedTransactionId?: string | null;
+  reviewStatus: StatementImportReviewStatus;
+  categoryId?: string | null;
+  createdTransactionId?: string | null;
+  failureReason?: string | null;
+};
+export type StatementImportBatchDto = {
+  id: string;
+  creditCardAccountId: string;
+  provider: string;
+  originalFileName: string;
+  statementPeriodStart?: string | null;
+  statementPeriodEnd?: string | null;
+  paymentDueDate?: string | null;
+  previousBalance?: number | null;
+  paymentAmount?: number | null;
+  newCharges?: number | null;
+  statementAmount?: number | null;
+  minimumPayment?: number | null;
+  status: StatementImportBatchStatus;
+  parserVersion: string;
+  createdAtUtc: string;
+  parsedAtUtc?: string | null;
+  postedAtUtc?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  rows: StatementImportRowDto[];
+  warnings: string[];
+};
 export type RecurringFrequency = "Weekly" | "Monthly" | "Yearly";
 export type RecurringOccurrenceStatus = "Pending" | "Posted" | "Skipped";
 export type RecurringTemplateDto = {
@@ -134,7 +187,7 @@ export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
 export async function apiFetch<T>(path: string, accessToken: string | null, init: RequestInit = {}, retry?: () => Promise<string | null>): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
 
   let response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers, cache: "no-store" });
@@ -159,7 +212,7 @@ export function problemMessage(error: unknown): string {
     const problem = error as ProblemDetails;
     return messageFromProblem(problem);
   }
-  return error instanceof Error ? error.message : "發生未預期的錯誤，請稍後再試。";
+  return error instanceof Error ? error.message : "Unexpected error occurred.";
 }
 
 export function money(value: number, currency = "TWD") {
