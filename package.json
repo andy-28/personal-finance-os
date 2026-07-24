@@ -16,7 +16,8 @@
                     "seed":  "dotnet run --project backend/src/PersonalFinance.Api -- --seed-development",
                     "seed:personal:dry-run":  "node scripts/personal-seed.mjs --dry-run",
                     "seed:personal":  "node scripts/personal-seed.mjs",
-                    "verify:personal-seed":  "node scripts/verify-personal-seed.mjs"
+                    "verify:personal-seed":  "node scripts/verify-personal-seed.mjs",
+                    "repair:personal-baseline":  "node scripts/repair-personal-baseline.mjs"
                 },
     "devDependencies":  {
                             "concurrently":  "9.1.2"

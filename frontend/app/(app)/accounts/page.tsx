@@ -26,6 +26,7 @@ export default function AccountsPage() {
   const [balanceForm, setBalanceForm] = useState({ targetBalance: "", openingAmount: 0, date: todayInputValue() });
   const [openingTransaction, setOpeningTransaction] = useState<TransactionDto | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
@@ -57,15 +58,16 @@ export default function AccountsPage() {
   useEffect(() => { if (accessToken) load(); }, [accessToken, includeArchived]);
 
   useEffect(() => {
-    if (!editingId) return;
+    if (!editingId && !isCreateOpen) return;
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setEditingId(null);
+      setIsCreateOpen(false);
       setForm(emptyForm);
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [editingId]);
+  }, [editingId, isCreateOpen]);
 
   async function submit(event: FormEvent, targetId: string | null = editingId) {
     event.preventDefault();
@@ -75,12 +77,25 @@ export default function AccountsPage() {
         await apiFetch<AccountDto>(`/api/accounts/${targetId}`, accessToken, { method: "PUT", body }, refreshSession);
         await saveBalanceTarget(targetId);
       } else {
-        await apiFetch<AccountDto>("/api/accounts", accessToken, { method: "POST", body }, refreshSession);
+        const createdAccount = await apiFetch<AccountDto>("/api/accounts", accessToken, { method: "POST", body }, refreshSession);
+        const openingAmount = Number(balanceForm.targetBalance);
+        if (Number.isFinite(openingAmount) && Math.abs(openingAmount) >= 0.005) {
+          await apiFetch<TransactionDto>("/api/transactions/opening-balance", accessToken, {
+            method: "POST",
+            body: JSON.stringify({
+              accountId: createdAccount.id,
+              amount: openingAmount,
+              transactionDate: balanceForm.date || todayInputValue(),
+              note: "Opening balance"
+            })
+          }, refreshSession);
+        }
       }
       setForm(emptyForm);
       setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() });
       setOpeningTransaction(null);
       setEditingId(null);
+      setIsCreateOpen(false);
       await load();
     } catch (err) {
       setError(problemMessage(err));
@@ -180,16 +195,27 @@ export default function AccountsPage() {
         </div>
       )}
 
-      <Card>
-        <CardTitle title="Create Account" description="Account Setup" />
-        <form onSubmit={(event) => submit(event, null)} className="grid gap-3 md:grid-cols-5">
-          <label className="ui-label">Name<input className="ui-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-          <label className="ui-label">Type<select className="ui-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })}>{accountTypes.map((type) => <option key={type} value={type}>{accountTypeLabels[type]}</option>)}</select></label>
-          <label className="ui-label">Currency<input className="ui-input" value={form.currencyCode} onChange={(e) => setForm({ ...form, currencyCode: e.target.value.toUpperCase() })} maxLength={3} /></label>
-          <label className="ui-label">Institution<input className="ui-input" value={form.institutionName} onChange={(e) => setForm({ ...form, institutionName: e.target.value })} /></label>
-          <div className="flex items-end"><Button type="submit" className="w-full">{commonLabels.create}</Button></div>
-        </form>
-      </Card>
+      {isCreateOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setIsCreateOpen(false); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); }}>
+          <GameWindow title="新增帳戶" description="Account setup" className="w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
+            <GameInspectPanel title={form.name || "新帳戶"} subtitle={accountTypeLabels[form.type]} icon={<AccountGlyph type={form.type} />}>
+              <form onSubmit={(event) => submit(event, null)} className="grid gap-4 sm:grid-cols-2">
+                <label className="ui-label sm:col-span-2">帳戶名稱<input className="ui-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus /></label>
+                <label className="ui-label">帳戶類型<select className="ui-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })}>{accountTypes.map((type) => <option key={type} value={type}>{accountTypeLabels[type]}</option>)}</select></label>
+                <label className="ui-label">幣別<input className="ui-input" value={form.currencyCode} onChange={(e) => setForm({ ...form, currencyCode: e.target.value.toUpperCase() })} maxLength={3} /></label>
+                <label className="ui-label sm:col-span-2">金融機構<input className="ui-input" value={form.institutionName} onChange={(e) => setForm({ ...form, institutionName: e.target.value })} /></label>
+                <label className="ui-label">初始金額<input className="ui-input" type="number" step="0.01" placeholder="0" value={balanceForm.targetBalance} onChange={(e) => setBalanceForm({ ...balanceForm, targetBalance: e.target.value })} /></label>
+                <label className="ui-label">期初日期<input className="ui-input" type="date" value={balanceForm.date} onChange={(e) => setBalanceForm({ ...balanceForm, date: e.target.value })} /></label>
+                <p className="text-xs text-muted sm:col-span-2">輸入初始金額會建立一筆期初餘額交易，帳戶餘額仍由 Ledger 自動計算。</p>
+                <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
+                  <Button type="button" variant="outline" onClick={() => { setIsCreateOpen(false); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); }}>{commonLabels.cancel}</Button>
+                  <Button type="submit">{commonLabels.create}</Button>
+                </div>
+              </form>
+            </GameInspectPanel>
+          </GameWindow>
+        </div>
+      )}
 
       {editingId && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setEditingId(null); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setOpeningTransaction(null); }}>
@@ -200,9 +226,9 @@ export default function AccountsPage() {
                 <label className="ui-label">Type<select className="ui-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })}>{accountTypes.map((type) => <option key={type} value={type}>{accountTypeLabels[type]}</option>)}</select></label>
                 <label className="ui-label">Currency<input className="ui-input" value={form.currencyCode} onChange={(e) => setForm({ ...form, currencyCode: e.target.value.toUpperCase() })} maxLength={3} /></label>
                 <label className="ui-label sm:col-span-2">Institution<input className="ui-input" value={form.institutionName} onChange={(e) => setForm({ ...form, institutionName: e.target.value })} /></label>
-                <label className="ui-label">目前餘額<input className="ui-input" type="number" step="0.01" value={balanceForm.targetBalance} onChange={(e) => setBalanceForm({ ...balanceForm, targetBalance: e.target.value })} /></label>
-                <label className="ui-label">餘額日期<input className="ui-input" type="date" value={balanceForm.date} onChange={(e) => setBalanceForm({ ...balanceForm, date: e.target.value })} /></label>
-                <p className="text-xs text-muted sm:col-span-2">目前餘額會透過期初餘額交易調整，Ledger 仍會保留完整計算來源。</p>
+                <label className="ui-label">目標餘額<input className="ui-input" type="number" step="0.01" value={balanceForm.targetBalance} onChange={(e) => setBalanceForm({ ...balanceForm, targetBalance: e.target.value })} /></label>
+                <label className="ui-label">調整日期<input className="ui-input" type="date" value={balanceForm.date} onChange={(e) => setBalanceForm({ ...balanceForm, date: e.target.value })} /></label>
+                <p className="text-xs text-muted sm:col-span-2">更新目標餘額會透過期初餘額調整交易修正，不會直接覆寫帳戶餘額。</p>
                 <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
                   <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setOpeningTransaction(null); }}>{commonLabels.cancel}</Button>
                   <Button type="submit">{commonLabels.update}</Button>
@@ -215,13 +241,13 @@ export default function AccountsPage() {
 
       <div className="game-section-divider">
         <div className="game-section-title">
-          <strong>Registered Accounts</strong>
+          <strong>帳戶槽位</strong>
           <span>{accounts.length} slots loaded</span>
         </div>
       </div>
 
       {isLoading ? <LoadingState /> : accounts.length === 0 ? <EmptyState title="No accounts yet" description="Create a cash, bank, or credit card account before posting transactions." /> : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {accounts.map((account) => (
             <Card
               key={account.id}
@@ -275,7 +301,7 @@ export default function AccountsPage() {
               }}
               onPointerCancel={resetDragState}
               style={draggedId === account.id ? { transform: `translateY(${dragOffsetY}px) scale(1.01)` } : undefined}
-              className={`game-item-card cursor-pointer touch-none select-none transition-[transform,filter,opacity,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:brightness-[1.04] active:translate-y-0 ${draggedId === account.id ? "relative z-10 cursor-grabbing opacity-90 shadow-2xl duration-75" : ""} ${dragOverId === account.id ? "ring-2 ring-primary/70" : ""}`}
+              className={`game-item-card game-account-slot cursor-pointer touch-none select-none transition-[transform,filter,opacity,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:brightness-[1.04] active:translate-y-0 ${draggedId === account.id ? "relative z-10 cursor-grabbing opacity-90 shadow-2xl duration-75" : ""} ${dragOverId === account.id ? "ring-2 ring-primary/70" : ""}`}
             >
               <div className="game-item-header flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
@@ -290,10 +316,10 @@ export default function AccountsPage() {
                   </div>
                 </div>
               </div>
-              <div className="game-item-body grid gap-3 sm:grid-cols-3">
-                <GameInspectRow label="Current balance" value={money(account.balance, account.currencyCode)} strong />
-                <GameInspectRow label="Balance source" value={account.balanceLabel} />
-                <GameInspectRow label="Currency" value={account.currencyCode} />
+              <div className="game-item-body grid gap-3 sm:grid-cols-2">
+                <GameInspectRow label="目前餘額" value={money(account.balance, account.currencyCode)} strong />
+                <GameInspectRow label="餘額來源" value={account.balanceLabel} />
+                <GameInspectRow label="幣別" value={account.currencyCode} />
               </div>
               <div className="game-item-footer flex flex-wrap justify-end gap-2">
                 {account.isArchived
@@ -304,6 +330,15 @@ export default function AccountsPage() {
           ))}
         </div>
       )}
+      <button
+        type="button"
+        className="game-floating-add ui-focus"
+        aria-label="新增帳戶"
+        title="新增帳戶"
+        onClick={() => { setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setIsCreateOpen(true); }}
+      >
+        +
+      </button>
     </section>
   );
 }

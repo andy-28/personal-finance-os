@@ -224,7 +224,11 @@ public sealed class StatementImportsHandler :
     {
         if (batch.StatementAmount is null or <= 0) return;
 
-        var postedRows = Rows(batch.Id).Where(row => row.ReviewStatus == StatementImportReviewStatus.Posted && row.CreatedTransactionId is not null).ToArray();
+        var postedRows = Rows(batch.Id)
+            .Where(row => row.ReviewStatus == StatementImportReviewStatus.Posted
+                && row.Type != StatementImportRowType.Payment
+                && row.CreatedTransactionId is not null)
+            .ToArray();
         if (postedRows.Length == 0) return;
 
         var createdTransactionIds = postedRows.Select(row => row.CreatedTransactionId!.Value).ToArray();
