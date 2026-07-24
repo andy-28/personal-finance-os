@@ -16,6 +16,18 @@ import { useAuth } from "../../auth-context";
 
 const accountTypes: AccountType[] = ["Cash", "Checking", "Savings", "CreditCard", "Investment", "Loan", "Other"];
 const emptyForm = { name: "", type: "Cash" as AccountType, currencyCode: "TWD", institutionName: "" };
+type GoalBarColor = "violet" | "cyan" | "emerald" | "amber" | "rose";
+type FundGoal = { id: string; accountId: string; title: string; targetAmount: number; color: GoalBarColor };
+
+const goalStorageKey = "pfos.account-goal-bars.v1";
+const emptyGoalForm = { accountId: "", title: "", targetAmount: "100000", color: "violet" as GoalBarColor };
+const goalBarColors: Record<GoalBarColor, { label: string; fill: string; glow: string; border: string; track: string; frameGlow: string }> = {
+  violet: { label: "Arcane violet", fill: "linear-gradient(90deg, #6d28d9 0%, #a855f7 55%, #f0abfc 100%)", glow: "0 0 10px rgba(168, 85, 247, 0.75)", border: "#a78bfa", track: "#2b1743", frameGlow: "0 0 16px rgba(124, 58, 237, 0.35)" },
+  cyan: { label: "Aether cyan", fill: "linear-gradient(90deg, #0891b2 0%, #22d3ee 55%, #a5f3fc 100%)", glow: "0 0 10px rgba(34, 211, 238, 0.75)", border: "#67e8f9", track: "#0f2f3a", frameGlow: "0 0 16px rgba(34, 211, 238, 0.32)" },
+  emerald: { label: "Guild green", fill: "linear-gradient(90deg, #047857 0%, #34d399 55%, #bbf7d0 100%)", glow: "0 0 10px rgba(52, 211, 153, 0.7)", border: "#86efac", track: "#0f3328", frameGlow: "0 0 16px rgba(52, 211, 153, 0.32)" },
+  amber: { label: "Quest amber", fill: "linear-gradient(90deg, #b45309 0%, #f59e0b 55%, #fde68a 100%)", glow: "0 0 10px rgba(245, 158, 11, 0.72)", border: "#fcd34d", track: "#3b270b", frameGlow: "0 0 16px rgba(245, 158, 11, 0.32)" },
+  rose: { label: "Raid rose", fill: "linear-gradient(90deg, #be123c 0%, #fb7185 55%, #fecdd3 100%)", glow: "0 0 10px rgba(251, 113, 133, 0.72)", border: "#fda4af", track: "#3b1220", frameGlow: "0 0 16px rgba(251, 113, 133, 0.32)" }
+};
 
 export default function AccountsPage() {
   const { accessToken, refreshSession } = useAuth();
@@ -27,6 +39,10 @@ export default function AccountsPage() {
   const [openingTransaction, setOpeningTransaction] = useState<TransactionDto | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [goalForm, setGoalForm] = useState(emptyGoalForm);
+  const [fundGoals, setFundGoals] = useState<FundGoal[]>([]);
+  const [hasLoadedGoals, setHasLoadedGoals] = useState(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
@@ -56,18 +72,35 @@ export default function AccountsPage() {
   }
 
   useEffect(() => { if (accessToken) load(); }, [accessToken, includeArchived]);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(goalStorageKey);
+      if (saved) setFundGoals(JSON.parse(saved) as FundGoal[]);
+    } catch {
+      setFundGoals([]);
+    } finally {
+      setHasLoadedGoals(true);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!editingId && !isCreateOpen) return;
+    if (!hasLoadedGoals) return;
+    window.localStorage.setItem(goalStorageKey, JSON.stringify(fundGoals));
+  }, [fundGoals, hasLoadedGoals]);
+
+  useEffect(() => {
+    if (!editingId && !isCreateOpen && !isGoalModalOpen) return;
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setEditingId(null);
       setIsCreateOpen(false);
+      setIsGoalModalOpen(false);
       setForm(emptyForm);
     }
     window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [editingId, isCreateOpen]);
+
+  return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [editingId, isCreateOpen, isGoalModalOpen]);
 
   async function submit(event: FormEvent, targetId: string | null = editingId) {
     event.preventDefault();
@@ -96,6 +129,7 @@ export default function AccountsPage() {
       setOpeningTransaction(null);
       setEditingId(null);
       setIsCreateOpen(false);
+      setIsGoalModalOpen(false);
       await load();
     } catch (err) {
       setError(problemMessage(err));
@@ -114,9 +148,13 @@ export default function AccountsPage() {
     const nonOpeningBalance = account.balance - existingOpeningAmount;
     const nextOpeningAmount = targetBalance - nonOpeningBalance;
     if (Math.abs(nextOpeningAmount - existingOpeningAmount) < 0.005) return;
+    if (Math.abs(nextOpeningAmount) < 0.005) {
+      if (openingTransaction) await apiFetch<void>(`/api/transactions/${openingTransaction.id}`, accessToken, { method: "DELETE" }, refreshSession);
+      return;
+    }
     const body = JSON.stringify({ accountId, amount: nextOpeningAmount, transactionDate: balanceForm.date || todayInputValue(), note: "Opening balance adjustment" });
     if (openingTransaction) await apiFetch<TransactionDto>(`/api/transactions/${openingTransaction.id}`, accessToken, { method: "PUT", body }, refreshSession);
-    else if (nextOpeningAmount !== 0) await apiFetch<TransactionDto>("/api/transactions/opening-balance", accessToken, { method: "POST", body }, refreshSession);
+    else await apiFetch<TransactionDto>("/api/transactions/opening-balance", accessToken, { method: "POST", body }, refreshSession);
   }
 
   async function edit(account: AccountDto) {
@@ -136,6 +174,21 @@ export default function AccountsPage() {
     }
   }
 
+  function addFundGoal(event: FormEvent) {
+    event.preventDefault();
+    const targetAmount = Number(goalForm.targetAmount);
+    if (!goalForm.accountId || !Number.isFinite(targetAmount) || targetAmount <= 0) return;
+    const account = accounts.find((candidate) => candidate.id === goalForm.accountId);
+    const title = goalForm.title.trim() || account?.name || "Resource";
+    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    setFundGoals((current) => [...current, { id, accountId: goalForm.accountId, title, targetAmount, color: goalForm.color }]);
+    setGoalForm(emptyGoalForm);
+    setIsGoalModalOpen(false);
+  }
+
+  function removeFundGoal(id: string) {
+    setFundGoals((current) => current.filter((goal) => goal.id !== id));
+  }
   function resetDragState() {
     pointerDraggingRef.current = false;
     dragTargetIdRef.current = null;
@@ -171,6 +224,14 @@ export default function AccountsPage() {
     await load();
   }
 
+  const resourceBarsPanel = (
+    <ResourceBarsPanel
+      goals={fundGoals}
+      accounts={accounts}
+      onAdd={() => setIsGoalModalOpen(true)}
+      onRemove={removeFundGoal}
+    />
+  );
   return (
     <section className="grid gap-8">
       <PageHeader
@@ -180,20 +241,23 @@ export default function AccountsPage() {
       />
       {error && <ErrorState message={error} />}
 
-      {summary.currencies.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-3">
-          {summary.currencies.map((row) => (
-            <Card key={row.currencyCode}>
-              <CardTitle title={row.currencyCode} description="Assets / Liabilities" />
-              <div className="grid gap-2 text-sm">
-                <SummaryRow label={commonLabels.assetBalance} value={money(row.assetBalance, row.currencyCode)} />
-                <SummaryRow label="Liability balance" value={money(row.liabilityBalance, row.currencyCode)} />
-                <SummaryRow label={commonLabels.netWorth} value={money(row.netBalance, row.currencyCode)} strong />
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      <div className="grid gap-5 lg:grid-cols-[minmax(300px,400px)_minmax(0,1fr)] lg:items-start">
+        {summary.currencies.length > 0 && (
+          <div className="grid gap-4">
+            {summary.currencies.map((row) => (
+              <Card key={row.currencyCode}>
+                <CardTitle title={row.currencyCode} description="Assets / Liabilities" />
+                <div className="grid gap-2 text-sm">
+                  <SummaryRow label={commonLabels.assetBalance} value={money(row.assetBalance, row.currencyCode)} />
+                  <SummaryRow label="Liability balance" value={money(row.liabilityBalance, row.currencyCode)} />
+                  <SummaryRow label={commonLabels.netWorth} value={money(row.netBalance, row.currencyCode)} strong />
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+        {resourceBarsPanel}
+      </div>
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setIsCreateOpen(false); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); }}>
@@ -232,6 +296,30 @@ export default function AccountsPage() {
                 <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
                   <Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setOpeningTransaction(null); }}>{commonLabels.cancel}</Button>
                   <Button type="submit">{commonLabels.update}</Button>
+                </div>
+              </form>
+            </GameInspectPanel>
+          </GameWindow>
+        </div>
+      )}
+
+      {isGoalModalOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setIsGoalModalOpen(false); setGoalForm(emptyGoalForm); }}>
+          <GameWindow title="新增資源條" description="Resource tracker" className="w-full max-w-xl" onClick={(event) => event.stopPropagation()}>
+            <GameInspectPanel title={goalForm.title || "新的追蹤條"} subtitle="Account target" icon={<span className="text-sm font-black">HP</span>}>
+              <form onSubmit={addFundGoal} className="grid gap-4 sm:grid-cols-2">
+                <label className="ui-label sm:col-span-2">參考帳戶<select className="ui-input" value={goalForm.accountId} onChange={(e) => setGoalForm({ ...goalForm, accountId: e.target.value })} autoFocus>
+                  <option value="">選擇帳戶</option>
+                  {accounts.filter((account) => !account.isArchived).map((account) => <option key={account.id} value={account.id}>{account.name} / {money(account.balance, account.currencyCode)}</option>)}
+                </select></label>
+                <label className="ui-label">顯示名稱<input className="ui-input" value={goalForm.title} onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })} placeholder="例如：日本基金" /></label>
+                <label className="ui-label">目標金額<input className="ui-input" type="number" min="1" step="1" value={goalForm.targetAmount} onChange={(e) => setGoalForm({ ...goalForm, targetAmount: e.target.value })} /></label>
+                <label className="ui-label sm:col-span-2">血條顏色<select className="ui-input" value={goalForm.color} onChange={(e) => setGoalForm({ ...goalForm, color: e.target.value as GoalBarColor })}>
+                  {(Object.keys(goalBarColors) as GoalBarColor[]).map((color) => <option key={color} value={color}>{goalBarColors[color].label}</option>)}
+                </select></label>
+                <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
+                  <Button type="button" variant="outline" onClick={() => { setIsGoalModalOpen(false); setGoalForm(emptyGoalForm); }}>{commonLabels.cancel}</Button>
+                  <Button type="submit">新增</Button>
                 </div>
               </form>
             </GameInspectPanel>
@@ -358,4 +446,51 @@ function AccountGlyph({ type }: { type: AccountType }) {
 
 function SummaryRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return <p className={`flex justify-between border-t border-border/55 pt-2 first:border-t-0 first:pt-0 ${strong ? "font-semibold" : ""}`}><span className="text-muted">{label}</span><span>{value}</span></p>;
+}
+
+function ResourceBarsPanel({ goals, accounts, onAdd, onRemove }: { goals: FundGoal[]; accounts: AccountDto[]; onAdd: () => void; onRemove: (id: string) => void }) {
+  return (
+    <section className="grid min-h-[180px] w-full gap-3 self-stretch rounded-[8px] border border-primary/35 bg-[#10141f]/80 p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_40px_rgba(0,0,0,0.28)]">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Resource Bars</p>
+          <h2 className="text-lg font-bold text-foreground">Goal Bars</h2>
+        </div>
+        <button type="button" className="ui-focus grid h-10 w-10 place-items-center rounded-full border border-[#93f5a1] bg-[#5dbb41] text-xl font-black text-[#10210d] shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_0_12px_rgba(93,187,65,0.45)] transition hover:brightness-110" onClick={onAdd} aria-label="Add goal bar">+</button>
+      </div>
+      {goals.length === 0 ? (
+        <div className="rounded-[6px] border border-border/60 bg-surface/50 px-4 py-6 text-center text-sm text-muted">Press + to pin an account target, such as a travel fund toward 100,000.</div>
+      ) : (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {goals.map((goal) => <FundGoalBar key={goal.id} goal={goal} account={accounts.find((account) => account.id === goal.accountId)} onRemove={() => onRemove(goal.id)} />)}
+        </div>
+      )}
+    </section>
+  );
+}
+function FundGoalBar({ goal, account, onRemove }: { goal: FundGoal; account?: AccountDto; onRemove: () => void }) {
+  const balance = account?.balance ?? 0;
+  const currency = account?.currencyCode ?? "TWD";
+  const percent = Math.max(0, Math.min(100, (balance / goal.targetAmount) * 100));
+  const color = goalBarColors[goal.color];
+
+  return (
+    <article className="relative rounded-[7px] border-2 bg-[#12131b] p-2 shadow-[0_0_0_2px_rgba(0,0,0,0.7)]" style={{ borderColor: color.border, boxShadow: `0 0 0 2px rgba(0,0,0,0.7), ${color.frameGlow}` }}>
+      <button type="button" className="absolute right-3 top-[3px] z-10 grid h-4 w-4 place-items-center rounded-full border border-white/45 bg-[#313447] text-[10px] leading-none text-white hover:bg-danger/70" onClick={onRemove} aria-label="Remove goal bar">x</button>
+      <span className="absolute right-8 top-[5px] z-10 h-3 w-3 rounded-full border border-[#c8ffb8] bg-[#74d957] shadow-[0_0_8px_rgba(116,217,87,0.7)]" aria-hidden="true" />
+      <div className="mb-1 flex items-center pr-10 pl-2 text-[11px] font-black tracking-[0.08em] text-[#f7d24b]">
+        <span className="truncate">{goal.title}</span>
+      </div>
+      <div className="relative h-6 overflow-hidden rounded-[5px] border p-[3px] shadow-[inset_0_0_8px_rgba(0,0,0,0.85)]" style={{ borderColor: color.border, backgroundColor: color.track }}>
+        <div className="h-full rounded-[3px] transition-[width] duration-300" style={{ width: `${percent}%`, background: color.fill, boxShadow: color.glow }} />
+        <div className="absolute inset-0 grid place-items-center text-[11px] font-black text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+          {money(Math.max(0, balance), currency)} / {money(goal.targetAmount, currency)}
+        </div>
+      </div>
+      <div className="mt-1 flex items-center justify-between px-1 text-[10px] font-semibold text-muted">
+        <span className="truncate">{account ? account.name : "Missing account"}</span>
+        <span>{percent.toFixed(1)}%</span>
+      </div>
+    </article>
+  );
 }

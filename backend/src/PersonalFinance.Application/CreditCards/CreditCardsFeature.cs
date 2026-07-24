@@ -374,27 +374,26 @@ public sealed class CreditCardsHandler :
 
         var statementAmount = Math.Max(latestBatch.StatementAmount ?? 0m, 0m);
         var periodEnd = latestBatch.StatementPeriodEnd!.Value;
-        var paymentTransactionIds = _db.CreditCardTransactionMetadata
+        var afterStatementTransactionIds = _db.CreditCardTransactionMetadata
             .Where(row => row.UserId == userId
                 && row.CreditCardAccountId == creditCardAccountId
                 && row.PurchaseDate > periodEnd)
             .Select(row => row.TransactionId)
             .ToArray();
-        var postedPaymentTransactionIds = _db.Transactions
+        var postedAfterStatementTransactionIds = _db.Transactions
             .Where(transaction => transaction.UserId == userId
-                && paymentTransactionIds.Contains(transaction.Id)
-                && transaction.Status == TransactionStatus.Posted
-                && transaction.Type == TransactionType.CreditCardPayment)
+                && afterStatementTransactionIds.Contains(transaction.Id)
+                && transaction.Status == TransactionStatus.Posted)
             .Select(transaction => transaction.Id)
             .ToArray();
-        var paidAfterStatement = _db.TransactionEntries
-            .Where(entry => postedPaymentTransactionIds.Contains(entry.TransactionId))
+        var creditsAfterStatement = _db.TransactionEntries
+            .Where(entry => postedAfterStatementTransactionIds.Contains(entry.TransactionId))
             .Where(entry => entry.AccountId == creditCardAccountId && entry.Amount < 0)
             .Select(entry => -entry.Amount)
             .ToArray()
             .Sum();
 
-        var billedOutstanding = Math.Max(statementAmount - paidAfterStatement, 0m);
+        var billedOutstanding = Math.Max(statementAmount - creditsAfterStatement, 0m);
         return new BilledStatementAmounts(statementAmount, Math.Min(billedOutstanding, currentOutstanding));
     }
 

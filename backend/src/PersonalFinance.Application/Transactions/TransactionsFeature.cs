@@ -206,6 +206,9 @@ public sealed class TransactionsHandler :
             TransactionType.Expense => UpdateExpense(userId.Value, transaction, request.Request, utcNow),
             TransactionType.Transfer => UpdateTransfer(userId.Value, transaction, request.Request, utcNow),
             TransactionType.OpeningBalance => UpdateOpeningBalance(userId.Value, transaction, request.Request, utcNow),
+            TransactionType.CreditCardPurchase => UpdateCreditCardPurchase(userId.Value, transaction, request.Request, utcNow),
+            TransactionType.CreditCardRefund => UpdateCreditCardRefund(userId.Value, transaction, request.Request, utcNow),
+            TransactionType.CreditCardPayment => UpdateCreditCardPayment(userId.Value, transaction, request.Request, utcNow),
             _ => Result.Success()
         };
         if (result.IsFailure) return Result<TransactionDto>.Failure(result.Errors.ToArray());
@@ -273,6 +276,40 @@ public sealed class TransactionsHandler :
         transaction.UpdateOpeningBalance(request.AccountId.Value, request.Amount, request.TransactionDate, request.Note, utcNow);
         return Result.Success();
     }
+    private Result UpdateCreditCardPurchase(Guid userId, Transaction transaction, TransactionMutationDto request, DateTimeOffset utcNow)
+    {
+        if (request.AccountId is null || request.CategoryId is null) return Result.Failure(Error.Validation("Transaction", "Credit card purchase requires accountId and categoryId."));
+        var accountResult = GetActiveAccount(userId, request.AccountId.Value);
+        if (accountResult.IsFailure) return Result.Failure(accountResult.Errors.ToArray());
+        if (accountResult.Value.Type != AccountType.CreditCard) return Result.Failure(Error.Validation("Account", "Credit card purchase requires a credit card account."));
+        var categoryResult = GetActiveCategory(userId, request.CategoryId.Value, CategoryType.Expense);
+        if (categoryResult.IsFailure) return Result.Failure(categoryResult.Errors.ToArray());
+        transaction.UpdateCreditCardPurchase(request.AccountId.Value, request.CategoryId.Value, request.Amount, request.TransactionDate, request.Payee, request.Note, utcNow);
+        return Result.Success();
+    }
+
+    private Result UpdateCreditCardRefund(Guid userId, Transaction transaction, TransactionMutationDto request, DateTimeOffset utcNow)
+    {
+        if (request.AccountId is null) return Result.Failure(Error.Validation("Transaction", "Credit card refund requires accountId."));
+        var accountResult = GetActiveAccount(userId, request.AccountId.Value);
+        if (accountResult.IsFailure) return Result.Failure(accountResult.Errors.ToArray());
+        if (accountResult.Value.Type != AccountType.CreditCard) return Result.Failure(Error.Validation("Account", "Credit card refund requires a credit card account."));
+        transaction.UpdateCreditCardRefund(request.AccountId.Value, request.Amount, request.TransactionDate, request.Note, utcNow);
+        return Result.Success();
+    }
+
+    private Result UpdateCreditCardPayment(Guid userId, Transaction transaction, TransactionMutationDto request, DateTimeOffset utcNow)
+    {
+        if (request.FromAccountId is null || request.ToAccountId is null) return Result.Failure(Error.Validation("Transaction", "Credit card payment requires fromAccountId and toAccountId."));
+        var paymentAccountResult = GetActiveAccount(userId, request.FromAccountId.Value);
+        var creditCardResult = GetActiveAccount(userId, request.ToAccountId.Value);
+        if (paymentAccountResult.IsFailure) return Result.Failure(paymentAccountResult.Errors.ToArray());
+        if (creditCardResult.IsFailure) return Result.Failure(creditCardResult.Errors.ToArray());
+        if (paymentAccountResult.Value.Type == AccountType.CreditCard) return Result.Failure(Error.Validation("PaymentAccountId", "Payment source cannot be a credit card account."));
+        if (creditCardResult.Value.Type != AccountType.CreditCard) return Result.Failure(Error.Validation("CreditCardAccountId", "Payment target must be a credit card account."));
+        transaction.UpdateCreditCardPayment(request.FromAccountId.Value, request.ToAccountId.Value, request.Amount, request.TransactionDate, request.Note, utcNow);
+        return Result.Success();
+    }
 
     private async Task SaveNewTransaction(Transaction transaction, CancellationToken cancellationToken)
     {
@@ -333,6 +370,7 @@ public sealed class TransactionsHandler :
         {
             TransactionType.Expense => Math.Abs(entryDtos.Sum(entry => entry.Amount)),
             TransactionType.Transfer => Math.Abs(entryDtos.Where(entry => entry.Amount < 0).Sum(entry => entry.Amount)),
+            TransactionType.CreditCardPayment => Math.Abs(entryDtos.Where(entry => entry.Amount < 0).Select(entry => entry.Amount).DefaultIfEmpty(0m).Max()),
             _ => Math.Abs(entryDtos.Sum(entry => entry.Amount))
         };
         return new TransactionDto(transaction.Id, transaction.Type, transaction.Status, transaction.TransactionDate, categoryDto, transaction.Payee, transaction.Note, displayAmount, entryDtos, transaction.CreatedAtUtc, transaction.UpdatedAtUtc, transaction.VoidedAtUtc);

@@ -69,21 +69,31 @@ public sealed class StatementImportsHandler :
         if (existing is not null) return Result<StatementImportBatchDto>.Failure(Error.Conflict("StatementImport", "This PDF has already been imported for this card."));
 
         var context = new StatementImportContext(request.OriginalFileName, request.ContentType);
-        var importer = _importers.FirstOrDefault(candidate => candidate.CanHandle(context));
-        if (importer is null) return Result<StatementImportBatchDto>.Failure(Error.Validation("File", "No statement importer supports this PDF."));
+        var candidates = _importers.Where(candidate => candidate.CanHandle(context)).ToArray();
+        if (candidates.Length == 0) return Result<StatementImportBatchDto>.Failure(Error.Validation("File", "No statement importer supports this PDF."));
 
-        ParsedStatement parsed;
-        try
+        ParsedStatement? parsed = null;
+        IStatementImporter? importer = null;
+        Error? parserError = null;
+        foreach (var candidate in candidates)
         {
-            buffer.Position = 0;
-            parsed = await importer.ParseAsync(buffer, request.Password, cancellationToken);
+            try
+            {
+                buffer.Position = 0;
+                parsed = await candidate.ParseAsync(buffer, request.Password, cancellationToken);
+                importer = candidate;
+                break;
+            }
+            catch (Exception ex) when (ex.GetType().Name == "StatementImportParseException")
+            {
+                var codeProperty = ex.GetType().GetProperty("Code");
+                var code = codeProperty?.GetValue(ex)?.ToString() ?? "ParserFailure";
+                if (code == "WrongPassword" || code == "InvalidPdf") return Result<StatementImportBatchDto>.Failure(Error.Validation(code, ex.Message));
+                parserError = Error.Validation(code, ex.Message);
+            }
         }
-        catch (Exception ex) when (ex.GetType().Name == "StatementImportParseException")
-        {
-            var codeProperty = ex.GetType().GetProperty("Code");
-            var code = codeProperty?.GetValue(ex)?.ToString() ?? "ParserFailure";
-            return Result<StatementImportBatchDto>.Failure(Error.Validation(code, ex.Message));
-        }
+        if (parsed is null || importer is null) return Result<StatementImportBatchDto>.Failure(parserError ?? Error.Validation("File", "No statement importer supports this PDF."));
+        if (!CardMatchesStatementProvider(card, parsed.Provider)) return Result<StatementImportBatchDto>.Failure(Error.Validation("StatementImport.CardMismatch", "This statement provider does not match the selected credit card. Open the matching card before importing this PDF."));
 
         var utcNow = _dateTimeProvider.UtcNow;
         var batch = StatementImportBatch.Create(userId.Value, request.CreditCardAccountId, parsed.Provider, request.OriginalFileName, hash, importer.ParserVersion, utcNow);
@@ -264,6 +274,16 @@ public sealed class StatementImportsHandler :
         return StatementImportRow.Create(batchId, row.SourceRowNumber, row.TransactionDate, row.PostingDate, row.RawDescription, row.NormalizedDescription, row.Amount, row.Currency, row.ForeignAmount, row.ForeignCurrency, row.Type, row.IsInstallment, row.InstallmentCurrentNumber, row.InstallmentTotalNumber, row.RawText, fingerprint, duplicate ? StatementImportMatchStatus.PossibleDuplicate : StatementImportMatchStatus.New, reviewStatus, utcNow);
     }
 
+    private static bool CardMatchesStatementProvider(CreditCardAccount card, string provider)
+    {
+        var label = $"{card.IssuerName} {card.CardName}";
+        return provider switch
+        {
+            "ESUN" => label.Contains("ESUN", StringComparison.OrdinalIgnoreCase) || label.Contains("\u7389\u5c71", StringComparison.Ordinal),
+            "Richart" => label.Contains("Richart", StringComparison.OrdinalIgnoreCase) || label.Contains("\u53f0\u65b0", StringComparison.Ordinal),
+            _ => true
+        };
+    }
     private static bool RequiresExpenseCategory(StatementImportRowType type) => type is StatementImportRowType.Purchase or StatementImportRowType.Installment or StatementImportRowType.Fee or StatementImportRowType.Interest or StatementImportRowType.Adjustment;
     private IReadOnlyList<StatementImportRow> Rows(Guid batchId) => _db.StatementImportRows.Where(row => row.BatchId == batchId).OrderBy(row => row.SourceRowNumber).ToArray();
     private CreditCardAccount? GetOwnedCard(Guid userId, Guid accountId) => _db.CreditCardAccounts.FirstOrDefault(card => card.UserId == userId && card.AccountId == accountId);

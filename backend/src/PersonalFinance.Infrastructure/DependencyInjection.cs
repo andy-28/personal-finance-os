@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<DevelopmentDataSeeder>();
         services.AddScoped<IStatementImporter, RichartPdfStatementImporter>();
+        services.AddScoped<IStatementImporter, EsunPdfStatementImporter>();
         return services;
     }
 }
