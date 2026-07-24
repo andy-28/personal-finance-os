@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { FaviconController } from "@/components/aether/favicon-controller";
 import { Button } from "@/components/ui/button";
 import { GameTheme } from "@/components/ui/game-theme";
 import { LoadingState } from "@/components/ui/states";
@@ -29,7 +30,10 @@ const navGroups = [
   },
   {
     title: t("system"),
-    links: [["/system-status", t("health"), t("healthHint")]]
+    links: [
+      ["/system-status", t("health"), t("healthHint")],
+      ["/workshop", "介面工坊", "Aether Workshop"]
+    ]
   }
 ] as const;
 
@@ -79,6 +83,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <GameTheme>
+      <FaviconController />
       <main className="min-h-screen text-foreground">
         <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/70 bg-surface/72 px-4 py-5 shadow-panel backdrop-blur-xl lg:block">
           <div className="mb-8 border-b border-border/55 pb-5">

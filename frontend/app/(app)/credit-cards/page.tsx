@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { AetherEnergyDivider } from "@/components/ui/aether-effect";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { GameProgress } from "@/components/ui/game-theme";
@@ -288,6 +289,7 @@ export default function CreditCardsPage() {
   return (
     <section className="grid gap-6">
       <PageHeader title={t("creditCardsTitle")} description={t("creditCardsDescription")} />
+      <AetherEnergyDivider className="-mt-4 mb-1 sm:-mt-5 sm:mb-0" intensity="normal" />
       {error && <ErrorState message={error} />}
 
       <div className="grid gap-3 lg:grid-cols-3">
