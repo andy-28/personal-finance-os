@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/ui/states";
 import { useAuth } from "../auth-context";
 import { t } from "@/lib/i18n";
 import { QuickAdd } from "./quick-add";
+import { QuestLog } from "./quest-log";
 
 const navGroups = [
   {
@@ -23,7 +24,6 @@ const navGroups = [
   {
     title: t("planning"),
     links: [
-      ["/upcoming", t("upcoming"), t("upcomingHint")],
       ["/recurring-transactions", t("recurring"), t("recurringHint")],
       ["/categories", t("categories"), t("categoriesHint")]
     ]
@@ -119,6 +119,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
               <div className="ml-auto flex shrink-0 items-center gap-2">
+                <QuestLog />
                 <QuickAdd />
                 <Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace("/login"); }}>{t("logout")}</Button>
               </div>

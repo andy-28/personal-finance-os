@@ -1,4 +1,4 @@
-export type VisualSlotKey = "app.favicon";
+export type VisualSlotKey = "app.favicon" | "page.header-divider";
 
 export type BuiltInVisualAsset = {
   id: string;
@@ -15,6 +15,15 @@ export const visualSlots = {
     label: "Favicon",
     category: "branding",
     defaultAssetId: "default-favicon"
+  },
+  headerDivider: {
+    key: "page.header-divider" as const,
+    label: "頁面標題分隔特效",
+    category: "effects",
+    categoryLabel: "視窗特效",
+    description: "在頁面標題下方顯示紫色 Aether 能量分隔效果。",
+    defaultEnabled: true,
+    assetPath: "/aether/effects/purple-energy-divider.webp"
   }
 };
 

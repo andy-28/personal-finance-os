@@ -1,62 +1,265 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
-import { ErrorState, LoadingState } from "@/components/ui/states";
+import { ErrorState } from "@/components/ui/states";
+import {
+  AetherActionBar,
+  AetherDefinitionList,
+  AetherDefinitionRow,
+  AetherListRow,
+  AetherSectionHeader,
+  AetherStatusIndicator
+} from "@/components/ui/aether-management";
 import { getHealth, type HealthCheck, type HealthResponse, type HealthStatus } from "@/lib/api-client";
 import { healthStatusLabels } from "@/lib/labels";
 
-type LoadState = { kind: "loading" } | { kind: "ready"; data: HealthResponse } | { kind: "error"; message: string };
+type StatusFilter = "All" | "Healthy" | "Warning" | "Error";
+type LoadState = {
+  isLoading: boolean;
+  data?: HealthResponse;
+  error?: string;
+  lastCheckedAt?: string;
+};
+type ServiceView = {
+  id: string;
+  name: string;
+  type: string;
+  status: HealthStatus | "Checking" | "Unknown";
+  endpoint?: string;
+  duration?: number;
+  message?: string;
+  error?: string | null;
+  tags?: string[];
+};
 
 export default function SystemStatusPage() {
-  const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [state, setState] = useState<LoadState>({ isLoading: true });
+  const [selectedId, setSelectedId] = useState("backend");
+  const [filter, setFilter] = useState<StatusFilter>("All");
+
+  async function runCheck(signal?: AbortSignal) {
+    setState((current) => ({ ...current, isLoading: true, error: undefined }));
+    try {
+      const data = await getHealth(signal);
+      setState({ isLoading: false, data, lastCheckedAt: new Date().toISOString() });
+    } catch (error) {
+      if (signal?.aborted) return;
+      setState((current) => ({
+        ...current,
+        isLoading: false,
+        error: error instanceof Error ? error.message : "健康檢查失敗",
+        lastCheckedAt: new Date().toISOString()
+      }));
+    }
+  }
+
   useEffect(() => {
     const controller = new AbortController();
-    getHealth(controller.signal).then((data) => setState({ kind: "ready", data })).catch((error: unknown) => {
-      if (!controller.signal.aborted) setState({ kind: "error", message: error instanceof Error ? error.message : "健康檢查失敗" });
-    });
+    runCheck(controller.signal);
     return () => controller.abort();
   }, []);
-  const checks = useMemo(() => state.kind === "ready" ? ["postgresql", "redis"].map((name) => state.data.checks.find((check) => check.name === name) ?? { name, status: "Unhealthy" as HealthStatus, duration: 0, description: null, error: "API 未回傳此服務狀態。", tags: [] }) : [], [state]);
+
+  const services = useMemo(() => buildServices(state), [state]);
+  const visibleServices = useMemo(() => services.filter((service) => {
+    if (filter === "All") return true;
+    if (filter === "Healthy") return service.status === "Healthy";
+    if (filter === "Warning") return service.status === "Degraded" || service.status === "Unknown" || service.status === "Checking";
+    return service.status === "Unhealthy";
+  }), [services, filter]);
+  const selectedService = services.find((service) => service.id === selectedId) ?? services[0];
+  const summary = useMemo(() => ({
+    healthy: services.filter((service) => service.status === "Healthy").length,
+    warning: services.filter((service) => service.status === "Degraded" || service.status === "Unknown" || service.status === "Checking").length,
+    error: services.filter((service) => service.status === "Unhealthy").length
+  }), [services]);
+
+  useEffect(() => {
+    if (!services.some((service) => service.id === selectedId) && services[0]) setSelectedId(services[0].id);
+  }, [services, selectedId]);
 
   return (
     <section className="grid gap-6">
-      <PageHeader title="系統狀態" description="確認 API、PostgreSQL 與 Redis 是否可正常服務。" actions={<OverallStatus state={state} />} />
-      {state.kind === "loading" && <LoadingState label="正在檢查後端服務..." />}
-      {state.kind === "error" && <ErrorState message={state.message} />}
-      {state.kind === "ready" && <div className="grid gap-4 md:grid-cols-2">{checks.map((check) => <ServiceCard key={check.name} check={check} />)}</div>}
+      <PageHeader
+        title="系統狀態"
+        description="檢查前端、API、資料庫與快取服務的連線狀態。"
+        actions={<Button type="button" onClick={() => runCheck()} isLoading={state.isLoading}>重新檢查全部</Button>}
+      />
+      {state.error && <ErrorState message={state.error} />}
+      <GameWindow title="Service Checks" description="Aether Diagnostics Window">
+        <div className="aether-management-window" aria-busy={state.isLoading}>
+          <div className="aether-toolbar" role="tablist" aria-label="服務狀態篩選">
+            {(["All", "Healthy", "Warning", "Error"] as StatusFilter[]).map((nextFilter) => (
+              <button
+                key={nextFilter}
+                type="button"
+                role="tab"
+                aria-selected={filter === nextFilter}
+                className={`aether-filter-tab ${filter === nextFilter ? "aether-filter-tab-active" : ""}`}
+                onClick={() => setFilter(nextFilter)}
+              >
+                {statusFilterLabel(nextFilter)}
+              </button>
+            ))}
+            <div className="aether-status-summary" aria-label="服務摘要">
+              <AetherStatusIndicator label={`正常 ${summary.healthy}`} tone="success" />
+              <AetherStatusIndicator label={`警告 ${summary.warning}`} tone="warning" />
+              <AetherStatusIndicator label={`錯誤 ${summary.error}`} tone="danger" />
+            </div>
+          </div>
+
+          <div className={`aether-master-detail ${state.isLoading ? "aether-loading-shell" : ""}`}>
+            <div className="aether-list-pane" aria-label="服務清單">
+              <AetherSectionHeader title="服務清單" meta={state.isLoading ? "檢查中" : `${visibleServices.length} services`} />
+              {visibleServices.map((service) => (
+                <AetherListRow
+                  key={service.id}
+                  title={service.name}
+                  subtitle={`${statusText(service.status)}${typeof service.duration === "number" ? ` / ${service.duration.toFixed(1)} ms` : ""}`}
+                  meta={<AetherStatusIndicator label={statusText(service.status)} tone={statusTone(service.status)} />}
+                  isActive={selectedService?.id === service.id}
+                  onClick={() => setSelectedId(service.id)}
+                />
+              ))}
+            </div>
+
+            <div className="aether-detail-pane">
+              {selectedService && (
+                <div className="aether-detail-scroll">
+                  <AetherSectionHeader title={selectedService.name} meta={selectedService.type} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <AetherStatusIndicator label={statusText(selectedService.status)} tone={statusTone(selectedService.status)} />
+                    {state.isLoading && <AetherStatusIndicator label="檢查中" tone="credit" />}
+                  </div>
+
+                  <AetherDefinitionList>
+                    <AetherDefinitionRow label="Service" value={selectedService.name} />
+                    <AetherDefinitionRow label="Type" value={selectedService.type} />
+                    <AetherDefinitionRow label="狀態" value={statusText(selectedService.status)} />
+                    <AetherDefinitionRow label="Endpoint" value={selectedService.endpoint ?? "目前程式未提供"} />
+                    <AetherDefinitionRow label="回應時間" value={typeof selectedService.duration === "number" ? `${selectedService.duration.toFixed(1)} ms` : "未提供"} />
+                    <AetherDefinitionRow label="最後檢查" value={state.lastCheckedAt ? formatDateTime(state.lastCheckedAt) : "尚未完成"} />
+                    <AetherDefinitionRow label="Tags" value={selectedService.tags?.join(", ") || "未提供"} />
+                    <AetherDefinitionRow label="訊息" value={selectedService.message ?? "沒有額外訊息"} />
+                    {selectedService.error && <AetherDefinitionRow label="錯誤訊息" value={<span className="text-danger">{selectedService.error}</span>} className="md:col-span-2" />}
+                    {selectedService.status === "Unhealthy" && <AetherDefinitionRow label="建議" value={serviceGuidance(selectedService)} className="md:col-span-2" />}
+                  </AetherDefinitionList>
+
+                  <AetherActionBar>
+                    <Button type="button" variant="outline" onClick={() => runCheck()} isLoading={state.isLoading}>重新檢查此服務</Button>
+                  </AetherActionBar>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </GameWindow>
     </section>
   );
 }
 
-function OverallStatus({ state }: { state: LoadState }) {
-  if (state.kind === "loading") return <Badge>檢查中</Badge>;
-  if (state.kind === "error") return <Badge tone="danger">異常</Badge>;
-  return <StatusBadge status={state.data.status} />;
+function buildServices(state: LoadState): ServiceView[] {
+  const data = state.data;
+  const postgres = findCheck(data, "postgresql");
+  const redis = findCheck(data, "redis");
+
+  return [
+    {
+      id: "frontend",
+      name: "Frontend",
+      type: "Next.js Client",
+      status: "Healthy",
+      endpoint: "目前頁面",
+      message: "前端頁面已成功載入。"
+    },
+    {
+      id: "backend",
+      name: "Backend API",
+      type: "Health Endpoint",
+      status: state.isLoading && !data ? "Checking" : state.error && !data ? "Unhealthy" : data?.status ?? "Unknown",
+      endpoint: "/health",
+      duration: data?.totalDuration,
+      message: data ? "API service reachable." : undefined,
+      error: state.error
+    },
+    normalizeHealthCheck(postgres, "postgresql", "PostgreSQL", "Database", "postgresql"),
+    normalizeHealthCheck(redis, "redis", "Redis", "Cache", "redis")
+  ];
 }
 
-function StatusBadge({ status }: { status: HealthStatus }) {
-  const tone = status === "Healthy" ? "success" : status === "Degraded" ? "warning" : "danger";
-  return <Badge tone={tone}>{healthStatusLabels[status]}</Badge>;
+function findCheck(data: HealthResponse | undefined, name: string) {
+  return data?.checks.find((check) => check.name === name);
 }
 
-function ServiceCard({ check }: { check: HealthCheck }) {
-  const serviceName = check.name === "postgresql" ? "PostgreSQL" : check.name === "redis" ? "Redis" : check.name;
-  return (
-    <Card>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold">{serviceName}</h2>
-          <p className="mt-1 text-sm text-muted">{check.tags.join(", ") || "service"}</p>
-        </div>
-        <StatusBadge status={check.status} />
-      </div>
-      <dl className="mt-5 grid gap-3 text-sm">
-        <div className="flex justify-between gap-4 border-t pt-3"><dt className="text-muted">回應時間</dt><dd className="font-medium">{check.duration.toFixed(1)} ms</dd></div>
-        {check.error && <div className="border-t pt-3"><dt className="text-muted">錯誤</dt><dd className="mt-1 text-danger">{check.error}</dd></div>}
-      </dl>
-    </Card>
-  );
+function normalizeHealthCheck(check: HealthCheck | undefined, id: string, name: string, type: string, tag: string): ServiceView {
+  if (!check) {
+    return {
+      id,
+      name,
+      type,
+      status: "Unknown",
+      duration: undefined,
+      message: "API 尚未回傳此服務狀態。",
+      error: null,
+      tags: [tag]
+    };
+  }
+
+  return {
+    id,
+    name,
+    type,
+    status: check.status,
+    duration: check.duration,
+    message: check.description ?? undefined,
+    error: check.error,
+    tags: check.tags
+  };
+}
+
+function StatusBadgeStatus(status: ServiceView["status"]) {
+  return status;
+}
+
+function statusText(status: ServiceView["status"]) {
+  if (status === "Checking") return "檢查中";
+  if (status === "Unknown") return "未知";
+  return healthStatusLabels[status];
+}
+
+function statusTone(status: ServiceView["status"]) {
+  const normalized = StatusBadgeStatus(status);
+  if (normalized === "Healthy") return "success";
+  if (normalized === "Degraded" || normalized === "Checking" || normalized === "Unknown") return "warning";
+  return "danger";
+}
+
+function statusFilterLabel(filter: StatusFilter) {
+  const labels: Record<StatusFilter, string> = {
+    All: "全部",
+    Healthy: "正常",
+    Warning: "警告",
+    Error: "錯誤"
+  };
+  return labels[filter];
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("zh-TW", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(new Date(value));
+}
+
+function serviceGuidance(service: ServiceView) {
+  if (service.id === "backend") return "確認 Backend API 是否已啟動，並檢查前端 NEXT_PUBLIC_API_URL 是否指向正確 port。";
+  if (service.id === "postgresql") return "確認 PostgreSQL container 是否正在執行，連線字串與 port 是否正確。";
+  if (service.id === "redis") return "確認 Redis container 是否正在執行，快取連線設定是否正確。";
+  return "請確認此服務是否已啟動。";
 }

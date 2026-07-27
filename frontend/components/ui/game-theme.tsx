@@ -53,16 +53,34 @@ export function GamePanel({ children, className = "", ...props }: HTMLAttributes
   return <section {...props} className={`game-panel ${className}`}>{children}</section>;
 }
 
-export function GameWindow({ title, description, actions, children, className = "", ...props }: HTMLAttributes<HTMLElement> & { title?: string; description?: string; actions?: ReactNode; children: ReactNode }) {
+export function GameWindow({
+  title,
+  description,
+  actions,
+  children,
+  className = "",
+  onRequestClose,
+  closeLabel = "關閉",
+  ...props
+}: HTMLAttributes<HTMLElement> & { title?: string; description?: string; actions?: ReactNode; children: ReactNode; onRequestClose?: () => void; closeLabel?: string }) {
   return (
     <section {...props} className={`game-window animate-window-open ${className}`}>
-      {(title || description || actions) && (
+      {(title || description || actions || onRequestClose) && (
         <div className="game-window-titlebar">
-          <div>
-            {title && <h2 className="text-lg font-bold text-foreground">{title}</h2>}
+          <div className="min-w-0">
+            {title && <h2 className="game-window-title-text">{title}</h2>}
             {description && <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.08em] text-muted">{description}</p>}
           </div>
-          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+          {(actions || onRequestClose) && (
+            <div className="flex shrink-0 items-center gap-2">
+              {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+              {onRequestClose && (
+                <button type="button" className="game-window-close ui-focus" aria-label={closeLabel} title={closeLabel} onClick={onRequestClose}>
+                  ×
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
       <div className="game-window-body">{children}</div>
@@ -99,8 +117,8 @@ export function GameInspectRow({ label, value, strong }: { label: string; value:
   );
 }
 
-export function GameTabs({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`game-tabs ${className}`}>{children}</div>;
+export function GameTabs({ children, className = "", ...props }: HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
+  return <div {...props} className={`game-tabs ${className}`}>{children}</div>;
 }
 
 export function GameTab({ isActive, children, className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { isActive?: boolean; children: ReactNode }) {

@@ -2,13 +2,15 @@ import { getBuiltInVisualAsset, visualSlots } from "./visual-slots";
 
 export interface AetherWorkshopSettings {
   faviconAssetId: string;
+  headerDividerEnabled: boolean;
 }
 
 export const aetherWorkshopStorageKey = "personal-finance-os:aether-workshop";
 export const aetherWorkshopSettingsChangedEvent = "aether-workshop-settings-change";
 
 export const defaultAetherWorkshopSettings: AetherWorkshopSettings = {
-  faviconAssetId: visualSlots.favicon.defaultAssetId
+  faviconAssetId: visualSlots.favicon.defaultAssetId,
+  headerDividerEnabled: visualSlots.headerDivider.defaultEnabled
 };
 
 export function normalizeAetherWorkshopSettings(value: unknown): AetherWorkshopSettings {
@@ -18,8 +20,11 @@ export function normalizeAetherWorkshopSettings(value: unknown): AetherWorkshopS
   const faviconAssetId = typeof candidate.faviconAssetId === "string" && getBuiltInVisualAsset(candidate.faviconAssetId)
     ? candidate.faviconAssetId
     : defaultAetherWorkshopSettings.faviconAssetId;
+  const headerDividerEnabled = typeof candidate.headerDividerEnabled === "boolean"
+    ? candidate.headerDividerEnabled
+    : defaultAetherWorkshopSettings.headerDividerEnabled;
 
-  return { faviconAssetId };
+  return { faviconAssetId, headerDividerEnabled };
 }
 
 export function loadAetherWorkshopSettings(): AetherWorkshopSettings {

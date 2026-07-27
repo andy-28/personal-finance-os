@@ -11,6 +11,7 @@ import { GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { apiFetch, money, problemMessage, type AccountDto, type CategoryDto, type PagedTransactionsDto, type TransactionDto, type TransactionStatus, type TransactionType, type UpcomingDto } from "@/lib/api-client";
+import { financeDataChangedEvent } from "@/lib/app-events";
 import { formatDate } from "@/lib/formatters";
 import { commonLabels, transactionStatusLabels, transactionTypeLabels } from "@/lib/labels";
 import { useAuth } from "../../auth-context";
@@ -76,6 +77,12 @@ export default function TransactionsPage() {
   }
 
   useEffect(() => { if (accessToken) load(); }, [accessToken, filters]);
+  useEffect(() => {
+    if (!accessToken) return;
+    const onFinanceDataChanged = () => { void load(); };
+    window.addEventListener(financeDataChangedEvent, onFinanceDataChanged);
+    return () => window.removeEventListener(financeDataChangedEvent, onFinanceDataChanged);
+  }, [accessToken, filters]);
 
   function accountType(accountId: string) {
     return accounts.find((account) => account.id === accountId)?.type;
@@ -210,7 +217,7 @@ export default function TransactionsPage() {
 
       {selected && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={closeEditor}>
-          <GameWindow title="Edit transaction" description={`${transactionTypeLabels[selected.type]} / ${transactionStatusLabels[selected.status]}`} className="w-full max-w-3xl" onClick={(event) => event.stopPropagation()}>
+          <GameWindow title="Edit transaction" description={`${transactionTypeLabels[selected.type]} / ${transactionStatusLabels[selected.status]}`} className="w-full max-w-3xl" onRequestClose={closeEditor} onClick={(event) => event.stopPropagation()}>
             <form onSubmit={submitEdit} className="grid gap-4">
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="ui-label">Date<input className="ui-input" type="date" value={editForm.transactionDate} onChange={(e) => setEditForm({ ...editForm, transactionDate: e.target.value })} disabled={selected.status !== "Posted"} /></label>

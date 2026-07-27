@@ -29,7 +29,7 @@ export function FaviconPicker() {
   const hasChanges = selectedAsset.id !== savedAsset.id;
 
   const onApply = () => {
-    const result = saveAetherWorkshopSettings({ faviconAssetId: selectedAsset.id });
+    const result = saveAetherWorkshopSettings({ ...loadAetherWorkshopSettings(), faviconAssetId: selectedAsset.id });
     setSavedAssetId(result.settings.faviconAssetId);
     setSelectedAssetId(result.settings.faviconAssetId);
     setHasStorageError(!result.ok);

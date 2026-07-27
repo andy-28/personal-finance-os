@@ -1,8 +1,8 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/exhaustive-deps */
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { AuthResponse, UserDto } from "@/lib/api-client";
 import { problemMessage } from "@/lib/api-client";
 
@@ -22,6 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
 
   async function handleAuthResponse(response: Response) {
     const data = await response.json();
@@ -33,26 +34,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function login(email: string, password: string) {
+    refreshPromiseRef.current = null;
     const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
     await handleAuthResponse(response);
   }
 
   async function register(displayName: string, email: string, password: string) {
+    refreshPromiseRef.current = null;
     const response = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ displayName, email, password }) });
     await handleAuthResponse(response);
   }
 
   async function refreshSession() {
-    const response = await fetch("/api/auth/refresh", { method: "POST" });
-    if (!response.ok) {
-      setUser(null);
-      setAccessToken(null);
-      return null;
-    }
-    return handleAuthResponse(response);
+    if (refreshPromiseRef.current) return refreshPromiseRef.current;
+
+    refreshPromiseRef.current = (async () => {
+      try {
+        const response = await fetch("/api/auth/refresh", { method: "POST" });
+        if (!response.ok) {
+          setUser(null);
+          setAccessToken(null);
+          return null;
+        }
+        return handleAuthResponse(response);
+      } catch {
+        setUser(null);
+        setAccessToken(null);
+        return null;
+      } finally {
+        refreshPromiseRef.current = null;
+      }
+    })();
+
+    return refreshPromiseRef.current;
   }
 
   async function logout() {
+    refreshPromiseRef.current = null;
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
     setAccessToken(null);

@@ -10,6 +10,7 @@ import { GameInspectPanel, GameInspectRow, GameWindow } from "@/components/ui/ga
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { apiFetch, money, problemMessage, type AccountDto, type AccountSummaryDto, type AccountType, type PagedTransactionsDto, type TransactionDto } from "@/lib/api-client";
+import { financeDataChangedEvent } from "@/lib/app-events";
 import { todayInputValue } from "@/lib/formatters";
 import { accountTypeLabels, commonLabels } from "@/lib/labels";
 import { useAuth } from "../../auth-context";
@@ -72,6 +73,12 @@ export default function AccountsPage() {
   }
 
   useEffect(() => { if (accessToken) load(); }, [accessToken, includeArchived]);
+  useEffect(() => {
+    if (!accessToken) return;
+    const onFinanceDataChanged = () => { void load(); };
+    window.addEventListener(financeDataChangedEvent, onFinanceDataChanged);
+    return () => window.removeEventListener(financeDataChangedEvent, onFinanceDataChanged);
+  }, [accessToken, includeArchived]);
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(goalStorageKey);
@@ -261,7 +268,7 @@ export default function AccountsPage() {
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setIsCreateOpen(false); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); }}>
-          <GameWindow title="新增帳戶" description="Account setup" className="w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
+          <GameWindow title="新增帳戶" description="Account setup" className="w-full max-w-2xl" onRequestClose={() => { setIsCreateOpen(false); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); }} onClick={(event) => event.stopPropagation()}>
             <GameInspectPanel title={form.name || "新帳戶"} subtitle={accountTypeLabels[form.type]} icon={<AccountGlyph type={form.type} />}>
               <form onSubmit={(event) => submit(event, null)} className="grid gap-4 sm:grid-cols-2">
                 <label className="ui-label sm:col-span-2">帳戶名稱<input className="ui-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus /></label>
@@ -283,7 +290,7 @@ export default function AccountsPage() {
 
       {editingId && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setEditingId(null); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setOpeningTransaction(null); }}>
-          <GameWindow title="Inspect Account" description="Account information" className="w-full max-w-2xl" onClick={(event) => event.stopPropagation()}>
+          <GameWindow title="Inspect Account" description="Account information" className="w-full max-w-2xl" onRequestClose={() => { setEditingId(null); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setOpeningTransaction(null); }} onClick={(event) => event.stopPropagation()}>
             <GameInspectPanel title={form.name || "New account"} subtitle={form.type} icon={<AccountGlyph type={form.type} />}>
               <form onSubmit={(event) => submit(event, editingId)} className="grid gap-4 sm:grid-cols-2">
                 <label className="ui-label sm:col-span-2">Name<input className="ui-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus /></label>
@@ -305,7 +312,7 @@ export default function AccountsPage() {
 
       {isGoalModalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setIsGoalModalOpen(false); setGoalForm(emptyGoalForm); }}>
-          <GameWindow title="新增資源條" description="Resource tracker" className="w-full max-w-xl" onClick={(event) => event.stopPropagation()}>
+          <GameWindow title="新增資源條" description="Resource tracker" className="w-full max-w-xl" onRequestClose={() => { setIsGoalModalOpen(false); setGoalForm(emptyGoalForm); }} onClick={(event) => event.stopPropagation()}>
             <GameInspectPanel title={goalForm.title || "新的追蹤條"} subtitle="Account target" icon={<span className="text-sm font-black">HP</span>}>
               <form onSubmit={addFundGoal} className="grid gap-4 sm:grid-cols-2">
                 <label className="ui-label sm:col-span-2">參考帳戶<select className="ui-input" value={goalForm.accountId} onChange={(e) => setGoalForm({ ...goalForm, accountId: e.target.value })} autoFocus>

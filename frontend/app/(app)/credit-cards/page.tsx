@@ -3,13 +3,15 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AetherEnergyDivider } from "@/components/ui/aether-effect";
+import { AetherHeaderDividerSlot } from "@/components/ui/aether-effect";
+import { AetherListRow, AetherSectionHeader } from "@/components/ui/aether-management";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
-import { GameProgress } from "@/components/ui/game-theme";
+import { GameBadge, GameProgress, GameTab, GameTabs, GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { apiFetch, money, problemMessage, type AccountDto, type CategoryDto, type CreditCardDetailDto, type CreditCardDto, type StatementImportBatchDto, type StatementImportReviewStatus, type StatementImportRowDto, type StatementImportRowType } from "@/lib/api-client";
+import { financeDataChangedEvent } from "@/lib/app-events";
 import { formatDate, todayInputValue } from "@/lib/formatters";
 import { t } from "@/lib/i18n";
 import { installmentStatusLabels, statementImportBatchStatusLabels, statementImportMatchStatusLabels, statementImportReviewStatusLabels, statementImportRowTypeLabels, transactionTypeLabels } from "@/lib/labels";
@@ -27,6 +29,9 @@ type StatementRowUpdate = {
   amount?: number;
   type?: StatementImportRowType;
 };
+
+type CreditCardTab = "overview" | "statement" | "operations" | "installments";
+type CreditCardOperation = "purchase" | "refund" | "payment" | "installment";
 
 const statementRowTypeOptions: StatementImportRowType[] = ["Unknown", "Purchase", "Installment", "Fee", "Interest", "Refund", "Payment", "Adjustment"];
 function statementRowNeedsExpenseCategory(type: StatementImportRowType) {
@@ -51,6 +56,16 @@ function unbilledAmount(card: CreditCardDto) {
   return card.unbilledAmount ?? Math.max(card.outstandingAmount - billedOutstanding(card), 0);
 }
 
+function numericAmount(value: string) {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+}
+
+function cardMeta(card: CreditCardDto) {
+  const parts = [card.issuerName, card.cardName, card.lastFourDigits].filter(Boolean);
+  return parts.join(" · ");
+}
+
 export default function CreditCardsPage() {
   const { accessToken, refreshSession } = useAuth();
   const [cards, setCards] = useState<CreditCardDto[]>([]);
@@ -71,6 +86,9 @@ export default function CreditCardsPage() {
   const [statementPassword, setStatementPassword] = useState("");
   const [defaultStatementCategoryId, setDefaultStatementCategoryId] = useState("");
   const [isStatementBusy, setIsStatementBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState<CreditCardTab>("overview");
+  const [activeOperation, setActiveOperation] = useState<CreditCardOperation>("purchase");
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false);
 
   const activePaymentAccounts = useMemo(() => accounts.filter((account) => !account.isArchived && account.type !== "CreditCard"), [accounts]);
   const existingCardAccountIds = useMemo(() => new Set(cards.map((card) => card.accountId)), [cards]);
@@ -98,8 +116,29 @@ export default function CreditCardsPage() {
     }
   }
 
+  async function selectCreditCard(accountId: string) {
+    if (detail?.summary.accountId === accountId) return;
+    selectDefaults(accountId);
+    setStatementImport(null);
+    setStatementImports([]);
+    try {
+      const nextDetail = await apiFetch<CreditCardDetailDto>(`/api/credit-cards/${accountId}`, accessToken, {}, refreshSession);
+      setDetail(nextDetail);
+      setError(null);
+    } catch (err) {
+      setError(problemMessage(err));
+    }
+  }
+
   useEffect(() => { if (accessToken) load(); }, [accessToken]);
+  useEffect(() => {
+    if (!accessToken) return;
+    const onFinanceDataChanged = () => { void load(detail?.summary.accountId); };
+    window.addEventListener(financeDataChangedEvent, onFinanceDataChanged);
+    return () => window.removeEventListener(financeDataChangedEvent, onFinanceDataChanged);
+  }, [accessToken, detail?.summary.accountId]);
   useEffect(() => { if (accessToken && detail) loadStatementImports(detail.summary.accountId); }, [accessToken, detail?.summary.accountId]);
+  useEffect(() => { if (detail) selectDefaults(detail.summary.accountId); }, [detail?.summary.accountId]);
 
   function selectDefaults(accountId: string) {
     setPurchaseForm((form) => ({ ...form, creditCardAccountId: accountId, categoryId: form.categoryId || expenseCategories[0]?.id || "" }));
@@ -124,11 +163,13 @@ export default function CreditCardsPage() {
         paymentDueDay: Number(cardForm.paymentDueDay),
         paymentAccountId: cardForm.paymentAccountId || null
       });
-      if (editingId) await apiFetch<CreditCardDto>(`/api/credit-cards/${editingId}`, accessToken, { method: "PUT", body }, refreshSession);
-      else await apiFetch<CreditCardDto>("/api/credit-cards", accessToken, { method: "POST", body }, refreshSession);
+      const savedCard = editingId
+        ? await apiFetch<CreditCardDto>(`/api/credit-cards/${editingId}`, accessToken, { method: "PUT", body }, refreshSession)
+        : await apiFetch<CreditCardDto>("/api/credit-cards", accessToken, { method: "POST", body }, refreshSession);
       setCardForm(emptyCard);
       setEditingId(null);
-      await load(editingId);
+      setIsCardModalOpen(false);
+      await load(savedCard.accountId);
     } catch (err) {
       setError(problemMessage(err));
     }
@@ -185,7 +226,7 @@ export default function CreditCardsPage() {
     try {
       const imports = await apiFetch<StatementImportBatchDto[]>(`/api/credit-cards/${cardId}/statement-imports`, accessToken, {}, refreshSession);
       setStatementImports(imports);
-      setStatementImport((current) => current ?? imports[0] ?? null);
+      setStatementImport(imports[0] ?? null);
     } catch (err) {
       setError(problemMessage(err));
     }
@@ -286,118 +327,222 @@ export default function CreditCardsPage() {
     }
   }
 
+  function openCreateCardModal() {
+    setEditingId(null);
+    setCardForm(emptyCard);
+    setIsCardModalOpen(true);
+  }
+
+  function openEditCardModal(card: CreditCardDto) {
+    setEditingId(card.accountId);
+    setCardForm({
+      accountId: card.accountId,
+      accountName: card.accountName,
+      currencyCode: card.currencyCode,
+      issuerName: card.issuerName,
+      cardName: card.cardName,
+      lastFourDigits: card.lastFourDigits ?? "",
+      creditLimit: card.creditLimit?.toString() ?? "",
+      statementClosingDay: card.statementClosingDay,
+      paymentDueDay: card.paymentDueDay,
+      paymentAccountId: card.paymentAccountId ?? ""
+    });
+    setIsCardModalOpen(true);
+  }
+
+  function closeCardModal() {
+    setCardForm(emptyCard);
+    setEditingId(null);
+    setIsCardModalOpen(false);
+  }
+
   return (
     <section className="grid gap-6">
       <PageHeader title={t("creditCardsTitle")} description={t("creditCardsDescription")} />
-      <AetherEnergyDivider className="-mt-4 mb-1 sm:-mt-5 sm:mb-0" intensity="normal" />
+      <AetherHeaderDividerSlot className="-mt-4 mb-1 sm:-mt-5 sm:mb-0" intensity="normal" />
       {error && <ErrorState message={error} />}
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        {cards.map((card) => {
-          const utilization = creditUtilizationPercent(card);
-          return (
-            <button key={card.accountId} className="game-panel text-left transition hover:-translate-y-0.5 hover:brightness-[1.03] active:translate-y-0" onClick={async () => { selectDefaults(card.accountId); await load(card.accountId); }}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="font-bold">{card.accountName}</h2>
-                  <p className="text-sm text-muted">{card.issuerName} / {card.cardName}{card.lastFourDigits ? ` / ${card.lastFourDigits}` : ""}</p>
-                </div>
-                <span className="game-badge game-badge-credit">{utilization.toFixed(2)}%</span>
-              </div>
-              <CreditUtilization card={card} className="mt-4" />
-              <dl className="mt-4 grid gap-2 text-sm">
-                <Row label={t("outstanding")} value={money(card.outstandingAmount, card.currencyCode)} />
-                <Row label={t("billedOutstanding")} value={money(billedOutstanding(card), card.currencyCode)} />
-                <Row label={t("unbilledAmount")} value={money(unbilledAmount(card), card.currencyCode)} />
-                <Row label={t("availableCredit")} value={baseAvailableCredit(card) == null ? "-" : money(baseAvailableCredit(card)!, card.currencyCode)} />
-                {card.creditBalance > 0 && <Row label={t("creditBalance")} value={money(card.creditBalance, card.currencyCode)} />}
-                <Row label={t("nextClosing")} value={formatDate(card.nextClosingDate)} />
-                <Row label={t("nextDue")} value={formatDate(card.nextPaymentDueDate)} />
-              </dl>
-            </button>
-          );
-        })}
-        {!isLoading && cards.length === 0 && <div className="lg:col-span-3"><EmptyState title={t("noCreditCards")} /></div>}
-      </div>
+      <section className="aether-management-window">
+        <div className="game-window-titlebar">
+          <div>
+            <h2 className="game-window-title-text">信用卡管理</h2>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.08em] text-muted">AETHER CARD MANAGEMENT WINDOW</p>
+          </div>
+          <Button type="button" onClick={openCreateCardModal}>{t("addCreditCard")}</Button>
+        </div>
 
-      <form onSubmit={submitCard} className="game-panel grid gap-3 md:grid-cols-4">
-        <div className="md:col-span-4"><CardTitle title={editingId ? t("editCreditCard") : t("addCreditCard")} description={t("creditCardSetup")} /></div>
-        <select className="ui-input" value={cardForm.accountId} onChange={(e) => setCardForm({ ...cardForm, accountId: e.target.value })}>
-          <option value="">{t("createCreditCardAccount")}</option>
-          {availableCreditCardAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-        </select>
-        {!cardForm.accountId && <input className="ui-input" placeholder={t("accountName")} value={cardForm.accountName} onChange={(e) => setCardForm({ ...cardForm, accountName: e.target.value })} />}
-        <input className="ui-input" placeholder={t("issuer")} value={cardForm.issuerName} onChange={(e) => setCardForm({ ...cardForm, issuerName: e.target.value })} />
-        <input className="ui-input" placeholder={t("cardName")} value={cardForm.cardName} onChange={(e) => setCardForm({ ...cardForm, cardName: e.target.value })} />
-        <input className="ui-input" placeholder={t("lastFour")} maxLength={4} value={cardForm.lastFourDigits} onChange={(e) => setCardForm({ ...cardForm, lastFourDigits: e.target.value.replace(/\D/g, "") })} />
-        <input className="ui-input" placeholder={t("creditLimit")} type="number" min="0" step="0.01" value={cardForm.creditLimit} onChange={(e) => setCardForm({ ...cardForm, creditLimit: e.target.value })} />
-        <input className="ui-input" placeholder={t("closingDay")} type="number" min="1" max="31" value={cardForm.statementClosingDay} onChange={(e) => setCardForm({ ...cardForm, statementClosingDay: Number(e.target.value) })} />
-        <input className="ui-input" placeholder={t("dueDay")} type="number" min="1" max="31" value={cardForm.paymentDueDay} onChange={(e) => setCardForm({ ...cardForm, paymentDueDay: Number(e.target.value) })} />
-        <select className="ui-input" value={cardForm.paymentAccountId} onChange={(e) => setCardForm({ ...cardForm, paymentAccountId: e.target.value })}>
-          <option value="">{t("noDefaultPaymentAccount")}</option>
-          {activePaymentAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
-        </select>
-        <Button type="submit">{editingId ? t("update") : t("add")}</Button>
-      </form>
-
-      {detail && (
-        <section className="grid gap-4">
-          <Card>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-xl font-bold">{detail.summary.accountName}</h2>
-                <p className="text-sm text-muted">{formatDate(detail.summary.currentStatementPeriod.startDate)} to {formatDate(detail.summary.currentStatementPeriod.endDate)}</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => { setEditingId(detail.summary.accountId); setCardForm({ accountId: detail.summary.accountId, accountName: detail.summary.accountName, currencyCode: detail.summary.currencyCode, issuerName: detail.summary.issuerName, cardName: detail.summary.cardName, lastFourDigits: detail.summary.lastFourDigits ?? "", creditLimit: detail.summary.creditLimit?.toString() ?? "", statementClosingDay: detail.summary.statementClosingDay, paymentDueDay: detail.summary.paymentDueDay, paymentAccountId: detail.summary.paymentAccountId ?? "" }); }}>{t("editSettings")}</Button>
+        <div className="aether-master-detail credit-card-management-grid">
+          <aside className="aether-list-pane" role="listbox" aria-label="信用卡清單">
+            <AetherSectionHeader title="卡片槽位" meta={`${cards.length} 張卡`} />
+            <div className="aether-detail-scroll credit-card-list-scroll">
+              {cards.map((card) => {
+                const isActive = detail?.summary.accountId === card.accountId;
+                return (
+                  <AetherListRow
+                    key={card.accountId}
+                    title={card.accountName}
+                    subtitle={cardMeta(card)}
+                    meta={isActive ? <GameBadge tone="credit">目前選取</GameBadge> : undefined}
+                    isActive={isActive}
+                    onClick={() => { void selectCreditCard(card.accountId); }}
+                  >
+                    <div className="mt-3 grid gap-1 text-xs text-muted">
+                      <Row label={t("outstanding")} value={money(card.outstandingAmount, card.currencyCode)} />
+                      <Row label={t("billedOutstanding")} value={money(billedOutstanding(card), card.currencyCode)} />
+                    </div>
+                    <CreditUtilization card={card} className="mt-3" compact />
+                  </AetherListRow>
+                );
+              })}
+              {!isLoading && cards.length === 0 && <EmptyState title={t("noCreditCards")} />}
             </div>
-            <CreditCardSummary summary={detail.summary} />
-          </Card>
+            {cards.length > 0 && <CreditCardListSummary cards={cards} />}
+          </aside>
 
-          <StatementImportPanel batch={statementImport} history={statementImports} categories={expenseCategories} defaultCategoryId={defaultStatementCategoryId} isBusy={isStatementBusy} file={statementFile} password={statementPassword} onDefaultCategoryChange={setDefaultStatementCategoryId} onFileChange={setStatementFile} onPasswordChange={setStatementPassword} onParse={parseStatementImport} onSelectBatch={setStatementImport} onUpdateRow={updateStatementRow} onRetryFailed={retryFailedStatementRows} onPost={postStatementImport} onDiscard={discardStatementImport} />
+          <section className="aether-detail-pane">
+            {detail ? (
+              <>
+                <div className="credit-card-detail-header">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">SELECTED CARD</p>
+                    <h2 className="truncate text-2xl font-bold">{detail.summary.accountName}</h2>
+                    <p className="text-sm text-muted">{cardMeta(detail.summary)}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <GameBadge tone="credit">{creditUtilizationPercent(detail.summary).toFixed(2)}%</GameBadge>
+                    <Button variant="outline" size="sm" onClick={() => openEditCardModal(detail.summary)}>{t("editSettings")}</Button>
+                  </div>
+                </div>
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            <TransactionForm title={t("cardPurchase")} onSubmit={submitPurchase}>
-              <CreditCardSelect value={purchaseForm.creditCardAccountId} cards={cards} onChange={(value) => setPurchaseForm({ ...purchaseForm, creditCardAccountId: value })} />
-              <select className="ui-input" value={purchaseForm.categoryId} onChange={(e) => setPurchaseForm({ ...purchaseForm, categoryId: e.target.value })}><option value="">{t("expenseCategory")}</option>{expenseCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-              <MoneyInput value={purchaseForm.amount} onChange={(value) => setPurchaseForm({ ...purchaseForm, amount: value })} />
-              <input className="ui-input" type="date" value={purchaseForm.purchaseDate} onChange={(e) => setPurchaseForm({ ...purchaseForm, purchaseDate: e.target.value })} />
-              <input className="ui-input" type="date" value={purchaseForm.postedDate} onChange={(e) => setPurchaseForm({ ...purchaseForm, postedDate: e.target.value })} />
-              <input className="ui-input" placeholder={t("merchant")} value={purchaseForm.merchant} onChange={(e) => setPurchaseForm({ ...purchaseForm, merchant: e.target.value })} />
-              <input className="ui-input xl:col-span-2" placeholder={t("note")} value={purchaseForm.note} onChange={(e) => setPurchaseForm({ ...purchaseForm, note: e.target.value })} />
-            </TransactionForm>
+                <CreditCardSummary summary={detail.summary} compact />
 
-            <TransactionForm title={t("cardRefund")} onSubmit={submitRefund}>
-              <CreditCardSelect value={refundForm.creditCardAccountId} cards={cards} onChange={(value) => setRefundForm({ ...refundForm, creditCardAccountId: value })} />
-              <MoneyInput value={refundForm.amount} onChange={(value) => setRefundForm({ ...refundForm, amount: value })} />
-              <input className="ui-input" type="date" value={refundForm.refundDate} onChange={(e) => setRefundForm({ ...refundForm, refundDate: e.target.value })} />
-              <select className="ui-input" value={refundForm.originalTransactionId} onChange={(e) => setRefundForm({ ...refundForm, originalTransactionId: e.target.value })}><option value="">{t("optionalOriginalPurchase")}</option>{detail.recentTransactions.filter((t) => t.type === "CreditCardPurchase").map((t) => <option key={t.id} value={t.id}>{formatDate(t.transactionDate)} / {money(t.displayAmount, detail.summary.currencyCode)}</option>)}</select>
-              <input className="ui-input xl:col-span-2" placeholder={t("note")} value={refundForm.note} onChange={(e) => setRefundForm({ ...refundForm, note: e.target.value })} />
-            </TransactionForm>
+                <div className="credit-card-tab-frame">
+                <GameTabs role="tablist" aria-label="信用卡管理分頁">
+                  <GameTab role="tab" aria-selected={activeTab === "overview"} aria-controls="credit-card-tab-overview" isActive={activeTab === "overview"} onClick={() => setActiveTab("overview")}>概覽</GameTab>
+                  <GameTab role="tab" aria-selected={activeTab === "statement"} aria-controls="credit-card-tab-statement" isActive={activeTab === "statement"} onClick={() => setActiveTab("statement")}>帳單匯入</GameTab>
+                  <GameTab role="tab" aria-selected={activeTab === "operations"} aria-controls="credit-card-tab-operations" isActive={activeTab === "operations"} onClick={() => setActiveTab("operations")}>操作</GameTab>
+                  <GameTab role="tab" aria-selected={activeTab === "installments"} aria-controls="credit-card-tab-installments" isActive={activeTab === "installments"} onClick={() => setActiveTab("installments")}>分期</GameTab>
+                </GameTabs>
 
-            <TransactionForm title={t("cardPayment")} onSubmit={submitPayment}>
-              <CreditCardSelect value={paymentForm.creditCardAccountId} cards={cards} onChange={(value) => setPaymentForm({ ...paymentForm, creditCardAccountId: value })} />
-              <select className="ui-input" value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm({ ...paymentForm, paymentAccountId: e.target.value })}><option value="">{t("defaultPaymentAccount")}</option>{activePaymentAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select>
-              <MoneyInput value={paymentForm.amount} onChange={(value) => setPaymentForm({ ...paymentForm, amount: value })} />
-              <input className="ui-input" type="date" value={paymentForm.paymentDate} onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })} />
-              <input className="ui-input xl:col-span-2" placeholder={t("note")} value={paymentForm.note} onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })} />
-            </TransactionForm>
+                <div className="credit-card-tab-panel" id={`credit-card-tab-${activeTab}`} role="tabpanel">
+                  {activeTab === "overview" && (
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
+                      <Panel title={t("recentTransactions")}>{detail.recentTransactions.length === 0 ? <p className="text-sm text-muted">{t("noTransactions")}</p> : detail.recentTransactions.slice(0, 8).map((transaction) => <Row key={transaction.id} label={`${formatDate(transaction.transactionDate)} ${transactionTypeLabels[transaction.type]}`} value={money(transaction.displayAmount, detail.summary.currencyCode)} />)}</Panel>
+                      <Panel title="帳期資訊" variant="plain">
+                        <Row label={t("nextClosing")} value={formatDate(detail.summary.nextClosingDate)} />
+                        <Row label={t("nextDue")} value={formatDate(detail.summary.nextPaymentDueDate)} />
+                        <Row label={t("latestStatementAmount")} value={money(detail.summary.latestStatementAmount ?? billedOutstanding(detail.summary), detail.summary.currencyCode)} />
+                        <Row label={t("statementCharges")} value={money(detail.summary.statementCharges, detail.summary.currencyCode)} />
+                        <Row label={t("statementCredits")} value={money(detail.summary.statementCredits, detail.summary.currencyCode)} />
+                        <Row label={t("statementNet")} value={money(detail.summary.estimatedStatementNet, detail.summary.currencyCode)} />
+                      </Panel>
+                    </div>
+                  )}
 
-            <TransactionForm title={t("installmentPlan")} onSubmit={submitInstallment}>
-              <CreditCardSelect value={installmentForm.creditCardAccountId} cards={cards} onChange={(value) => setInstallmentForm({ ...installmentForm, creditCardAccountId: value })} />
-              <input className="ui-input" placeholder={t("merchant")} value={installmentForm.merchant} onChange={(e) => setInstallmentForm({ ...installmentForm, merchant: e.target.value })} />
-              <MoneyInput value={installmentForm.originalAmount} onChange={(value) => setInstallmentForm({ ...installmentForm, originalAmount: value })} />
-              <input className="ui-input" type="number" min="1" value={installmentForm.installmentCount} onChange={(e) => setInstallmentForm({ ...installmentForm, installmentCount: Number(e.target.value) })} />
-              <input className="ui-input" type="date" value={installmentForm.purchaseDate} onChange={(e) => setInstallmentForm({ ...installmentForm, purchaseDate: e.target.value })} />
-              <input className="ui-input" type="date" value={installmentForm.firstInstallmentDate} onChange={(e) => setInstallmentForm({ ...installmentForm, firstInstallmentDate: e.target.value })} />
-              <input className="ui-input xl:col-span-2" placeholder={t("description")} value={installmentForm.description} onChange={(e) => setInstallmentForm({ ...installmentForm, description: e.target.value })} />
-            </TransactionForm>
-          </div>
+                  {activeTab === "statement" && <StatementImportPanel batch={statementImport} history={statementImports} categories={expenseCategories} defaultCategoryId={defaultStatementCategoryId} isBusy={isStatementBusy} file={statementFile} password={statementPassword} onDefaultCategoryChange={setDefaultStatementCategoryId} onFileChange={setStatementFile} onPasswordChange={setStatementPassword} onParse={parseStatementImport} onSelectBatch={setStatementImport} onUpdateRow={updateStatementRow} onRetryFailed={retryFailedStatementRows} onPost={postStatementImport} onDiscard={discardStatementImport} />}
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Panel title={t("recentTransactions")}>{detail.recentTransactions.length === 0 ? <p className="text-sm text-muted">{t("noTransactions")}</p> : detail.recentTransactions.map((transaction) => <Row key={transaction.id} label={`${formatDate(transaction.transactionDate)} ${transactionTypeLabels[transaction.type]}`} value={money(transaction.displayAmount, detail.summary.currencyCode)} />)}</Panel>
-            <Panel title={t("installments")}>{detail.installmentPlans.length === 0 ? <p className="text-sm text-muted">{t("noInstallments")}</p> : detail.installmentPlans.map((plan) => <div key={plan.id} className="border-b border-border/55 py-2 last:border-0"><Row label={`${plan.merchant} / ${installmentStatusLabels[plan.status] ?? plan.status}`} value={money(plan.remainingCommitmentAmount, detail.summary.currencyCode)} /><div className="mt-2 grid gap-1">{plan.scheduleItems.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 text-xs text-muted"><span>{item.installmentNumber}. {formatDate(item.dueDate)} / {money(item.amount, detail.summary.currencyCode)} / {installmentStatusLabels[item.status] ?? item.status}</span><Button type="button" variant="outline" size="sm" disabled={item.status !== "Pending"} onClick={() => postInstallment(plan.id, item.id)}>{t("post")}</Button></div>)}</div></div>)}</Panel>
-          </div>
-        </section>
+                  {activeTab === "operations" && (
+                    <div className="credit-card-operation-layout">
+                      <div className="credit-card-operation-menu" role="radiogroup" aria-label="操作類型">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">操作類型</p>
+                        <button type="button" role="radio" aria-checked={activeOperation === "purchase"} className={`credit-card-operation-choice ${activeOperation === "purchase" ? "credit-card-operation-choice-active" : ""}`} onClick={() => setActiveOperation("purchase")}>{t("cardPurchase")}</button>
+                        <button type="button" role="radio" aria-checked={activeOperation === "refund"} className={`credit-card-operation-choice ${activeOperation === "refund" ? "credit-card-operation-choice-active" : ""}`} onClick={() => setActiveOperation("refund")}>{t("cardRefund")}</button>
+                        <button type="button" role="radio" aria-checked={activeOperation === "payment"} className={`credit-card-operation-choice ${activeOperation === "payment" ? "credit-card-operation-choice-active" : ""}`} onClick={() => setActiveOperation("payment")}>{t("cardPayment")}</button>
+                        <button type="button" role="radio" aria-checked={activeOperation === "installment"} className={`credit-card-operation-choice ${activeOperation === "installment" ? "credit-card-operation-choice-active" : ""}`} onClick={() => setActiveOperation("installment")}>{t("installmentPlan")}</button>
+                      </div>
+
+                      <div className="min-w-0">
+                      {activeOperation === "purchase" && (
+                        <TransactionForm title={t("cardPurchase")} selectedCard={detail.summary} onSubmit={submitPurchase} onClear={() => setPurchaseForm({ ...emptyPurchase, creditCardAccountId: detail.summary.accountId, categoryId: purchaseForm.categoryId })} actionLabel="確認消費" preview={<OperationPreview rows={[
+                          ["目前總未繳", money(detail.summary.outstandingAmount, detail.summary.currencyCode)],
+                          ["本次新增消費", purchaseForm.amount ? money(numericAmount(purchaseForm.amount), detail.summary.currencyCode) : "-"],
+                          ["入帳後預估未繳", purchaseForm.amount ? money(detail.summary.outstandingAmount + numericAmount(purchaseForm.amount), detail.summary.currencyCode) : "-"]
+                        ]} note="實際結果仍以入帳後的 Ledger 計算為準。" />}>
+                          <MoneyInput value={purchaseForm.amount} onChange={(value) => setPurchaseForm({ ...purchaseForm, amount: value })} />
+                          <select className="ui-input" value={purchaseForm.categoryId} onChange={(e) => setPurchaseForm({ ...purchaseForm, categoryId: e.target.value })}><option value="">{t("expenseCategory")}</option>{expenseCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+                          <input className="ui-input" type="date" value={purchaseForm.purchaseDate} onChange={(e) => setPurchaseForm({ ...purchaseForm, purchaseDate: e.target.value })} />
+                          <input className="ui-input" type="date" value={purchaseForm.postedDate} onChange={(e) => setPurchaseForm({ ...purchaseForm, postedDate: e.target.value })} />
+                          <input className="ui-input" placeholder={t("merchant")} value={purchaseForm.merchant} onChange={(e) => setPurchaseForm({ ...purchaseForm, merchant: e.target.value })} />
+                          <input className="ui-input xl:col-span-2" placeholder={t("note")} value={purchaseForm.note} onChange={(e) => setPurchaseForm({ ...purchaseForm, note: e.target.value })} />
+                        </TransactionForm>
+                      )}
+
+                      {activeOperation === "refund" && (
+                        <TransactionForm title={t("cardRefund")} selectedCard={detail.summary} onSubmit={submitRefund} onClear={() => setRefundForm({ ...emptyRefund, creditCardAccountId: detail.summary.accountId })} actionLabel="確認退款" preview={<OperationPreview rows={[
+                          ["目前總未繳", money(detail.summary.outstandingAmount, detail.summary.currencyCode)],
+                          ["本次退款", refundForm.amount ? money(numericAmount(refundForm.amount), detail.summary.currencyCode) : "-"],
+                          ["退款後預估未繳", refundForm.amount ? money(Math.max(detail.summary.outstandingAmount - numericAmount(refundForm.amount), 0), detail.summary.currencyCode) : "-"]
+                        ]} note="退款會降低信用卡負債，實際沖銷仍以入帳後 Ledger 為準。" />}>
+                          <MoneyInput value={refundForm.amount} onChange={(value) => setRefundForm({ ...refundForm, amount: value })} />
+                          <input className="ui-input" type="date" value={refundForm.refundDate} onChange={(e) => setRefundForm({ ...refundForm, refundDate: e.target.value })} />
+                          <select className="ui-input" value={refundForm.originalTransactionId} onChange={(e) => setRefundForm({ ...refundForm, originalTransactionId: e.target.value })}><option value="">{t("optionalOriginalPurchase")}</option>{detail.recentTransactions.filter((t) => t.type === "CreditCardPurchase").map((t) => <option key={t.id} value={t.id}>{formatDate(t.transactionDate)} / {money(t.displayAmount, detail.summary.currencyCode)}</option>)}</select>
+                          <input className="ui-input xl:col-span-2" placeholder={t("note")} value={refundForm.note} onChange={(e) => setRefundForm({ ...refundForm, note: e.target.value })} />
+                        </TransactionForm>
+                      )}
+
+                      {activeOperation === "payment" && (
+                        <TransactionForm title={t("cardPayment")} selectedCard={detail.summary} onSubmit={submitPayment} onClear={() => setPaymentForm({ ...emptyPayment, creditCardAccountId: detail.summary.accountId, paymentAccountId: detail.summary.paymentAccountId ?? paymentForm.paymentAccountId })} actionLabel="確認繳款" preview={<OperationPreview rows={[
+                          ["目前已結帳應繳", money(billedOutstanding(detail.summary), detail.summary.currencyCode)],
+                          ["目前總未繳", money(detail.summary.outstandingAmount, detail.summary.currencyCode)],
+                          ["本次繳款", paymentForm.amount ? money(numericAmount(paymentForm.amount), detail.summary.currencyCode) : "-"],
+                          ["繳款後預估未繳", paymentForm.amount ? money(Math.max(detail.summary.outstandingAmount - numericAmount(paymentForm.amount), 0), detail.summary.currencyCode) : "-"]
+                        ]} note="信用卡繳款會降低信用卡負債並扣除付款帳戶資產，不會再次計入一般支出。" actions={<>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setPaymentForm({ ...paymentForm, amount: String(billedOutstanding(detail.summary)) })}>填入已結帳應繳</Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setPaymentForm({ ...paymentForm, amount: String(detail.summary.outstandingAmount) })}>填入總未繳</Button>
+                        </>} />}>
+                          <select className="ui-input" value={paymentForm.paymentAccountId} onChange={(e) => setPaymentForm({ ...paymentForm, paymentAccountId: e.target.value })}><option value="">{t("defaultPaymentAccount")}</option>{activePaymentAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select>
+                          <MoneyInput value={paymentForm.amount} onChange={(value) => setPaymentForm({ ...paymentForm, amount: value })} />
+                          <input className="ui-input" type="date" value={paymentForm.paymentDate} onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })} />
+                          <input className="ui-input xl:col-span-2" placeholder={t("note")} value={paymentForm.note} onChange={(e) => setPaymentForm({ ...paymentForm, note: e.target.value })} />
+                        </TransactionForm>
+                      )}
+
+                      {activeOperation === "installment" && (
+                        <TransactionForm title={t("installmentPlan")} selectedCard={detail.summary} onSubmit={submitInstallment} onClear={() => setInstallmentForm({ ...emptyInstallment, creditCardAccountId: detail.summary.accountId })} actionLabel="建立分期" preview={<OperationPreview rows={[
+                          ["總金額", installmentForm.originalAmount ? money(numericAmount(installmentForm.originalAmount), detail.summary.currencyCode) : "-"],
+                          ["期數", `${installmentForm.installmentCount}`],
+                          ["每期預估", installmentForm.originalAmount && installmentForm.installmentCount > 0 ? money(numericAmount(installmentForm.originalAmount) / installmentForm.installmentCount, detail.summary.currencyCode) : "-"],
+                          ["首次入帳日", formatDate(installmentForm.firstInstallmentDate)]
+                        ]} note="預覽僅供操作前確認，實際分期排程仍以既有後端拆分規則建立。" />}>
+                          <input className="ui-input" placeholder={t("merchant")} value={installmentForm.merchant} onChange={(e) => setInstallmentForm({ ...installmentForm, merchant: e.target.value })} />
+                          <MoneyInput value={installmentForm.originalAmount} onChange={(value) => setInstallmentForm({ ...installmentForm, originalAmount: value })} />
+                          <input className="ui-input" type="number" min="1" value={installmentForm.installmentCount} onChange={(e) => setInstallmentForm({ ...installmentForm, installmentCount: Number(e.target.value) })} />
+                          <input className="ui-input" type="date" value={installmentForm.purchaseDate} onChange={(e) => setInstallmentForm({ ...installmentForm, purchaseDate: e.target.value })} />
+                          <input className="ui-input" type="date" value={installmentForm.firstInstallmentDate} onChange={(e) => setInstallmentForm({ ...installmentForm, firstInstallmentDate: e.target.value })} />
+                          <input className="ui-input xl:col-span-2" placeholder={t("description")} value={installmentForm.description} onChange={(e) => setInstallmentForm({ ...installmentForm, description: e.target.value })} />
+                        </TransactionForm>
+                      )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "installments" && <InstallmentPanel detail={detail} onPostInstallment={postInstallment} />}
+                </div>
+                </div>
+              </>
+            ) : (
+              <EmptyState title={t("noCreditCards")} />
+            )}
+          </section>
+        </div>
+      </section>
+
+      {!isCardModalOpen && <button type="button" className="game-floating-add" aria-label={t("addCreditCard")} title={t("addCreditCard")} onClick={openCreateCardModal}>+</button>}
+
+      {isCardModalOpen && (
+        <div className="game-dialog-backdrop">
+          <GameWindow title={editingId ? t("editCreditCard") : t("addCreditCard")} description={t("creditCardSetup")} className="game-dialog" onRequestClose={closeCardModal} closeLabel={t("close")}>
+            <CreditCardSetupForm
+              cardForm={cardForm}
+              editingId={editingId}
+              availableCreditCardAccounts={availableCreditCardAccounts}
+              activePaymentAccounts={activePaymentAccounts}
+              onSubmit={submitCard}
+              onChange={setCardForm}
+              onCancel={closeCardModal}
+            />
+          </GameWindow>
+        </div>
       )}
     </section>
   );
@@ -407,66 +552,194 @@ function Row({ label, value }: { label: string; value: string }) {
   return <p className="flex justify-between gap-3"><span className="text-muted">{label}</span><span className="font-semibold">{value}</span></p>;
 }
 
-function Metric({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return <div className="rounded-ui border border-border/55 bg-surface-muted/50 p-3 shadow-inner" title={hint}><p className="text-sm text-muted">{label}</p><p className="mt-1 font-bold">{value}</p>{hint && <p className="mt-1 text-xs text-muted">{hint}</p>}</div>;
+function Metric({ label, value, hint, tone = "neutral" }: { label: string; value: string; hint?: string; tone?: "neutral" | "primary" | "warning" }) {
+  return <div className={`credit-card-metric credit-card-metric-${tone}`} title={hint}><p>{label}</p><strong>{value}</strong>{hint && <small>{hint}</small>}</div>;
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return <Card><h2 className="mb-3 font-bold">{title}</h2><div className="grid gap-2 text-sm">{children}</div></Card>;
+function Panel({ title, children, variant = "panel" }: { title: string; children: React.ReactNode; variant?: "panel" | "plain" }) {
+  return <section className={variant === "plain" ? "credit-card-definition-panel" : "game-panel"}><h2 className="mb-3 font-bold">{title}</h2><div className="grid gap-2 text-sm">{children}</div></section>;
 }
 
-function TransactionForm({ title, onSubmit, children }: { title: string; onSubmit: (event: FormEvent) => void; children: React.ReactNode }) {
-  return <form onSubmit={onSubmit} className="game-panel grid gap-3 sm:grid-cols-2"><h2 className="font-bold sm:col-span-2">{title}</h2>{children}<Button type="submit" className="sm:col-span-2">{t("save")}</Button></form>;
-}
-
-function CreditCardSelect({ value, cards, onChange }: { value: string; cards: CreditCardDto[]; onChange: (value: string) => void }) {
-  return <select className="ui-input" value={value} onChange={(e) => onChange(e.target.value)}><option value="">{t("selectCard")}</option>{cards.map((card) => <option key={card.accountId} value={card.accountId}>{card.accountName}</option>)}</select>;
+function TransactionForm({ title, selectedCard, onSubmit, onClear, actionLabel, preview, children }: { title: string; selectedCard: CreditCardDto; onSubmit: (event: FormEvent) => void; onClear: () => void; actionLabel: string; preview?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <form onSubmit={onSubmit} className="game-panel grid gap-4">
+      <div className="flex flex-col gap-1 border-b border-border/55 pb-3">
+        <h2 className="font-bold">{title}</h2>
+        <p className="text-xs text-muted">選取卡片：{selectedCard.accountName} · {cardMeta(selectedCard)}</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+      {preview}
+      <div className="flex flex-wrap justify-end gap-2 border-t border-border/55 pt-3">
+        <Button type="button" variant="outline" onClick={onClear}>清除</Button>
+        <Button type="submit" className="min-w-32">{actionLabel}</Button>
+      </div>
+    </form>
+  );
 }
 
 function MoneyInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return <input className="ui-input" placeholder={t("amount")} type="number" min="0" step="0.01" value={value} onChange={(e) => onChange(e.target.value)} />;
 }
 
-function CreditUtilization({ card, className = "" }: { card: CreditCardDto; className?: string }) {
+function CreditUtilization({ card, className = "", compact = false }: { card: CreditCardDto; className?: string; compact?: boolean }) {
   const percent = creditUtilizationPercent(card);
   const limit = card.creditLimit;
   return (
     <div className={className}>
       <GameProgress value={percent} label={t("creditUtilization")} />
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-        <span>{t("used")}：{money(card.outstandingAmount, card.currencyCode)}{limit == null ? "" : ` / ${money(limit, card.currencyCode)}`}</span>
-        <span className="font-semibold text-primary">{percent.toFixed(2)}%</span>
+        {!compact && <span>{t("used")}：{money(card.outstandingAmount, card.currencyCode)}{limit == null ? "" : ` / ${money(limit, card.currencyCode)}`}</span>}
+        {compact && <span>{t("creditUtilization")}</span>}
+        <span className="font-semibold text-primary">{percent.toFixed(compact ? 1 : 2)}%</span>
       </div>
     </div>
   );
 }
 
-function CreditCardSummary({ summary }: { summary: CreditCardDto }) {
+function CreditCardListSummary({ cards }: { cards: CreditCardDto[] }) {
+  const currencyCode = cards[0]?.currencyCode ?? "TWD";
+  const totalLimit = cards.reduce((sum, card) => sum + (card.creditLimit ?? 0), 0);
+  const totalOutstanding = cards.reduce((sum, card) => sum + card.outstandingAmount, 0);
+  const totalBilled = cards.reduce((sum, card) => sum + billedOutstanding(card), 0);
+  return (
+    <div className="credit-card-list-summary">
+      <Row label="信用卡數量" value={`${cards.length}`} />
+      <Row label="總信用額度" value={money(totalLimit, currencyCode)} />
+      <Row label="總未繳" value={money(totalOutstanding, currencyCode)} />
+      <Row label="總已結帳應繳" value={money(totalBilled, currencyCode)} />
+    </div>
+  );
+}
+
+function CreditCardSummary({ summary, compact = false }: { summary: CreditCardDto; compact?: boolean }) {
   const available = baseAvailableCredit(summary);
   const backendAvailable = summary.availableCredit;
   return (
     <div className="mt-4 grid gap-4">
       <CreditUtilization card={summary} />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label={t("creditLimit")} value={summary.creditLimit == null ? "-" : money(summary.creditLimit, summary.currencyCode)} />
-        <Metric label={t("usedCredit")} value={money(summary.outstandingAmount, summary.currencyCode)} />
-        <Metric label={t("billedOutstanding")} value={money(billedOutstanding(summary), summary.currencyCode)} hint={t("billedOutstandingHelp")} />
+      <div className="credit-card-primary-metrics">
+        <Metric label={t("outstanding")} value={money(summary.outstandingAmount, summary.currencyCode)} tone="primary" />
+        <Metric label={t("billedOutstanding")} value={money(billedOutstanding(summary), summary.currencyCode)} hint={t("billedOutstandingHelp")} tone="warning" />
         <Metric label={t("unbilledAmount")} value={money(unbilledAmount(summary), summary.currencyCode)} hint={t("unbilledAmountHelp")} />
-        <Metric label={t("outstanding")} value={money(summary.outstandingAmount, summary.currencyCode)} />
-        <Metric label={t("availableCredit")} value={available == null ? "-" : money(available, summary.currencyCode)} />
-        {summary.creditBalance > 0 && <Metric label={t("creditBalance")} value={money(summary.creditBalance, summary.currencyCode)} hint={t("creditBalanceHelp")} />}
-        {summary.creditBalance > 0 && backendAvailable != null && <Metric label={t("availableCreditIncludingBalance")} value={money(backendAvailable, summary.currencyCode)} />}
-        <Metric label={t("latestStatementAmount")} value={money(summary.latestStatementAmount ?? billedOutstanding(summary), summary.currencyCode)} />
-        <Metric label={t("installments")} value={money(summary.remainingInstallmentCommitment, summary.currencyCode)} />
-        <Metric label={t("nextClosing")} value={formatDate(summary.nextClosingDate)} />
-        <Metric label={t("nextDue")} value={formatDate(summary.nextPaymentDueDate)} />
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="credit-card-definition-panel">
+        <Row label={t("creditLimit")} value={summary.creditLimit == null ? "-" : money(summary.creditLimit, summary.currencyCode)} />
+        <Row label={t("availableCredit")} value={available == null ? "-" : money(available, summary.currencyCode)} />
+        <Row label={t("creditUtilization")} value={`${creditUtilizationPercent(summary).toFixed(2)}%`} />
+        <Row label={t("nextClosing")} value={formatDate(summary.nextClosingDate)} />
+        <Row label={t("nextDue")} value={formatDate(summary.nextPaymentDueDate)} />
+        <Row label={t("latestStatementAmount")} value={money(summary.latestStatementAmount ?? billedOutstanding(summary), summary.currencyCode)} />
+        {summary.creditBalance > 0 && <Row label={t("creditBalance")} value={money(summary.creditBalance, summary.currencyCode)} />}
+        {summary.creditBalance > 0 && backendAvailable != null && <Row label={t("availableCreditIncludingBalance")} value={money(backendAvailable, summary.currencyCode)} />}
+      </div>
+      {!compact && <div className="grid gap-3 sm:grid-cols-3">
         <Metric label={t("statementCharges")} value={money(summary.statementCharges, summary.currencyCode)} />
         <Metric label={t("statementCredits")} value={money(summary.statementCredits, summary.currencyCode)} />
         <Metric label={t("statementNet")} value={money(summary.estimatedStatementNet, summary.currencyCode)} />
-      </div>
+      </div>}
+      {compact && <div className="credit-card-period-strip">
+        <Row label={t("statementCharges")} value={money(summary.statementCharges, summary.currencyCode)} />
+        <Row label={t("statementCredits")} value={money(summary.statementCredits, summary.currencyCode)} />
+        <Row label={t("statementNet")} value={money(summary.estimatedStatementNet, summary.currencyCode)} />
+      </div>}
     </div>
+  );
+}
+
+function OperationPreview({ rows, note, actions }: { rows: Array<[string, string]>; note: string; actions?: React.ReactNode }) {
+  return (
+    <div className="credit-card-operation-preview">
+      <div className="grid gap-2">
+        {rows.map(([label, value]) => <Row key={label} label={label} value={value} />)}
+      </div>
+      {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
+      <p className="mt-3 text-xs text-muted">{note}</p>
+    </div>
+  );
+}
+
+function CreditCardSetupForm({
+  cardForm,
+  editingId,
+  availableCreditCardAccounts,
+  activePaymentAccounts,
+  onSubmit,
+  onChange,
+  onCancel
+}: {
+  cardForm: typeof emptyCard;
+  editingId: string | null;
+  availableCreditCardAccounts: AccountDto[];
+  activePaymentAccounts: AccountDto[];
+  onSubmit: (event: FormEvent) => void;
+  onChange: (form: typeof emptyCard) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="grid gap-4">
+      <div className="game-inspect-panel">
+        <div className="game-inspect-header">
+          <div className="game-slot game-slot-sm">CR</div>
+          <div>
+            <h3 className="font-bold">{editingId ? t("editCreditCard") : t("addCreditCard")}</h3>
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">CARD SETUP</p>
+          </div>
+        </div>
+        <div className="game-inspect-body grid gap-3 md:grid-cols-2">
+          <select className="ui-input md:col-span-2" value={cardForm.accountId} onChange={(e) => onChange({ ...cardForm, accountId: e.target.value })}>
+            <option value="">{t("createCreditCardAccount")}</option>
+            {availableCreditCardAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+          </select>
+          {!cardForm.accountId && <input className="ui-input md:col-span-2" placeholder={t("accountName")} value={cardForm.accountName} onChange={(e) => onChange({ ...cardForm, accountName: e.target.value })} />}
+          <input className="ui-input" placeholder={t("issuer")} value={cardForm.issuerName} onChange={(e) => onChange({ ...cardForm, issuerName: e.target.value })} />
+          <input className="ui-input" placeholder={t("cardName")} value={cardForm.cardName} onChange={(e) => onChange({ ...cardForm, cardName: e.target.value })} />
+          <input className="ui-input" placeholder={t("lastFour")} maxLength={4} value={cardForm.lastFourDigits} onChange={(e) => onChange({ ...cardForm, lastFourDigits: e.target.value.replace(/\D/g, "") })} />
+          <input className="ui-input" placeholder={t("creditLimit")} type="number" min="0" step="0.01" value={cardForm.creditLimit} onChange={(e) => onChange({ ...cardForm, creditLimit: e.target.value })} />
+          <input className="ui-input" placeholder={t("closingDay")} type="number" min="1" max="31" value={cardForm.statementClosingDay} onChange={(e) => onChange({ ...cardForm, statementClosingDay: Number(e.target.value) })} />
+          <input className="ui-input" placeholder={t("dueDay")} type="number" min="1" max="31" value={cardForm.paymentDueDay} onChange={(e) => onChange({ ...cardForm, paymentDueDay: Number(e.target.value) })} />
+          <select className="ui-input md:col-span-2" value={cardForm.paymentAccountId} onChange={(e) => onChange({ ...cardForm, paymentAccountId: e.target.value })}>
+            <option value="">{t("noDefaultPaymentAccount")}</option>
+            {activePaymentAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel}>{t("cancel")}</Button>
+        <Button type="submit">{editingId ? t("update") : t("add")}</Button>
+      </div>
+    </form>
+  );
+}
+
+function InstallmentPanel({ detail, onPostInstallment }: { detail: CreditCardDetailDto; onPostInstallment: (planId: string, itemId: string) => void }) {
+  return (
+    <Panel title={t("installments")}>
+      {detail.installmentPlans.length === 0 ? (
+        <p className="text-sm text-muted">{t("noInstallments")}</p>
+      ) : (
+        <div className="grid gap-3">
+          {detail.installmentPlans.map((plan) => (
+            <div key={plan.id} className="rounded-ui border border-border/55 bg-surface-muted/30 p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-semibold">{plan.merchant}</p>
+                  <p className="text-xs text-muted">{installmentStatusLabels[plan.status] ?? plan.status}</p>
+                </div>
+                <strong>{money(plan.remainingCommitmentAmount, detail.summary.currencyCode)}</strong>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {plan.scheduleItems.map((item) => (
+                  <div key={item.id} className="grid gap-2 rounded-ui border border-border/40 bg-background/20 p-2 text-xs text-muted sm:grid-cols-[1fr_auto] sm:items-center">
+                    <span>{item.installmentNumber}. {formatDate(item.dueDate)} / {money(item.amount, detail.summary.currencyCode)} / {installmentStatusLabels[item.status] ?? item.status}</span>
+                    <Button type="button" variant="outline" size="sm" disabled={item.status !== "Pending"} onClick={() => onPostInstallment(plan.id, item.id)}>{t("post")}</Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }
 function StatementImportPanel({ batch, history, categories, defaultCategoryId, isBusy, file, password, onDefaultCategoryChange, onFileChange, onPasswordChange, onParse, onSelectBatch, onUpdateRow, onRetryFailed, onPost, onDiscard }: {
@@ -493,6 +766,8 @@ function StatementImportPanel({ batch, history, categories, defaultCategoryId, i
   const postedRows = batch?.rows.filter((row) => row.reviewStatus === "Posted").length ?? 0;
   const blockedRows = batch?.rows.filter((row) => row.reviewStatus === "New" || row.matchStatus !== "New" || row.type === "Unknown").length ?? 0;
   const rowsNeedAttention = readyRows > 0 || failedRows > 0 || blockedRows > 0;
+  const totalRows = batch?.rows.length ?? 0;
+  const importProgress = totalRows > 0 ? (postedRows / totalRows) * 100 : 0;
   const [rowsExpanded, setRowsExpanded] = useState(false);
 
   useEffect(() => {
@@ -505,11 +780,14 @@ function StatementImportPanel({ batch, history, categories, defaultCategoryId, i
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.5fr)]">
         <form onSubmit={onParse} className="game-inspect-panel">
           <div className="game-inspect-header"><div><h3 className="font-bold">{t("uploadPdf")}</h3><p className="text-xs text-muted">{t("passwordRequestOnly")}</p></div></div>
-          <div className="game-inspect-body">
-            <input className="ui-input" type="file" accept="application/pdf,.pdf" onChange={(event) => onFileChange(event.target.files?.[0] ?? null)} />
-            <input className="ui-input" type="password" autoComplete="off" placeholder={t("password")} value={password} onChange={(event) => onPasswordChange(event.target.value)} />
+          <div className="game-inspect-body credit-card-statement-upload">
+            <label className="ui-label">來源銀行<select className="ui-input" defaultValue="auto" aria-label="來源銀行">
+              <option value="auto">自動辨識（Richart／台新、玉山）</option>
+            </select></label>
+            <label className="ui-label">PDF 檔案<input className="ui-input" type="file" accept="application/pdf,.pdf" onChange={(event) => onFileChange(event.target.files?.[0] ?? null)} /></label>
+            <label className="ui-label">{t("password")}<input className="ui-input" type="password" autoComplete="off" value={password} onChange={(event) => onPasswordChange(event.target.value)} /></label>
             <p className="text-xs text-muted">{file ? `${file.name} / ${Math.ceil(file.size / 1024)} KB` : t("noFileSelected")}</p>
-            <Button type="submit" isLoading={isBusy}>{t("parseStatement")}</Button>
+            <div className="flex justify-end"><Button type="submit" isLoading={isBusy}>{t("parseStatement")}</Button></div>
           </div>
         </form>
 
@@ -517,24 +795,37 @@ function StatementImportPanel({ batch, history, categories, defaultCategoryId, i
           {batch ? (
             <div className="game-panel grid gap-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-lg font-bold">{batch.provider} / {batch.originalFileName}</h3>
                   <p className="text-sm text-muted">{batch.statementPeriodStart ? formatDate(batch.statementPeriodStart) : "-"} {t("periodTo")} {batch.statementPeriodEnd ? formatDate(batch.statementPeriodEnd) : "-"} / {t("dueDate")} {batch.paymentDueDate ? formatDate(batch.paymentDueDate) : "-"}</p>
                 </div>
-                <span className="game-badge game-badge-credit">{statementImportBatchStatusLabels[batch.status]}</span>
+                <span className="game-badge game-badge-credit shrink-0 whitespace-nowrap">{statementImportBatchStatusLabels[batch.status]}</span>
               </div>
-              <div className="grid gap-3 sm:grid-cols-4">
-                <Metric label={t("statement")} value={batch.statementAmount == null ? "-" : money(batch.statementAmount)} />
-                <Metric label={t("newCharges")} value={batch.newCharges == null ? "-" : money(batch.newCharges)} />
-                <Metric label={t("rows")} value={`${batch.rows.length}`} />
-                <Metric label={t("ready")} value={`${readyRows} / ${t("posted")} ${postedRows}`} />
+              <div className="credit-card-definition-panel">
+                <Row label="檔名" value={batch.originalFileName} />
+                <Row label="帳單期間" value={`${batch.statementPeriodStart ? formatDate(batch.statementPeriodStart) : "-"} ～ ${batch.statementPeriodEnd ? formatDate(batch.statementPeriodEnd) : "-"}`} />
+                <Row label={t("dueDate")} value={batch.paymentDueDate ? formatDate(batch.paymentDueDate) : "-"} />
+                <Row label={t("statement")} value={batch.statementAmount == null ? "-" : money(batch.statementAmount)} />
+                <Row label={t("newCharges")} value={batch.newCharges == null ? "-" : money(batch.newCharges)} />
+                <Row label={t("rows")} value={`${totalRows}`} />
+                <Row label={t("posted")} value={`${postedRows}`} />
+                <Row label={t("ready")} value={`${readyRows}`} />
+                <Row label={t("failed")} value={`${failedRows}`} />
+                <Row label={t("needsReview")} value={`${blockedRows}`} />
+              </div>
+              <div className="credit-card-import-progress">
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold">入帳進度</span>
+                  <span className="text-muted">{postedRows} / {totalRows}</span>
+                </div>
+                <GameProgress value={importProgress} label="入帳進度" />
               </div>
               {batch.warnings.length > 0 && <StatementReviewNotice warnings={batch.warnings} rows={batch.rows} />}
-              <div className="flex flex-wrap items-end gap-2">
+              <div className="credit-card-action-bar">
                 <label className="ui-label min-w-64">{t("defaultExpenseCategory")}<select className="ui-input" value={defaultCategoryId} onChange={(event) => onDefaultCategoryChange(event.target.value)}><option value="">{t("chooseWhenPostingPurchases")}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-                <Button type="button" disabled={isBusy || readyRows === 0 || (rowsMissingPostCategory > 0 && !defaultCategoryId)} onClick={onPost}>{t("postReadyRows")}</Button>
-                <Button type="button" variant="outline" disabled={isBusy || failedRows === 0} onClick={onRetryFailed}>{t("retryFailedRows")}</Button>
                 <Button type="button" variant="outline" disabled={isBusy || postedRows > 0} onClick={onDiscard}>{t("discard")}</Button>
+                <Button type="button" variant="outline" disabled={isBusy || failedRows === 0} onClick={onRetryFailed}>{t("retryFailedRows")}</Button>
+                <Button type="button" disabled={isBusy || readyRows === 0 || (rowsMissingPostCategory > 0 && !defaultCategoryId)} onClick={onPost}>{t("postReadyRows")}</Button>
               </div>
               {rowsMissingPostCategory > 0 && !defaultCategoryId && <p className="text-sm text-warning">{t("rowMissingCategory")}</p>}
               {failedRows > 0 && <p className="text-sm text-danger">{failedRows} {t("failedRowsHint")}</p>}
@@ -559,7 +850,7 @@ function StatementImportPanel({ batch, history, categories, defaultCategoryId, i
           {history.length > 0 && (
             <div className="game-panel">
               <h3 className="mb-3 font-bold">{t("importHistory")}</h3>
-              <div className="grid gap-2">{history.map((item) => <button key={item.id} type="button" className="rounded-ui border border-border/55 bg-surface-muted/35 p-3 text-left text-sm hover:border-primary/70" onClick={() => onSelectBatch(item)}><span className="font-semibold">{item.originalFileName}</span><span className="ml-2 text-muted">{statementImportBatchStatusLabels[item.status]} / {item.rows.length} {t("rows")}</span></button>)}</div>
+              <div className="grid gap-2">{history.map((item) => <button key={item.id} type="button" className="credit-card-import-history-row" onClick={() => onSelectBatch(item)}><span className="font-semibold">{item.originalFileName}</span><span className="text-muted">{statementImportBatchStatusLabels[item.status]} · {item.rows.length} {t("rows")}</span></button>)}</div>
             </div>
           )}
         </div>
