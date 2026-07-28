@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
@@ -10,18 +10,16 @@ import { Card } from "@/components/ui/card";
 import { GameInspectPanel, GameInspectRow, GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
-import { apiFetch, money, problemMessage, type AccountDto, type AccountSummaryDto, type AccountType, type PagedTransactionsDto, type TransactionDto } from "@/lib/api-client";
+import { apiFetch, money, problemMessage, type AccountDto, type AccountSummaryDto, type AccountType, type GoalBarColor, type PagedTransactionsDto, type TransactionDto, type UserGoalBarDto } from "@/lib/api-client";
 import { financeDataChangedEvent } from "@/lib/app-events";
 import { todayInputValue } from "@/lib/formatters";
 import { accountTypeLabels, commonLabels } from "@/lib/labels";
+import { useSettings, type SettingsSyncStatus } from "@/lib/settings/user-settings";
 import { useAuth } from "../../auth-context";
 
 const accountTypes: AccountType[] = ["Cash", "Checking", "Savings", "CreditCard", "Investment", "Loan", "Other"];
 const emptyForm = { name: "", type: "Cash" as AccountType, currencyCode: "TWD", institutionName: "" };
-type GoalBarColor = "violet" | "cyan" | "emerald" | "amber" | "rose";
-type FundGoal = { id: string; accountId: string; title: string; targetAmount: number; color: GoalBarColor };
-
-const goalStorageKey = "pfos.account-goal-bars.v1";
+type FundGoal = UserGoalBarDto;
 const emptyGoalForm = { accountId: "", title: "", targetAmount: "100000", color: "violet" as GoalBarColor };
 const goalBarColors: Record<GoalBarColor, { label: string; fill: string; glow: string; border: string; track: string; frameGlow: string }> = {
   violet: { label: "Arcane violet", fill: "linear-gradient(90deg, #6d28d9 0%, #a855f7 55%, #f0abfc 100%)", glow: "0 0 10px rgba(168, 85, 247, 0.75)", border: "#a78bfa", track: "#2b1743", frameGlow: "0 0 16px rgba(124, 58, 237, 0.35)" },
@@ -33,6 +31,7 @@ const goalBarColors: Record<GoalBarColor, { label: string; fill: string; glow: s
 
 export default function AccountsPage() {
   const { accessToken, refreshSession } = useAuth();
+  const { settings, status: settingsStatus, error: settingsError, updateGoalSettings, retry: retrySettings } = useSettings();
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [summary, setSummary] = useState<AccountSummaryDto>({ currencies: [] });
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -43,8 +42,7 @@ export default function AccountsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
   const [goalForm, setGoalForm] = useState(emptyGoalForm);
-  const [fundGoals, setFundGoals] = useState<FundGoal[]>([]);
-  const [hasLoadedGoals, setHasLoadedGoals] = useState(false);
+  const goalIdFallbackRef = useRef(0);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
@@ -80,21 +78,6 @@ export default function AccountsPage() {
     window.addEventListener(financeDataChangedEvent, onFinanceDataChanged);
     return () => window.removeEventListener(financeDataChangedEvent, onFinanceDataChanged);
   }, [accessToken, includeArchived]);
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(goalStorageKey);
-      if (saved) setFundGoals(JSON.parse(saved) as FundGoal[]);
-    } catch {
-      setFundGoals([]);
-    } finally {
-      setHasLoadedGoals(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!hasLoadedGoals) return;
-    window.localStorage.setItem(goalStorageKey, JSON.stringify(fundGoals));
-  }, [fundGoals, hasLoadedGoals]);
 
   useEffect(() => {
     if (!editingId && !isCreateOpen && !isGoalModalOpen) return;
@@ -188,14 +171,14 @@ export default function AccountsPage() {
     if (!goalForm.accountId || !Number.isFinite(targetAmount) || targetAmount <= 0) return;
     const account = accounts.find((candidate) => candidate.id === goalForm.accountId);
     const title = goalForm.title.trim() || account?.name || "Resource";
-    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-    setFundGoals((current) => [...current, { id, accountId: goalForm.accountId, title, targetAmount, color: goalForm.color }]);
+    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `goal-${goalIdFallbackRef.current++}`;
+    void updateGoalSettings({ ...settings.goalSettings, goalBars: [...fundGoals, { id, accountId: goalForm.accountId, title, targetAmount, color: goalForm.color }] });
     setGoalForm(emptyGoalForm);
     setIsGoalModalOpen(false);
   }
 
   function removeFundGoal(id: string) {
-    setFundGoals((current) => current.filter((goal) => goal.id !== id));
+    void updateGoalSettings({ ...settings.goalSettings, goalBars: fundGoals.filter((goal) => goal.id !== id) });
   }
   function resetDragState() {
     pointerDraggingRef.current = false;
@@ -232,19 +215,23 @@ export default function AccountsPage() {
     await load();
   }
 
+  const fundGoals = settings.goalSettings.goalBars;
   const resourceBarsPanel = (
     <ResourceBarsPanel
       goals={fundGoals}
       accounts={accounts}
       onAdd={() => setIsGoalModalOpen(true)}
       onRemove={removeFundGoal}
+      syncStatus={settingsStatus}
+      syncError={settingsError}
+      onRetry={retrySettings}
     />
   );
   return (
     <section className="grid gap-8">
       <PageHeader
-        title="Accounts"
-        description="Ledger entries calculate every balance in real time. No duplicated balance state is stored on accounts."
+        title="帳戶"
+        description="Ledger 會即時計算每個帳戶餘額，帳戶本身不重複儲存餘額狀態。"
         actions={<label className="flex min-h-10 items-center gap-2 rounded-ui border border-border/70 bg-surface/80 px-3 text-sm"><input type="checkbox" checked={includeArchived} onChange={(e) => setIncludeArchived(e.target.checked)} /> {commonLabels.showArchived}</label>}
       />
       {error && <ErrorState message={error} />}
@@ -255,14 +242,14 @@ export default function AccountsPage() {
             {summary.currencies.map((row) => (
               <Card key={row.currencyCode}>
                 <AetherPanelHeader
-                  eyebrow="RESOURCE OVERVIEW"
+                  eyebrow="資源總覽"
                   title={row.currencyCode}
-                  subtitle="Assets / Liabilities"
+                  subtitle="資產 / 負債"
                   summary={money(row.netBalance, row.currencyCode)}
                 />
                 <AetherSummaryGrid>
                   <AetherMetric label={commonLabels.assetBalance} value={money(row.assetBalance, row.currencyCode)} tone="success" />
-                  <AetherMetric label="Liability balance" value={money(row.liabilityBalance, row.currencyCode)} tone="danger" />
+                  <AetherMetric label="負債餘額" value={money(row.liabilityBalance, row.currencyCode)} tone="danger" />
                   <AetherMetric label={commonLabels.netWorth} value={money(row.netBalance, row.currencyCode)} tone={row.netBalance >= 0 ? "primary" : "warning"} />
                 </AetherSummaryGrid>
               </Card>
@@ -281,9 +268,9 @@ export default function AccountsPage() {
                 <label className="ui-label">帳戶類型<select className="ui-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })}>{accountTypes.map((type) => <option key={type} value={type}>{accountTypeLabels[type]}</option>)}</select></label>
                 <label className="ui-label">幣別<input className="ui-input" value={form.currencyCode} onChange={(e) => setForm({ ...form, currencyCode: e.target.value.toUpperCase() })} maxLength={3} /></label>
                 <label className="ui-label sm:col-span-2">金融機構<input className="ui-input" value={form.institutionName} onChange={(e) => setForm({ ...form, institutionName: e.target.value })} /></label>
-                <label className="ui-label">初始金額<input className="ui-input" type="number" step="0.01" placeholder="0" value={balanceForm.targetBalance} onChange={(e) => setBalanceForm({ ...balanceForm, targetBalance: e.target.value })} /></label>
-                <label className="ui-label">期初日期<input className="ui-input" type="date" value={balanceForm.date} onChange={(e) => setBalanceForm({ ...balanceForm, date: e.target.value })} /></label>
-                <p className="text-xs text-muted sm:col-span-2">輸入初始金額會建立一筆期初餘額交易，帳戶餘額仍由 Ledger 自動計算。</p>
+                <label className="ui-label">目前餘額<input className="ui-input" type="number" step="0.01" placeholder="0" value={balanceForm.targetBalance} onChange={(e) => setBalanceForm({ ...balanceForm, targetBalance: e.target.value })} /></label>
+                <label className="ui-label">調整日期<input className="ui-input" type="date" value={balanceForm.date} onChange={(e) => setBalanceForm({ ...balanceForm, date: e.target.value })} /></label>
+                <p className="text-xs text-muted sm:col-span-2">輸入目前餘額會建立期初餘額交易，帳戶餘額仍由 Ledger 即時計算。</p>
                 <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
                   <Button type="button" variant="outline" onClick={() => { setIsCreateOpen(false); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); }}>{commonLabels.cancel}</Button>
                   <Button type="submit">{commonLabels.create}</Button>
@@ -293,16 +280,15 @@ export default function AccountsPage() {
           </GameWindow>
         </div>
       )}
-
       {editingId && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setEditingId(null); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setOpeningTransaction(null); }}>
           <GameWindow title="Inspect Account" description="Account information" className="w-full max-w-2xl" onRequestClose={() => { setEditingId(null); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); setOpeningTransaction(null); }} onClick={(event) => event.stopPropagation()}>
-            <GameInspectPanel title={form.name || "New account"} subtitle={form.type} icon={<AccountGlyph type={form.type} />}>
+            <GameInspectPanel title={form.name || "帳戶"} subtitle={accountTypeLabels[form.type]} icon={<AccountGlyph type={form.type} />}>
               <form onSubmit={(event) => submit(event, editingId)} className="grid gap-4 sm:grid-cols-2">
-                <label className="ui-label sm:col-span-2">Name<input className="ui-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus /></label>
-                <label className="ui-label">Type<select className="ui-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })}>{accountTypes.map((type) => <option key={type} value={type}>{accountTypeLabels[type]}</option>)}</select></label>
-                <label className="ui-label">Currency<input className="ui-input" value={form.currencyCode} onChange={(e) => setForm({ ...form, currencyCode: e.target.value.toUpperCase() })} maxLength={3} /></label>
-                <label className="ui-label sm:col-span-2">Institution<input className="ui-input" value={form.institutionName} onChange={(e) => setForm({ ...form, institutionName: e.target.value })} /></label>
+                <label className="ui-label sm:col-span-2">帳戶名稱<input className="ui-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus /></label>
+                <label className="ui-label">帳戶類型<select className="ui-input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })}>{accountTypes.map((type) => <option key={type} value={type}>{accountTypeLabels[type]}</option>)}</select></label>
+                <label className="ui-label">幣別<input className="ui-input" value={form.currencyCode} onChange={(e) => setForm({ ...form, currencyCode: e.target.value.toUpperCase() })} maxLength={3} /></label>
+                <label className="ui-label sm:col-span-2">金融機構<input className="ui-input" value={form.institutionName} onChange={(e) => setForm({ ...form, institutionName: e.target.value })} /></label>
                 <label className="ui-label">目標餘額<input className="ui-input" type="number" step="0.01" value={balanceForm.targetBalance} onChange={(e) => setBalanceForm({ ...balanceForm, targetBalance: e.target.value })} /></label>
                 <label className="ui-label">調整日期<input className="ui-input" type="date" value={balanceForm.date} onChange={(e) => setBalanceForm({ ...balanceForm, date: e.target.value })} /></label>
                 <p className="text-xs text-muted sm:col-span-2">更新目標餘額會透過期初餘額調整交易修正，不會直接覆寫帳戶餘額。</p>
@@ -315,11 +301,10 @@ export default function AccountsPage() {
           </GameWindow>
         </div>
       )}
-
       {isGoalModalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setIsGoalModalOpen(false); setGoalForm(emptyGoalForm); }}>
           <GameWindow title="新增資源條" description="Resource tracker" className="w-full max-w-xl" onRequestClose={() => { setIsGoalModalOpen(false); setGoalForm(emptyGoalForm); }} onClick={(event) => event.stopPropagation()}>
-            <GameInspectPanel title={goalForm.title || "新的追蹤條"} subtitle="Account target" icon={<span className="text-sm font-black">HP</span>}>
+            <GameInspectPanel title={goalForm.title || "新的目標血條"} subtitle="Account target" icon={<span className="text-sm font-black">HP</span>}>
               <form onSubmit={addFundGoal} className="grid gap-4 sm:grid-cols-2">
                 <label className="ui-label sm:col-span-2">參考帳戶<select className="ui-input" value={goalForm.accountId} onChange={(e) => setGoalForm({ ...goalForm, accountId: e.target.value })} autoFocus>
                   <option value="">選擇帳戶</option>
@@ -339,15 +324,14 @@ export default function AccountsPage() {
           </GameWindow>
         </div>
       )}
-
       <div className="game-section-divider">
         <div className="game-section-title">
-          <strong>帳戶槽位</strong>
+          <strong>帳戶欄位</strong>
           <span>{accounts.length} slots loaded</span>
         </div>
       </div>
 
-      {isLoading ? <LoadingState /> : accounts.length === 0 ? <EmptyState title="No accounts yet" description="Create a cash, bank, or credit card account before posting transactions." /> : (
+      {isLoading ? <LoadingState /> : accounts.length === 0 ? <EmptyState title="尚未建立帳戶" description="先建立現金、銀行或信用卡帳戶，再開始新增交易。" /> : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {accounts.map((account) => (
             <Card
@@ -457,18 +441,22 @@ function AccountGlyph({ type }: { type: AccountType }) {
   return <span className="text-sm font-black tracking-[0.08em]">{labels[type]}</span>;
 }
 
-function ResourceBarsPanel({ goals, accounts, onAdd, onRemove }: { goals: FundGoal[]; accounts: AccountDto[]; onAdd: () => void; onRemove: (id: string) => void }) {
+function ResourceBarsPanel({ goals, accounts, onAdd, onRemove, syncStatus, syncError, onRetry }: { goals: FundGoal[]; accounts: AccountDto[]; onAdd: () => void; onRemove: (id: string) => void; syncStatus: SettingsSyncStatus; syncError: string; onRetry: () => void }) {
   return (
     <section className="grid min-h-[180px] w-full gap-3 self-stretch rounded-[8px] border border-primary/35 bg-[#10141f]/80 p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_40px_rgba(0,0,0,0.28)]">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Resource Bars</p>
           <h2 className="text-lg font-bold text-foreground">Goal Bars</h2>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span>{goalSyncText(syncStatus, syncError)}</span>
+            {syncStatus === "error" && <button type="button" className="text-primary underline-offset-4 hover:underline" onClick={onRetry}>重試</button>}
+          </div>
         </div>
         <button type="button" className="ui-focus grid h-10 w-10 place-items-center rounded-full border border-[#93f5a1] bg-[#5dbb41] text-xl font-black text-[#10210d] shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_0_12px_rgba(93,187,65,0.45)] transition hover:brightness-110" onClick={onAdd} aria-label="Add goal bar">+</button>
       </div>
       {goals.length === 0 ? (
-        <AetherEmptyState title="尚未設定目標血條" description="按下 + 釘選一個帳戶目標，例如旅遊基金累積到 100,000。" />
+        <AetherEmptyState title="尚未建立目標血條" description="點擊右上角 +，選擇參考帳戶與目標金額，建立像遊戲血條一樣的資金進度。" />
       ) : (
         <div className="grid gap-3 xl:grid-cols-2">
           {goals.map((goal) => <FundGoalBar key={goal.id} goal={goal} account={accounts.find((account) => account.id === goal.accountId)} onRemove={() => onRemove(goal.id)} />)}
@@ -477,6 +465,15 @@ function ResourceBarsPanel({ goals, accounts, onAdd, onRemove }: { goals: FundGo
     </section>
   );
 }
+
+function goalSyncText(status: SettingsSyncStatus, error: string) {
+  if (status === "saving") return "正在同步目標血條...";
+  if (status === "saved") return "已同步到 User Settings";
+  if (status === "error") return error || "目標血條同步失敗";
+  if (status === "loading") return "正在讀取目標血條...";
+  return "由 User Settings 保存";
+}
+
 function FundGoalBar({ goal, account, onRemove }: { goal: FundGoal; account?: AccountDto; onRemove: () => void }) {
   const balance = account?.balance ?? 0;
   const currency = account?.currencyCode ?? "TWD";

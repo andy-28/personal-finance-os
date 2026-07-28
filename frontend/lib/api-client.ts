@@ -1,4 +1,4 @@
-import { messageFromProblem } from "./error-messages";
+﻿import { messageFromProblem } from "./error-messages";
 import { formatCurrency } from "./formatters";
 
 export type HealthStatus = "Healthy" | "Degraded" | "Unhealthy";
@@ -6,6 +6,22 @@ export type HealthCheck = { name: string; status: HealthStatus; duration: number
 export type HealthResponse = { status: HealthStatus; totalDuration: number; checks: HealthCheck[] };
 export type UserDto = { id: string; email: string; displayName: string; createdAtUtc: string };
 export type AuthResponse = { user: UserDto; accessToken: string; refreshToken?: string };
+export type GoalBarColor = "violet" | "cyan" | "emerald" | "amber" | "rose";
+export type UserGoalBarDto = { id: string; accountId: string; title: string; targetAmount: number; color: GoalBarColor };
+export type UserGoalSettingsDto = { goalBars: UserGoalBarDto[]; collapsed: boolean; displayStyle: string };
+export type UserWorkshopSettingsDto = { faviconAssetId: string; headerDividerEnabled: boolean };
+export type UserVisualSettingsDto = { headerDividerAssetId: string };
+export type UserSettingsDto = {
+  id: string;
+  userId: string;
+  theme: string;
+  workshopSettings: UserWorkshopSettingsDto;
+  visualSettings: UserVisualSettingsDto;
+  goalSettings: UserGoalSettingsDto;
+  createdAtUtc: string;
+  updatedAtUtc: string;
+};
+export type UserSettingsPatchRequest = Partial<Pick<UserSettingsDto, "theme" | "workshopSettings" | "visualSettings" | "goalSettings">>;
 export type ProblemDetails = { title?: string; detail?: string; status?: number; errors?: Array<{ code: string; message: string; type: string }> };
 export type AccountType = "Cash" | "Checking" | "Savings" | "CreditCard" | "Investment" | "Loan" | "Other";
 export type AccountDto = { id: string; name: string; type: AccountType; currencyCode: string; institutionName?: string | null; displayOrder: number; isArchived: boolean; createdAtUtc: string; updatedAtUtc: string; balance: number; balanceLabel: string; hasOpeningBalance: boolean };

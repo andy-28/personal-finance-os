@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
-import { aetherWorkshopSettingsChangedEvent, aetherWorkshopStorageKey, loadAetherWorkshopSettings, normalizeAetherWorkshopSettings } from "@/lib/aether/workshop-settings";
 import { visualSlots } from "@/lib/aether/visual-slots";
+import { useSettings } from "@/lib/settings/user-settings";
 
 type AetherEffectIntensity = "subtle" | "normal" | "strong";
 
@@ -29,37 +28,6 @@ export function AetherEnergyDivider({ className = "", ariaHidden = true, intensi
 }
 
 export function AetherHeaderDividerSlot({ className = "", intensity = "normal" }: { className?: string; intensity?: AetherEffectIntensity }) {
-  const [isEnabled, setIsEnabled] = useState(true);
-
-  useEffect(() => {
-    const timerId = window.setTimeout(() => {
-      setIsEnabled(loadAetherWorkshopSettings().headerDividerEnabled);
-    }, 0);
-
-    const onSettingsChanged = (event: Event) => {
-      const detail = event instanceof CustomEvent ? event.detail : null;
-      setIsEnabled(normalizeAetherWorkshopSettings(detail).headerDividerEnabled);
-    };
-
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== aetherWorkshopStorageKey) return;
-
-      try {
-        setIsEnabled(normalizeAetherWorkshopSettings(event.newValue ? JSON.parse(event.newValue) : null).headerDividerEnabled);
-      } catch {
-        setIsEnabled(loadAetherWorkshopSettings().headerDividerEnabled);
-      }
-    };
-
-    window.addEventListener(aetherWorkshopSettingsChangedEvent, onSettingsChanged);
-    window.addEventListener("storage", onStorage);
-
-    return () => {
-      window.clearTimeout(timerId);
-      window.removeEventListener(aetherWorkshopSettingsChangedEvent, onSettingsChanged);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
-
-  return <AetherEnergyDivider className={className} intensity={intensity} hidden={!isEnabled} />;
+  const { settings } = useSettings();
+  return <AetherEnergyDivider className={className} intensity={intensity} hidden={!settings.workshopSettings.headerDividerEnabled} />;
 }

@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AetherEnergyDivider } from "@/components/ui/aether-effect";
 import { Button } from "@/components/ui/button";
 import { GameWindow } from "@/components/ui/game-theme";
@@ -18,72 +18,27 @@ import {
   AetherToolbar
 } from "@/components/ui/aether-management";
 import { builtInVisualAssets, getBuiltInVisualAsset, getDefaultVisualAsset, visualSlots, type VisualSlotKey } from "@/lib/aether/visual-slots";
-import { defaultAetherWorkshopSettings, loadAetherWorkshopSettings, resetAetherWorkshopSettings, saveAetherWorkshopSettings, type AetherWorkshopSettings } from "@/lib/aether/workshop-settings";
+import { defaultAetherWorkshopSettings, type AetherWorkshopSettings } from "@/lib/aether/workshop-settings";
+import { useSettings, type SettingsSyncStatus } from "@/lib/settings/user-settings";
 
 type WorkshopFilter = "All" | "Branding" | "Effects" | "Materials";
 
 const slotSections = [
-  {
-    title: "系統品牌",
-    slots: [visualSlots.favicon]
-  },
-  {
-    title: "視窗特效",
-    slots: [visualSlots.headerDivider]
-  }
+  { title: "品牌識別", slots: [visualSlots.favicon] },
+  { title: "視覺特效", slots: [visualSlots.headerDivider] }
 ];
 
 export default function WorkshopPage() {
   const defaultAsset = getDefaultVisualAsset();
+  const { settings, status, error, updateWorkshopSettings, retry } = useSettings();
   const [filter, setFilter] = useState<WorkshopFilter>("All");
   const [selectedSlotKey, setSelectedSlotKey] = useState<VisualSlotKey>(visualSlots.favicon.key);
-  const [appliedSettings, setAppliedSettings] = useState<AetherWorkshopSettings>(defaultAetherWorkshopSettings);
-  const [draftSettings, setDraftSettings] = useState<AetherWorkshopSettings>(defaultAetherWorkshopSettings);
-  const [message, setMessage] = useState("");
-  const [hasStorageError, setHasStorageError] = useState(false);
   const [failedPreviewIds, setFailedPreviewIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    const timerId = window.setTimeout(() => {
-      const settings = loadAetherWorkshopSettings();
-      setAppliedSettings(settings);
-      setDraftSettings(settings);
-    }, 0);
-
-    return () => window.clearTimeout(timerId);
-  }, []);
-
-  const selectedAsset = useMemo(() => getBuiltInVisualAsset(draftSettings.faviconAssetId) ?? defaultAsset, [draftSettings.faviconAssetId, defaultAsset]);
-  const savedAsset = useMemo(() => getBuiltInVisualAsset(appliedSettings.faviconAssetId) ?? defaultAsset, [appliedSettings.faviconAssetId, defaultAsset]);
-  const hasChanges = draftSettings.faviconAssetId !== appliedSettings.faviconAssetId || draftSettings.headerDividerEnabled !== appliedSettings.headerDividerEnabled;
+  const appliedSettings = settings.workshopSettings;
+  const selectedAsset = useMemo(() => getBuiltInVisualAsset(appliedSettings.faviconAssetId) ?? defaultAsset, [appliedSettings.faviconAssetId, defaultAsset]);
   const availableAssets = builtInVisualAssets.filter((asset) => asset.slotKeys.includes(visualSlots.favicon.key));
-
-  const onApply = () => {
-    const result = saveAetherWorkshopSettings(draftSettings);
-    setAppliedSettings(result.settings);
-    setDraftSettings(result.settings);
-    setHasStorageError(!result.ok);
-    setMessage(result.ok ? "介面設定已套用到目前瀏覽器。" : "無法儲存本機設定，已先套用本次預覽。");
-  };
-
-  const onResetAll = () => {
-    const result = resetAetherWorkshopSettings();
-    setAppliedSettings(result.settings);
-    setDraftSettings(result.settings);
-    setHasStorageError(!result.ok);
-    setMessage(result.ok ? "已恢復全部預設設定。" : "無法儲存本機設定，已先恢復本次預覽。");
-  };
-
-  const onResetSelected = () => {
-    if (selectedSlotKey === visualSlots.favicon.key) {
-      setDraftSettings((current) => ({ ...current, faviconAssetId: defaultAsset.id }));
-      setMessage("Favicon 草稿已恢復預設，按套用後生效。");
-      return;
-    }
-
-    setDraftSettings((current) => ({ ...current, headerDividerEnabled: visualSlots.headerDivider.defaultEnabled }));
-    setMessage("頁面標題分隔特效草稿已恢復預設，按套用後生效。");
-  };
+  const isDefault = appliedSettings.faviconAssetId === defaultAsset.id && appliedSettings.headerDividerEnabled === visualSlots.headerDivider.defaultEnabled;
 
   const onImageError = (assetId: string) => {
     setFailedPreviewIds((current) => current.includes(assetId) ? current : [...current, assetId]);
@@ -93,19 +48,19 @@ export default function WorkshopPage() {
     <section className="grid gap-6">
       <PageHeader
         title="介面工坊"
-        description="管理 PersonalFinanceOS 的本機視覺設定。"
-        actions={<Button type="button" variant="outline" onClick={onResetAll} disabled={!hasChanges && isDefaultSettings(appliedSettings, defaultAsset.id)}>恢復全部預設</Button>}
+        description="管理 PersonalFinanceOS 的品牌圖示、視覺特效與 Aether 介面偏好。"
+        actions={<Button type="button" variant="outline" onClick={() => updateWorkshopSettings(defaultAetherWorkshopSettings)} disabled={isDefault}>重設工坊</Button>}
       />
       <GameWindow title="Visual Configuration" description="Aether Workshop">
         <div className="aether-management-window" aria-live="polite">
           <AetherPanelHeader
             eyebrow="THEME EDITOR"
             title="Aether 介面工坊"
-            subtitle="Favicon、視覺插槽與本機特效設定"
-            status={<AetherStatusIndicator label={hasChanges ? "待套用" : "已同步"} tone={hasChanges ? "warning" : "success"} />}
-            summary={hasStorageError ? "localStorage unavailable" : "localStorage"}
+            subtitle="Favicon、頁首能量分隔線與未來主題素材統一由 User Settings 同步。"
+            status={<AetherStatusIndicator label={settingsStatusLabel(status)} tone={settingsStatusTone(status)} />}
+            summary="Server Settings"
           />
-          <AetherToolbar role="tablist" ariaLabel="介面工坊分類">
+          <AetherToolbar role="tablist" ariaLabel="介面工坊篩選">
             {(["All", "Branding", "Effects", "Materials"] as WorkshopFilter[]).map((nextFilter) => (
               <button
                 key={nextFilter}
@@ -120,14 +75,14 @@ export default function WorkshopPage() {
               </button>
             ))}
             <div className="aether-toolbar-check">
-              <span>本機設定</span>
-              <AetherStatusIndicator label={hasChanges ? "待套用" : "已同步"} tone={hasChanges ? "warning" : "success"} />
+              <span>同步狀態</span>
+              <AetherStatusIndicator label={settingsStatusLabel(status)} tone={settingsStatusTone(status)} />
             </div>
           </AetherToolbar>
 
           <div className="aether-master-detail">
-            <div className="aether-list-pane" aria-label="視覺插槽" role="listbox">
-              <AetherSectionHeader title="視覺插槽" meta="2 slots" />
+            <div className="aether-list-pane" aria-label="視覺槽位" role="listbox">
+              <AetherSectionHeader title="視覺槽位" meta="2 slots" />
               {slotSections.filter((section) => filter === "All" || sectionFilter(section.title) === filter).map((section) => (
                 <div key={section.title} className="grid gap-2">
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">{section.title}</p>
@@ -135,7 +90,7 @@ export default function WorkshopPage() {
                     <AetherListRow
                       key={slot.key}
                       title={slot.label}
-                      subtitle={`${slot.key} / ${slotSubtitle(slot.key, appliedSettings, savedAsset.name)}`}
+                      subtitle={`${slot.key} / ${slotSubtitle(slot.key, appliedSettings, selectedAsset.name)}`}
                       meta={<AetherStatusIndicator label={slotStatusLabel(slot.key, appliedSettings)} tone={slotStatusTone(slot.key, appliedSettings)} />}
                       isActive={selectedSlotKey === slot.key}
                       onClick={() => setSelectedSlotKey(slot.key)}
@@ -144,7 +99,7 @@ export default function WorkshopPage() {
                 </div>
               ))}
               <div className="rounded-ui border border-border/60 bg-background/30 p-3 text-sm text-muted">
-                目前只開放 Favicon 與頁面標題分隔特效。圖片上傳、材質調整與其他 WebP slot 尚未開放。
+                本頁設定已改由後端 User Settings 保存。未來部署上雲後，登入同一帳號即可同步工坊偏好。
               </div>
             </div>
 
@@ -153,33 +108,25 @@ export default function WorkshopPage() {
                 {selectedSlotKey === visualSlots.favicon.key ? (
                   <FaviconSlotDetail
                     selectedAsset={selectedAsset}
-                    savedAsset={savedAsset}
                     availableAssets={availableAssets}
                     failedPreviewIds={failedPreviewIds}
                     onImageError={onImageError}
-                    onSelectAsset={(assetId) => {
-                      setDraftSettings((current) => ({ ...current, faviconAssetId: assetId }));
-                      setMessage("");
-                    }}
+                    onSelectAsset={(assetId) => updateWorkshopSettings({ faviconAssetId: assetId })}
                   />
                 ) : (
                   <HeaderDividerSlotDetail
-                    enabled={draftSettings.headerDividerEnabled}
-                    appliedEnabled={appliedSettings.headerDividerEnabled}
-                    onToggle={(enabled) => {
-                      setDraftSettings((current) => ({ ...current, headerDividerEnabled: enabled }));
-                      setMessage("");
-                    }}
+                    enabled={appliedSettings.headerDividerEnabled}
+                    onToggle={(enabled) => updateWorkshopSettings({ headerDividerEnabled: enabled })}
                   />
                 )}
 
-                <p className={`text-sm ${hasStorageError ? "text-warning" : "text-muted"}`}>
-                  {message || "此設定只儲存在目前瀏覽器。Windows、MacBook 與手機不會自動同步。"}
+                <p className={`text-sm ${status === "error" ? "text-warning" : "text-muted"}`}>
+                  {settingsStatusMessage(status, error)}
                 </p>
 
                 <AetherActionBar>
-                  <Button type="button" variant="outline" onClick={onResetSelected}>恢復預設</Button>
-                  <Button type="button" onClick={onApply} disabled={!hasChanges}>套用</Button>
+                  {status === "error" && <Button type="button" variant="outline" onClick={retry}>重試同步</Button>}
+                  <Button type="button" variant="outline" onClick={() => updateWorkshopSettings(defaultAetherWorkshopSettings)} disabled={isDefault}>重設所選</Button>
                 </AetherActionBar>
               </div>
             </div>
@@ -190,25 +137,23 @@ export default function WorkshopPage() {
   );
 }
 
-function FaviconSlotDetail({ selectedAsset, savedAsset, availableAssets, failedPreviewIds, onImageError, onSelectAsset }: { selectedAsset: ReturnType<typeof getDefaultVisualAsset>; savedAsset: ReturnType<typeof getDefaultVisualAsset>; availableAssets: typeof builtInVisualAssets; failedPreviewIds: string[]; onImageError: (assetId: string) => void; onSelectAsset: (assetId: string) => void }) {
+function FaviconSlotDetail({ selectedAsset, availableAssets, failedPreviewIds, onImageError, onSelectAsset }: { selectedAsset: ReturnType<typeof getDefaultVisualAsset>; availableAssets: typeof builtInVisualAssets; failedPreviewIds: string[]; onImageError: (assetId: string) => void; onSelectAsset: (assetId: string) => void }) {
   return (
     <>
-      <AetherSectionHeader title="插槽詳細設定" meta={visualSlots.favicon.key} />
+      <AetherSectionHeader title="槽位設定" meta={visualSlots.favicon.key} />
       <div className="flex flex-wrap items-center gap-3 rounded-ui border border-border/60 bg-background/35 p-3">
         <PreviewIcon assetId={selectedAsset.id} src={selectedAsset.src} name={selectedAsset.name} failedPreviewIds={failedPreviewIds} onError={onImageError} size="large" />
         <div className="min-w-0">
           <h2 className="text-xl font-bold text-foreground">{visualSlots.favicon.label}</h2>
-          <p className="mt-1 text-sm text-muted">瀏覽器分頁與書籤顯示的 PersonalFinanceOS 圖示。</p>
+          <p className="mt-1 text-sm text-muted">控制瀏覽器分頁與應用程式圖示。</p>
         </div>
-        <AetherStatusIndicator label={selectedAsset.id === savedAsset.id ? "啟用中" : "待套用"} tone={selectedAsset.id === savedAsset.id ? "success" : "warning"} />
+        <AetherStatusIndicator label="已同步" tone="success" />
       </div>
 
       <AetherDefinitionList>
         <AetherDefinitionRow label="Slot Key" value={visualSlots.favicon.key} />
-        <AetherDefinitionRow label="儲存方式" value="localStorage" />
-        <AetherDefinitionRow label="同步範圍" value="目前瀏覽器" />
-        <AetherDefinitionRow label="目前素材" value={savedAsset.name} />
-        <AetherDefinitionRow label="待套用素材" value={selectedAsset.name} />
+        <AetherDefinitionRow label="儲存方式" value="Server User Settings" />
+        <AetherDefinitionRow label="目前素材" value={selectedAsset.name} />
         <AetherDefinitionRow label="素材路徑" value={<span className="break-all">{selectedAsset.src}</span>} />
       </AetherDefinitionList>
 
@@ -217,8 +162,6 @@ function FaviconSlotDetail({ selectedAsset, savedAsset, availableAssets, failedP
         <div className="grid gap-2 sm:grid-cols-2">
           {availableAssets.map((asset) => {
             const isSelected = selectedAsset.id === asset.id;
-            const isSaved = savedAsset.id === asset.id;
-
             return (
               <button
                 key={asset.id}
@@ -232,8 +175,7 @@ function FaviconSlotDetail({ selectedAsset, savedAsset, availableAssets, failedP
                   <strong>{asset.name}</strong>
                   <small>{asset.format} / 內建素材</small>
                 </span>
-                {isSaved && <AetherStatusIndicator label="目前" tone="success" />}
-                {isSelected && !isSaved && <AetherStatusIndicator label="待套用" tone="warning" />}
+                {isSelected && <AetherStatusIndicator label="目前" tone="success" />}
               </button>
             );
           })}
@@ -243,30 +185,24 @@ function FaviconSlotDetail({ selectedAsset, savedAsset, availableAssets, failedP
   );
 }
 
-function HeaderDividerSlotDetail({ enabled, appliedEnabled, onToggle }: { enabled: boolean; appliedEnabled: boolean; onToggle: (enabled: boolean) => void }) {
+function HeaderDividerSlotDetail({ enabled, onToggle }: { enabled: boolean; onToggle: (enabled: boolean) => void }) {
   return (
     <>
-      <AetherSectionHeader title="插槽詳細設定" meta={visualSlots.headerDivider.key} />
+      <AetherSectionHeader title="槽位設定" meta={visualSlots.headerDivider.key} />
       <div className="grid gap-3 rounded-ui border border-border/60 bg-background/35 p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-foreground">{visualSlots.headerDivider.label}</h2>
-            <p className="mt-1 text-sm text-muted">{visualSlots.headerDivider.description}</p>
+            <h2 className="text-xl font-bold text-foreground">頁首能量分隔線</h2>
+            <p className="mt-1 text-sm text-muted">控制信用卡頁標題區下方的紫色 WebP 光效。</p>
           </div>
-          <AetherStatusIndicator label={appliedEnabled ? "目前啟用" : "目前停用"} tone={appliedEnabled ? "success" : "neutral"} />
+          <AetherStatusIndicator label={enabled ? "啟用" : "停用"} tone={enabled ? "success" : "neutral"} />
         </div>
         <label className="aether-toggle-row">
           <span>
-            <strong>顯示頁面標題分隔特效</strong>
-            <small>{enabled ? "草稿：開啟" : "草稿：關閉"}</small>
+            <strong>顯示頁首 WebP 光效</strong>
+            <small>{enabled ? "目前會顯示在支援的頁面。" : "目前已隱藏。"}</small>
           </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            className={`aether-switch ${enabled ? "aether-switch-on" : ""}`}
-            onClick={() => onToggle(!enabled)}
-          >
+          <button type="button" role="switch" aria-checked={enabled} className={`aether-switch ${enabled ? "aether-switch-on" : ""}`} onClick={() => onToggle(!enabled)}>
             <span />
           </button>
         </label>
@@ -275,21 +211,19 @@ function HeaderDividerSlotDetail({ enabled, appliedEnabled, onToggle }: { enable
       <AetherDefinitionList>
         <AetherDefinitionRow label="Slot Key" value={visualSlots.headerDivider.key} />
         <AetherDefinitionRow label="類型" value="Animated WebP" />
-        <AetherDefinitionRow label="儲存方式" value="localStorage" />
-        <AetherDefinitionRow label="套用位置" value="信用卡頁標題區" />
+        <AetherDefinitionRow label="儲存方式" value="Server User Settings" />
         <AetherDefinitionRow label="預設值" value={visualSlots.headerDivider.defaultEnabled ? "啟用" : "停用"} />
         <AetherDefinitionRow label="素材路徑" value={<span className="break-all">{visualSlots.headerDivider.assetPath}</span>} />
       </AetherDefinitionList>
 
       <section className="grid gap-3">
-        <AetherSectionHeader title="即時預覽" meta={enabled ? "Preview enabled" : "Preview disabled"} />
+        <AetherSectionHeader title="效果預覽" meta={enabled ? "Preview enabled" : "Preview disabled"} />
         <div className="aether-divider-preview">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">系統視窗</p>
-          <h3 className="text-2xl font-bold text-foreground">信用卡</h3>
-          <p className="text-sm text-muted">信用卡額度、未繳金額、分期與帳單匯入狀態。</p>
-          {enabled ? <AetherEnergyDivider className="-mb-2 -mt-2" intensity="normal" /> : <div className="rounded-ui border border-dashed border-border/70 p-4 text-center text-sm text-muted">分隔特效已在草稿中關閉。</div>}
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Visual Slot</p>
+          <h3 className="text-2xl font-bold text-foreground">Aether Divider</h3>
+          <p className="text-sm text-muted">此效果只作為裝飾，不影響頁面資料與操作。</p>
+          {enabled ? <AetherEnergyDivider className="-mb-2 -mt-2" intensity="normal" /> : <div className="rounded-ui border border-dashed border-border/70 p-4 text-center text-sm text-muted">光效已停用。</div>}
         </div>
-        <p className="text-xs text-muted">系統啟用「減少動態效果」時，動畫可能降低或隱藏，但不會改寫你的工坊設定。</p>
       </section>
     </>
   );
@@ -301,19 +235,19 @@ function PreviewIcon({ assetId, src, name, failedPreviewIds, onError, size = "no
 
   return (
     <span className={`grid shrink-0 place-items-center rounded-ui border border-border/75 bg-background/80 ${sizeClass}`}>
-      {hasFailedPreview ? <span className="text-xs font-bold text-muted">ICON</span> : <img className="h-8 w-8 object-contain" src={src} alt={`${name} 預覽`} onError={() => onError(assetId)} />}
+      {hasFailedPreview ? <span className="text-xs font-bold text-muted">ICON</span> : <img className="h-8 w-8 object-contain" src={src} alt={`${name} preview`} onError={() => onError(assetId)} />}
     </span>
   );
 }
 
 function slotSubtitle(slotKey: VisualSlotKey, settings: AetherWorkshopSettings, savedAssetName: string) {
   if (slotKey === visualSlots.favicon.key) return `目前：${savedAssetName}`;
-  return "紫色能量分隔線";
+  return settings.headerDividerEnabled ? "頁首光效啟用" : "頁首光效停用";
 }
 
 function slotStatusLabel(slotKey: VisualSlotKey, settings: AetherWorkshopSettings) {
-  if (slotKey === visualSlots.favicon.key) return "本機";
-  return settings.headerDividerEnabled ? "已啟用" : "已停用";
+  if (slotKey === visualSlots.favicon.key) return "同步";
+  return settings.headerDividerEnabled ? "啟用" : "停用";
 }
 
 function slotStatusTone(slotKey: VisualSlotKey, settings: AetherWorkshopSettings) {
@@ -321,22 +255,41 @@ function slotStatusTone(slotKey: VisualSlotKey, settings: AetherWorkshopSettings
   return settings.headerDividerEnabled ? "success" : "neutral";
 }
 
-function isDefaultSettings(settings: AetherWorkshopSettings, defaultAssetId: string) {
-  return settings.faviconAssetId === defaultAssetId && settings.headerDividerEnabled === visualSlots.headerDivider.defaultEnabled;
-}
-
 function sectionFilter(sectionTitle: string): WorkshopFilter {
-  if (sectionTitle === "系統品牌") return "Branding";
-  if (sectionTitle === "視窗特效") return "Effects";
+  if (sectionTitle === "品牌識別") return "Branding";
+  if (sectionTitle === "視覺特效") return "Effects";
   return "Materials";
 }
 
 function workshopFilterLabel(filter: WorkshopFilter) {
   const labels: Record<WorkshopFilter, string> = {
     All: "全部",
-    Branding: "系統品牌",
-    Effects: "視窗特效",
-    Materials: "元件材質"
+    Branding: "品牌",
+    Effects: "特效",
+    Materials: "材質"
   };
   return labels[filter];
+}
+
+function settingsStatusLabel(status: SettingsSyncStatus) {
+  if (status === "loading") return "讀取中";
+  if (status === "saving") return "同步中";
+  if (status === "saved") return "已同步";
+  if (status === "error") return "同步失敗";
+  return "待命";
+}
+
+function settingsStatusTone(status: SettingsSyncStatus) {
+  if (status === "error") return "danger";
+  if (status === "saving" || status === "loading") return "warning";
+  if (status === "saved") return "success";
+  return "neutral";
+}
+
+function settingsStatusMessage(status: SettingsSyncStatus, error: string) {
+  if (status === "loading") return "正在讀取伺服器設定...";
+  if (status === "saving") return "正在同步 User Settings...";
+  if (status === "saved") return "設定已同步到伺服器，重新登入後仍會保留。";
+  if (status === "error") return error || "同步失敗，畫面已保留目前設定。";
+  return "修改設定後會自動同步，不需要手動儲存。";
 }

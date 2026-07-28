@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
-import { aetherWorkshopSettingsChangedEvent, aetherWorkshopStorageKey, loadAetherWorkshopSettings, normalizeAetherWorkshopSettings, type AetherWorkshopSettings } from "@/lib/aether/workshop-settings";
 import { getBuiltInVisualAsset, getDefaultVisualAsset } from "@/lib/aether/visual-slots";
+import { useSettings } from "@/lib/settings/user-settings";
 
-function applyFavicon(settings: AetherWorkshopSettings) {
-  const asset = getBuiltInVisualAsset(settings.faviconAssetId) ?? getDefaultVisualAsset();
+function applyFavicon(faviconAssetId: string) {
+  const asset = getBuiltInVisualAsset(faviconAssetId) ?? getDefaultVisualAsset();
   const href = new URL(asset.src, window.location.origin).toString();
 
   let iconLink = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
@@ -30,32 +30,11 @@ function applyFavicon(settings: AetherWorkshopSettings) {
 }
 
 export function FaviconController() {
+  const { settings } = useSettings();
+
   useEffect(() => {
-    applyFavicon(loadAetherWorkshopSettings());
-
-    const onSettingsChanged = (event: Event) => {
-      const detail = event instanceof CustomEvent ? event.detail : null;
-      applyFavicon(normalizeAetherWorkshopSettings(detail));
-    };
-
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== aetherWorkshopStorageKey) return;
-
-      try {
-        applyFavicon(normalizeAetherWorkshopSettings(event.newValue ? JSON.parse(event.newValue) : null));
-      } catch {
-        applyFavicon(loadAetherWorkshopSettings());
-      }
-    };
-
-    window.addEventListener(aetherWorkshopSettingsChangedEvent, onSettingsChanged);
-    window.addEventListener("storage", onStorage);
-
-    return () => {
-      window.removeEventListener(aetherWorkshopSettingsChangedEvent, onSettingsChanged);
-      window.removeEventListener("storage", onStorage);
-    };
-  }, []);
+    applyFavicon(settings.workshopSettings.faviconAssetId);
+  }, [settings.workshopSettings.faviconAssetId]);
 
   return null;
 }

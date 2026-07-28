@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -169,6 +169,7 @@ app.MapTransactionEndpoints();
 app.MapCreditCardEndpoints();
 app.MapRecurringTransactionEndpoints();
 app.MapStatementImportEndpoints();
+app.MapUserSettingsEndpoints();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {

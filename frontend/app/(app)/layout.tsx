@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { GameTheme } from "@/components/ui/game-theme";
 import { LoadingState } from "@/components/ui/states";
 import { useAuth } from "../auth-context";
 import { t } from "@/lib/i18n";
+import { SettingsProvider } from "@/lib/settings/user-settings";
 import { QuickAdd } from "./quick-add";
 import { QuestLog } from "./quest-log";
 
@@ -83,6 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <GameTheme>
+      <SettingsProvider>
       <FaviconController />
       <main className="min-h-screen text-foreground">
         <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/70 bg-surface/72 px-4 py-5 shadow-panel backdrop-blur-xl lg:block">
@@ -128,6 +130,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="mx-auto grid max-w-7xl gap-8 px-4 py-7 sm:px-6">{children}</div>
         </section>
       </main>
+      </SettingsProvider>
     </GameTheme>
   );
 }

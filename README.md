@@ -1,152 +1,58 @@
-# PersonalFinanceOS
+﻿# PersonalFinanceOS
 
-PersonalFinanceOS 是一個以 Ledger-first 架構打造的個人財務作業系統。它不是單純的記帳表單，而是希望把帳戶、信用卡、帳單、固定交易、財務任務與個人化介面整合成每天可以打開使用的工作台。
+PersonalFinanceOS 是一個 Ledger-first 的個人財務系統，目標不是只記流水帳，而是建立一個可以長期維護、能匯入真實帳單、能支援跨裝置使用的個人財務作業系統。
 
-目前專案已完成 Sprint 0 到 Sprint 5.2，重點包含：帳本核心、信用卡領域模型、Richart / 玉山帳單匯入、Personal Seed、Aether MMORPG UI Framework、Quest Log 與 Workshop。
+目前專案已完成 Sprint 0 到 Sprint 5.4 的基礎：帳戶、分類、交易紀錄、信用卡、Richart/玉山帳單匯入、Personal Seed、Aether UI Framework、Quest Log、Workshop，以及 User Settings 雲端同步基礎。
 
 ## 核心理念
 
-- Ledger-first：所有帳戶餘額都由已入帳交易分錄即時計算，不直接儲存 current balance。
-- Review before Post：PDF 帳單匯入後先進入審核列，再由使用者確認入帳。
-- Forecast is not Ledger：固定交易、分期與提醒都是預測，只有使用者確認後才影響餘額。
-- Local-first dogfooding：先能在本機長期真實使用，再逐步準備雲端化。
-- Aether UI：財務工具可以專業，也可以像遊戲系統視窗一樣有辨識度。
+- Ledger-first：帳戶餘額不直接儲存在帳戶上，而是由已入帳交易的分錄即時計算。
+- Review before Post：PDF 帳單先解析成待確認列，再由使用者入帳，避免錯誤資料直接污染 Ledger。
+- Forecast is not Ledger：分期預測與提醒不等於正式入帳，只有 Post 後才影響餘額。
+- Dogfooding first：功能優先解決真實使用中的痛點。
+- Aether UI：用 MMORPG 系統介面的語言做一個高資訊密度、每天可用的財務工具。
+- Cloud-ready：本機優先，但架構逐步支援跨裝置同步與未來部署。
 
 ## 目前功能
 
 - 使用者註冊、登入、JWT access token 與 refresh token。
-- 帳戶管理：現金、支票、儲蓄、信用卡、投資、貸款與其他帳戶。
-- 分類管理：收入與支出分類、階層、封存、排序。
-- 交易紀錄：收入、支出、轉帳、期初餘額、信用卡消費、退款、繳款與作廢。
-- 信用卡管理：額度、帳期、已結帳、未出帳、可用額度、繳款與分期。
-- Richart / 玉山 PDF 帳單匯入：解析、審核、重試、略過、入帳與匯入紀錄。
-- 固定交易：週期模板、待辦 occurrence、手動入帳或略過。
-- Quest Log：把即將到來的繳款、結帳、固定交易與分期整理成財務任務視窗。
-- Workshop：favicon、視覺插槽、WebP 效果與本機 UI 設定。
-- Aether UI Framework：Management Window、Panel Header、Metric、Toolbar、Action Bar、Empty State。
-- Personal Seed：可重複執行的個人測試資料與驗證腳本。
+- 帳戶管理：現金、支票帳戶、儲蓄帳戶、信用卡等。
+- 分類管理：收入、支出、轉帳與待分類。
+- Ledger-first 交易紀錄：收入、支出、轉帳、期初餘額、作廢。
+- 信用卡管理：信用額度、已結帳應繳、未出帳、可用額度、繳款、退款、分期。
+- Richart / 玉山信用卡 PDF 帳單匯入：解析、檢查、修正、略過、入帳、匯入紀錄。
+- Personal Seed：可重複建立個人基準資料。
+- Quick Add：快速新增日常交易。
+- Recurring：固定交易模板。
+- Quest Log：財務任務視窗，用於信用卡結帳/繳款提醒等任務。
+- Workshop：favicon、Visual Slot、Aether 視覺設定。
+- Goal Bars：像血條一樣的目標資金條。
+- User Settings：Workshop、Visual Slot、Goal Bars、Theme 設定改由後端保存，作為跨裝置同步基礎。
 
 ## 系統架構
 
 ```mermaid
 flowchart LR
   Browser["Next.js Frontend\nlocalhost:3100"]
-  BFF["Next.js Auth Routes\nHttpOnly refresh cookie"]
   API["ASP.NET Core API\nlocalhost:5000"]
   App["Application Layer"]
   Domain["Domain Model"]
   DB[("PostgreSQL")]
   Redis[("Redis")]
 
-  Browser --> BFF
   Browser --> API
-  BFF --> API
   API --> App
   App --> Domain
   App --> DB
   API --> Redis
 ```
 
-後端採 ASP.NET Core / EF Core / PostgreSQL / Redis。前端採 Next.js / React / TypeScript / Tailwind CSS。整體使用 monorepo 管理，Docker Compose 啟動本機 PostgreSQL 與 Redis。
-
 ## 技術架構
 
-```text
-personal-finance-os/
-  backend/
-    src/
-      PersonalFinance.Api/
-      PersonalFinance.Application/
-      PersonalFinance.Domain/
-      PersonalFinance.Infrastructure/
-    tests/
-  frontend/
-    app/
-    components/
-    lib/
-    public/
-  docs/
-    adr/
-    screenshots/
-  scripts/
-```
-
-主要技術：
-
-- .NET SDK 8
-- ASP.NET Core Minimal APIs
-- Entity Framework Core
-- PostgreSQL
-- Redis
-- Next.js 16
-- React 19
-- TypeScript
-- Tailwind CSS
-- Docker Compose
-
-## 主要特色
-
-### Ledger-first 帳本
-
-帳戶沒有直接存餘額欄位。每一筆正式交易會建立 transaction entries，帳戶餘額由 posted entries 加總而來。
-
-```mermaid
-flowchart TD
-  Transaction["Transaction"]
-  EntryA["TransactionEntry\nAccount A"]
-  EntryB["TransactionEntry\nAccount B"]
-  Balance["Calculated Balance\nSUM posted entries"]
-
-  Transaction --> EntryA
-  Transaction --> EntryB
-  EntryA --> Balance
-  EntryB --> Balance
-```
-
-### 信用卡工作流
-
-信用卡也是 Ledger account。消費增加信用卡負債，繳款同時降低付款帳戶資產與信用卡負債。已結帳與未出帳由帳期與交易日期計算。
-
-### Statement Import
-
-PDF 不會直接寫入正式交易，而是走：
-
-```mermaid
-flowchart LR
-  PDF["PDF Statement"]
-  Parser["Provider Parser"]
-  Rows["Statement Import Rows"]
-  Review["Review / Edit / Ignore"]
-  Post["Post Ready Rows"]
-  Ledger["Ledger Transactions"]
-
-  PDF --> Parser --> Rows --> Review --> Post --> Ledger
-```
-
-### Aether UI
-
-Sprint 5.2 後，主要頁面逐步收斂成同一套 Aether UI Framework：管理視窗、卡片槽位、任務視窗、統一指標卡、工具列、空狀態與動作列。
-
-## 目前完成進度
-
-- Sprint 0：專案初始化、Docker、CI、Health Check。
-- Sprint 1：Authentication、Accounts、Categories。
-- Sprint 2：Ledger、Transactions、Balances、Opening Balance。
-- Sprint 3：Credit Cards、Payments、Refunds、Installments。
-- Sprint 4：Quick Add、Recurring、Upcoming、Credit Card UX。
-- Sprint 5：Richart / ESUN Statement Import、Personal Baseline Seed。
-- Sprint 5.2：Aether UI Framework、Quest Log、Workshop、UI polish。
-- Sprint 5.3：Documentation & Product Readiness。
-
-## Roadmap
-
-近期方向：
-
-- Sprint 5.4：雲端部署準備、環境變數、備份策略、部署文件。
-- Sprint 6：Dashboard 與月報表。
-- Future：Budget、Goal DB、Workshop DB Sync、投資追蹤、分析報表、行動端優化。
-
-完整 Roadmap 見 [docs/Roadmap.md](docs/Roadmap.md)。
+- Backend：.NET 8、ASP.NET Core Minimal APIs、MediatR、EF Core、PostgreSQL、Redis。
+- Frontend：Next.js、React、TypeScript、Tailwind CSS。
+- DevOps：Docker Compose、GitHub Actions、root npm scripts。
+- 文件：README 使用繁體中文，`docs/` 使用英文，ADR 記錄重要架構決策。
 
 ## 開發環境
 
@@ -157,7 +63,7 @@ Sprint 5.2 後，主要頁面逐步收斂成同一套 Aether UI Framework：管�
 - .NET SDK 8
 - Node.js 22
 
-建議先執行：
+首次啟動建議流程：
 
 ```bash
 npm install
@@ -166,7 +72,7 @@ npm run migrate
 npm run dev
 ```
 
-服務位置：
+預設網址：
 
 ```text
 Frontend: http://localhost:3100
@@ -186,12 +92,6 @@ npm run migrate
 npm run dev
 ```
 
-也可以使用薄包裝：
-
-```powershell
-scripts\setup.ps1
-```
-
 ## macOS 啟動方式
 
 ```bash
@@ -203,180 +103,128 @@ npm run migrate
 npm run dev
 ```
 
-也可以使用薄包裝：
-
-```bash
-./scripts/setup.sh
-```
-
 ## Docker
 
-本機 PostgreSQL 與 Redis 由 Docker Compose 啟動。預設使用避開常見衝突的 port：
+Docker Compose 會啟動 PostgreSQL 與 Redis。開發環境預設 port 由 `.env` 或 `.env.example` 控制。
 
-```text
-PostgreSQL: 55432
-Redis:      56379
+```bash
+docker compose up -d --wait
 ```
 
-停止服務：
+停止：
 
 ```bash
 npm run down
 ```
 
-重建本機資料庫與 Redis volume：
+重建資料庫 volume：
 
 ```bash
 npm run db:reset
-npm run migrate
 ```
 
-## Development Seed
+## Seed
 
-Development Seed 是本機開發用資料，不會在 production startup 自動執行。
+Development Seed：
 
 ```bash
 npm run seed
 ```
 
-預設開發帳號設定在 `backend/src/PersonalFinance.Api/appsettings.Development.json`。可以透過環境變數覆蓋：
+Personal Seed：
 
 ```bash
-PFOS_SEED_EMAIL=admin01@example.local PFOS_SEED_PASSWORD='your-dev-password' npm run seed
-```
-
-## Personal Seed
-
-Personal Seed 是 dogfooding 用的個人基準資料。它是 explicit、local-only、idempotent。
-
-PowerShell：
-
-```powershell
-$env:ALLOW_PERSONAL_SEED="true"
-$env:PERSONAL_SEED_EMAIL="you@example.com"
-npm run seed:personal:dry-run
 npm run seed:personal
 npm run verify:personal-seed
 ```
 
-macOS / Linux：
-
-```bash
-export ALLOW_PERSONAL_SEED=true
-export PERSONAL_SEED_EMAIL='you@example.com'
-npm run seed:personal:dry-run
-npm run seed:personal
-npm run verify:personal-seed
-```
-
-Personal Seed 會建立或修復 seed-owned baseline，例如帳戶、分類、信用卡、期初餘額與基準交易。它不會保存 PDF 密碼，也不會保存本機絕對路徑。
+Personal Seed 是可重複執行的基準資料機制，適合在新機器或重新建立資料庫後恢復帳戶、信用卡、分類與個人 baseline。實際日常交易不會自動寫回 seed，除非另外更新 seed script。
 
 ## Statement Import
 
 目前支援：
 
-- Richart PDF Statement Import
-- ESUN PDF Statement Import
+- Richart 信用卡 PDF 帳單
+- 玉山信用卡 PDF 帳單
 
 匯入流程：
 
-1. 選擇信用卡。
-2. 上傳 PDF 並輸入密碼。
-3. Parser 建立 statement import batch 與 rows。
-4. 在 UI 檢查金額、類型與分類。
-5. 將 ready rows 入帳。
-6. 正式交易進入 Ledger。
-
-PDF 密碼只存在 request 期間，不寫入 DB、不寫 log。
+```mermaid
+flowchart LR
+  PDF["PDF 帳單"] --> Parser["Parser"]
+  Parser --> Rows["待確認列"]
+  Rows --> Review["修正 / 分類 / 略過"]
+  Review --> Post["入帳"]
+  Post --> Ledger["Ledger Transactions"]
+```
 
 ## Aether UI
 
-Aether UI 是 PersonalFinanceOS 的自訂設計語言。它借鑑現代 MMORPG 系統視窗的層級感，但不使用任何遊戲官方素材。
+Aether UI 是 PersonalFinanceOS 的 MMORPG System UI 設計語言。核心元件包含：
 
-核心元件包含：
-
-- Aether Management Window
-- Aether Panel Header
-- Aether Metric
-- Aether Toolbar
-- Aether Action Bar
-- Aether Empty State
-- Game Window
+- Management Window
+- Panel Header
+- Metric Card
+- Toolbar
+- Action Bar
+- Empty State
 - Quest Window
+- Game-style Modal
+- Visual Slot
+- Goal Bar
 
-詳細設計見 [docs/AetherUI.md](docs/AetherUI.md)。
+## User Settings 與 Cloud Ready
 
-## Quest Log
+Sprint 5.4 新增 User Settings Domain，讓原本存在 localStorage 的使用者偏好改由後端保存：
 
-Quest Log 把財務提醒變成可開關的任務視窗，例如信用卡結帳日、繳款日、固定交易與分期入帳。它目前是 UI/Workflow 層，不是獨立 domain。
+- Theme
+- Workshop settings
+- Visual slots
+- Goal bars
 
-## Workshop
+前端透過 SettingsProvider 統一讀取與自動儲存設定。這讓未來部署到雲端後，不同裝置登入同一帳號可以同步介面偏好。
 
-Workshop 是 UI 個人化入口，目前支援 favicon、視覺插槽與 WebP 效果設定。部分設定目前存在 localStorage，未來若需要跨裝置同步，會進一步設計 Workshop DB Sync。
+## Cloud / Deployment 文件
 
-## 截圖
+相關文件：
 
-截圖資料夾已預留於：
+- [Deployment](docs/Deployment.md)
+- [Backup and Restore](docs/BackupRestore.md)
+- [Security](docs/Security.md)
+- [Cloud Readiness](docs/CloudReadiness.md)
 
-```text
-docs/screenshots/
-```
+目前 Sprint 5.4 只完成部署準備與 Cloud Foundation，尚未實際上線。
 
-建議未來補上：
+## 目前完成進度
 
-- Accounts
-- Credit Cards
-- Quest Log
-- Workshop
-- Recurring
-- Categories
-- System Status
+- Sprint 0：專案初始化、Docker、CI、Health Check。
+- Sprint 1：Authentication、Accounts、Categories。
+- Sprint 2：Ledger、Transactions、Balances、Opening Balance。
+- Sprint 3：Credit Cards、Payments、Refunds、Installments。
+- Sprint 4：Quick Add、Recurring、Upcoming、Credit Card UX。
+- Sprint 5：Richart / ESUN Statement Import、Personal Baseline Seed。
+- Sprint 5.2：Aether UI Framework、Quest Log、Workshop。
+- Sprint 5.3：Documentation & Product Readiness。
+- Sprint 5.4：Cloud Foundation & User Personalization。
+
+## Roadmap
+
+下一階段仍不急著新增功能，建議先依真實使用狀況決定優先順序：
+
+- Sprint 5.5：E2E smoke tests 或 Production dry run。
+- Sprint 6：Dashboard + 月報表。
+- Future：Budget、Goal DB、Workshop DB 進階同步、Analytics、Investment、Notification、正式部署。
+
+完整 roadmap 請見 [docs/Roadmap.md](docs/Roadmap.md)。
 
 ## 目前限制
 
-- 尚未部署到雲端。
-- 尚未建立 Dashboard 與月報表。
-- Budget / Goal DB 尚未開始。
-- Workshop / Goal Bar 部分資料仍是 localStorage。
-- Statement Import 目前只支援已實作的銀行格式。
-- 尚未導入正式 E2E 測試。
-
-## 驗證
-
-常用驗證：
-
-```bash
-npm run test
-cd frontend
-npm run lint
-npx tsc --noEmit
-npm run build
-```
-
-完整 backend 驗證：
-
-```bash
-cd backend
-dotnet restore
-dotnet build --no-restore
-dotnet format --verify-no-changes --no-restore
-dotnet test --no-build
-```
-
-## 文件
-
-- [Architecture](docs/Architecture.md)
-- [Ledger](docs/Ledger.md)
-- [Credit Cards](docs/CreditCards.md)
-- [Statement Import](docs/StatementImport.md)
-- [Seed](docs/Seed.md)
-- [Aether UI](docs/AetherUI.md)
-- [Workshop](docs/Workshop.md)
-- [Quest System](docs/QuestSystem.md)
-- [Roadmap](docs/Roadmap.md)
-- [Coding Guidelines](docs/CodingGuidelines.md)
-- [Architecture Decision Records](docs/adr/)
+- 尚未正式部署到 production。
+- Goal Bar 已同步到 User Settings，但仍是偏好設定，不是完整 Goal Domain。
+- Workshop Visual Slot 已同步設定，但素材管理仍是內建資源，不支援使用者上傳到後端。
+- Dashboard、Budget、Investment 尚未開始。
+- E2E 測試仍待補強。
 
 ## License
 
-目前尚未指定正式 License。若未來開源或部署給他人使用，請先補上授權條款與敏感資料政策。
+目前尚未指定正式授權。正式公開或部署前建議補上 License。

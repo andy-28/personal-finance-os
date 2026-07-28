@@ -1,10 +1,11 @@
-using PersonalFinance.Domain.Accounts;
+﻿using PersonalFinance.Domain.Accounts;
 using PersonalFinance.Domain.Categories;
 using PersonalFinance.Domain.CreditCards;
 using PersonalFinance.Domain.Recurring;
 using PersonalFinance.Domain.StatementImports;
 using PersonalFinance.Domain.Transactions;
 using PersonalFinance.Domain.Users;
+using PersonalFinance.Domain.UserSettings;
 
 namespace PersonalFinance.Application.Abstractions.Persistence;
 
@@ -24,6 +25,7 @@ public interface IApplicationDbContext
     IQueryable<RecurringTransactionOccurrence> RecurringTransactionOccurrences { get; }
     IQueryable<Transaction> Transactions { get; }
     IQueryable<TransactionEntry> TransactionEntries { get; }
+    IQueryable<UserSetting> UserSettings { get; }
 
     void AddUser(User user);
     void AddRefreshToken(RefreshToken refreshToken);
@@ -38,6 +40,7 @@ public interface IApplicationDbContext
     void AddRecurringTransactionOccurrence(RecurringTransactionOccurrence occurrence);
     void AddTransaction(Transaction transaction);
     void AddTransactionEntries(IEnumerable<TransactionEntry> entries);
+    void AddUserSetting(UserSetting userSetting);
     void RemoveTransactionEntries(IEnumerable<TransactionEntry> entries);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
     Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken);

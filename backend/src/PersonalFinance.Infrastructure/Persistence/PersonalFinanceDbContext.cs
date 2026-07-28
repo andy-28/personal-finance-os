@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Data;
 using PersonalFinance.Application.Abstractions.Persistence;
@@ -9,6 +9,7 @@ using PersonalFinance.Domain.Recurring;
 using PersonalFinance.Domain.StatementImports;
 using PersonalFinance.Domain.Transactions;
 using PersonalFinance.Domain.Users;
+using PersonalFinance.Domain.UserSettings;
 
 namespace PersonalFinance.Infrastructure.Persistence;
 
@@ -30,6 +31,7 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
     public DbSet<RecurringTransactionOccurrence> RecurringTransactionOccurrences => Set<RecurringTransactionOccurrence>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<TransactionEntry> TransactionEntries => Set<TransactionEntry>();
+    public DbSet<UserSetting> UserSettings => Set<UserSetting>();
 
     IQueryable<User> IApplicationDbContext.Users => Users;
     IQueryable<RefreshToken> IApplicationDbContext.RefreshTokens => RefreshTokens;
@@ -45,6 +47,7 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
     IQueryable<RecurringTransactionOccurrence> IApplicationDbContext.RecurringTransactionOccurrences => RecurringTransactionOccurrences;
     IQueryable<Transaction> IApplicationDbContext.Transactions => Transactions;
     IQueryable<TransactionEntry> IApplicationDbContext.TransactionEntries => TransactionEntries;
+    IQueryable<UserSetting> IApplicationDbContext.UserSettings => UserSettings;
 
     public void AddUser(User user) => Users.Add(user);
     public void AddRefreshToken(RefreshToken refreshToken) => RefreshTokens.Add(refreshToken);
@@ -59,6 +62,7 @@ public sealed class PersonalFinanceDbContext : DbContext, IApplicationDbContext
     public void AddRecurringTransactionOccurrence(RecurringTransactionOccurrence occurrence) => RecurringTransactionOccurrences.Add(occurrence);
     public void AddTransaction(Transaction transaction) => Transactions.Add(transaction);
     public void AddTransactionEntries(IEnumerable<TransactionEntry> entries) => TransactionEntries.AddRange(entries);
+    public void AddUserSetting(UserSetting userSetting) => UserSettings.Add(userSetting);
     public void RemoveTransactionEntries(IEnumerable<TransactionEntry> entries) => TransactionEntries.RemoveRange(entries);
 
     public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken)

@@ -1,6 +1,6 @@
-# Roadmap
+﻿# Roadmap
 
-The roadmap is intentionally flexible. PersonalFinanceOS is being developed through dogfooding, so real usage should continue to influence priorities.
+The roadmap is intentionally flexible. PersonalFinanceOS is developed through dogfooding, so real usage should continue to influence priorities.
 
 ## Completed
 
@@ -71,17 +71,27 @@ The roadmap is intentionally flexible. PersonalFinanceOS is being developed thro
 - Developer docs
 - Architecture Decision Records
 
+### Sprint 5.4
+
+- User Settings domain
+- User Settings database table and REST API
+- SettingsProvider frontend foundation
+- Workshop settings server sync
+- Goal Bars server sync
+- Theme and Visual Slot settings foundation
+- Deployment, Backup/Restore, Security, and Cloud Readiness documentation
+
 ## Next
 
-### Sprint 5.4
+### Sprint 5.5
 
 Potential focus:
 
-- Cloud deployment preparation
-- Environment variable hardening
-- Backup and restore documentation
-- Production Docker or PaaS notes
-- Deployment checklist
+- Production dry run
+- E2E smoke tests
+- CI hardening
+- Settings sync polish
+- Backup restore drill
 
 ### Sprint 6
 
@@ -97,12 +107,11 @@ Potential focus:
 ## Future
 
 - Budget
-- Goal DB
-- Workshop DB sync
+- Full Goal domain
+- Workshop asset upload and DB-backed asset library
 - Cloud deployment
 - Investment tracking
 - Analytics and trend reports
-- E2E tests
 - Mobile UX refinement
 - Notification delivery
 - Bank or email integrations, only after security and privacy review
