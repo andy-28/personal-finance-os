@@ -66,9 +66,8 @@ Backward-compatible backend aliases still work:
 Frontend variables:
 
 - `BACKEND_API_URL`
-- `NEXT_PUBLIC_API_URL`
 
-Use the deployed backend origin for both frontend variables unless a server-side proxy is introduced later.
+The frontend uses same-origin Next.js BFF routes for browser requests. Do not configure `NEXT_PUBLIC_API_URL` for backend access; production browser traffic must call `/api/*` on the Vercel origin, and the server route forwards to `BACKEND_API_URL`.
 
 ## Deployment Order
 
@@ -132,10 +131,9 @@ Use Upstash Redis for production Redis. Store the Redis connection string in `Co
 
 Deploy `frontend/` as the Vercel project root. Configure:
 
-- `NEXT_PUBLIC_API_URL=https://<render-service>.onrender.com`
 - `BACKEND_API_URL=https://<render-service>.onrender.com`
 
-After changing backend origins, redeploy the frontend so browser-side environment variables are rebuilt.
+Do not set `NEXT_PUBLIC_API_URL` for backend access. Browser requests should appear as `https://<vercel-app>/api/...`, not `localhost`, `127.0.0.1`, or the Render origin directly.
 
 ## Health Check
 
@@ -175,4 +173,4 @@ Serilog request logging is enabled, but request bodies and secrets are not logge
 - Credit cards summary
 - User Settings persistence
 - Statement import upload/review/post path with a safe test statement
-- Frontend CORS from the production origin
+- Frontend same-origin API calls through `/api/*` with no browser requests to localhost or the Render origin

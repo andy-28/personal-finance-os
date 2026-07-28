@@ -1,4 +1,4 @@
-﻿import { messageFromProblem } from "./error-messages";
+import { messageFromProblem } from "./error-messages";
 import { formatCurrency } from "./formatters";
 
 export type HealthStatus = "Healthy" | "Degraded" | "Unhealthy";
@@ -185,7 +185,7 @@ export type UpcomingInstallmentDto = { planId: string; itemId: string; creditCar
 export type CreditCardReminderDto = { accountId: string; accountName: string; kind: "Closing" | "PaymentDue"; date: string };
 export type UpcomingDto = { recurringOccurrences: RecurringOccurrenceDto[]; installments: UpcomingInstallmentDto[]; creditCardReminders: CreditCardReminderDto[] };
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+const apiBaseUrl = "";
 
 export class ApiError extends Error {
   constructor(public status: number, public problem: ProblemDetails) {
@@ -194,7 +194,7 @@ export class ApiError extends Error {
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
-  const response = await fetch(`${apiBaseUrl}/health`, { cache: "no-store", signal });
+  const response = await fetch("/api/health", { cache: "no-store", signal });
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) return response.json() as Promise<HealthResponse>;
   throw new Error(`Health check failed with HTTP ${response.status}`);

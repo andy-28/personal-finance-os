@@ -267,7 +267,7 @@ function formatDateTime(value: string) {
 }
 
 function serviceGuidance(service: ServiceView) {
-  if (service.id === "backend") return "確認 Backend API 是否已啟動，並檢查前端 NEXT_PUBLIC_API_URL 是否指向正確 port。";
+  if (service.id === "backend") return "確認 Backend API 是否已啟動，並檢查 Next.js 伺服器端 BACKEND_API_URL 是否指向正確服務。";
   if (service.id === "postgresql") return "確認 PostgreSQL container 是否正在執行，連線字串與 port 是否正確。";
   if (service.id === "redis") return "確認 Redis container 是否正在執行，快取連線設定是否正確。";
   return "請確認此服務是否已啟動。";
