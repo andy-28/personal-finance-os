@@ -8,6 +8,7 @@ public sealed class PersonalFinanceDbContextFactory : IDesignTimeDbContextFactor
     public PersonalFinanceDbContext CreateDbContext(string[] args)
     {
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")
+            ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
             ?? "Host=localhost;Port=55432;Database=personal_finance;Username=pfos;Password=pfos_dev_password";
 
         var options = new DbContextOptionsBuilder<PersonalFinanceDbContext>()

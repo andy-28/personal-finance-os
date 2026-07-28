@@ -24,8 +24,12 @@ public static class DependencyInjection
             options.Email = configuration["PFOS_SEED_EMAIL"] ?? options.Email;
             options.Password = configuration["PFOS_SEED_PASSWORD"] ?? options.Password;
         });
+        var postgresConnectionString = configuration.GetConnectionString("Postgres")
+            ?? configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("ConnectionStrings:Postgres or ConnectionStrings:DefaultConnection is required.");
+
         services.AddDbContext<PersonalFinanceDbContext>(options =>
-            options.UseNpgsql(configuration.GetConnectionString("Postgres")));
+            options.UseNpgsql(postgresConnectionString));
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<PersonalFinanceDbContext>());
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();

@@ -111,11 +111,14 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 
+var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:Postgres or ConnectionStrings:DefaultConnection is required.");
+
 builder.Services
     .AddHealthChecks()
     .AddNpgSql(
-        builder.Configuration.GetConnectionString("Postgres")
-            ?? throw new InvalidOperationException("ConnectionStrings:Postgres is required."),
+        postgresConnectionString,
         name: "postgresql",
         tags: ["database", "postgresql"])
     .AddRedis(

@@ -1,10 +1,11 @@
-﻿# Cloud Readiness
+# Cloud Readiness
 
 This checklist tracks the gap between local dogfooding and production cloud usage.
 
 ## Ready
 
 - [x] Docker Compose for PostgreSQL and Redis.
+- [x] Production Dockerfile for the backend API.
 - [x] EF Core migrations.
 - [x] Ledger-first balance calculation.
 - [x] Authentication baseline.
@@ -16,11 +17,14 @@ This checklist tracks the gap between local dogfooding and production cloud usag
 - [x] Workshop settings synced through User Settings.
 - [x] Goal Bars synced through User Settings.
 - [x] Deployment, backup, and security documentation.
+- [x] Render-ready backend Docker configuration.
+- [x] Production health response hides dependency exception details.
+- [x] Production environment variable template.
 
 ## Not Ready Yet
 
-- [ ] Production deployment target selected.
-- [ ] Production CORS policy configured.
+- [x] Production deployment target selected for the first dry run: Neon + Render + Upstash + Vercel.
+- [ ] Production CORS policy configured with the final deployed frontend origin.
 - [ ] HTTPS reverse proxy configured.
 - [ ] Automated production backups verified.
 - [ ] E2E smoke tests.

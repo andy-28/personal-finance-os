@@ -1,8 +1,8 @@
-﻿# PersonalFinanceOS
+# PersonalFinanceOS
 
 PersonalFinanceOS 是一個 Ledger-first 的個人財務系統，目標不是只記流水帳，而是建立一個可以長期維護、能匯入真實帳單、能支援跨裝置使用的個人財務作業系統。
 
-目前專案已完成 Sprint 0 到 Sprint 5.4 的基礎：帳戶、分類、交易紀錄、信用卡、Richart/玉山帳單匯入、Personal Seed、Aether UI Framework、Quest Log、Workshop，以及 User Settings 雲端同步基礎。
+目前專案已完成 Sprint 0 到 Sprint 5.5A 的基礎：帳戶、分類、交易紀錄、信用卡、Richart/玉山帳單匯入、Personal Seed、Aether UI Framework、Quest Log、Workshop、User Settings 雲端同步基礎，以及 production Docker/部署準備。
 
 ## 核心理念
 
@@ -51,7 +51,7 @@ flowchart LR
 
 - Backend：.NET 8、ASP.NET Core Minimal APIs、MediatR、EF Core、PostgreSQL、Redis。
 - Frontend：Next.js、React、TypeScript、Tailwind CSS。
-- DevOps：Docker Compose、GitHub Actions、root npm scripts。
+- DevOps：Docker Compose、production Dockerfile、GitHub Actions、root npm scripts。
 - 文件：README 使用繁體中文，`docs/` 使用英文，ADR 記錄重要架構決策。
 
 ## 開發環境
@@ -105,7 +105,7 @@ npm run dev
 
 ## Docker
 
-Docker Compose 會啟動 PostgreSQL 與 Redis。開發環境預設 port 由 `.env` 或 `.env.example` 控制。
+Docker Compose 會啟動 PostgreSQL 與 Redis。開發環境預設 port 由 `.env` 或 `.env.example` 控制。Sprint 5.5A 也新增 root production `Dockerfile`，用於 Render backend Docker service。
 
 ```bash
 docker compose up -d --wait
@@ -193,7 +193,7 @@ Sprint 5.4 新增 User Settings Domain，讓原本存在 localStorage 的使用�
 - [Security](docs/Security.md)
 - [Cloud Readiness](docs/CloudReadiness.md)
 
-目前 Sprint 5.4 只完成部署準備與 Cloud Foundation，尚未實際上線。
+目前 Sprint 5.5A 只完成 production deployment preparation，包含 Dockerfile、環境變數範例、production health 行為與部署文件；尚未實際建立 Render、Vercel、Neon secret 或 Upstash secret。
 
 ## 目前完成進度
 
@@ -206,12 +206,14 @@ Sprint 5.4 新增 User Settings Domain，讓原本存在 localStorage 的使用�
 - Sprint 5.2：Aether UI Framework、Quest Log、Workshop。
 - Sprint 5.3：Documentation & Product Readiness。
 - Sprint 5.4：Cloud Foundation & User Personalization。
+- Sprint 5.5A：Production Deployment Preparation。
 
 ## Roadmap
 
 下一階段仍不急著新增功能，建議先依真實使用狀況決定優先順序：
 
-- Sprint 5.5：E2E smoke tests 或 Production dry run。
+- Sprint 5.5B：Neon / Render / Upstash / Vercel 實際部署。
+- Sprint 5.5C：Production smoke test 與驗收。
 - Sprint 6：Dashboard + 月報表。
 - Future：Budget、Goal DB、Workshop DB 進階同步、Analytics、Investment、Notification、正式部署。
 

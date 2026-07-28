@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-export const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+export const apiBaseUrl = process.env.BACKEND_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 const cookieName = "pfos_refresh_token";
 
 export async function setRefreshCookie(refreshToken: string) {
@@ -34,13 +34,13 @@ export async function forwardJson(path: string, body: unknown) {
   } catch {
     return {
       response: new Response(null, { status: 503 }),
-      data: { title: "API 服務無法連線", detail: "後端 API 尚未啟動，請啟動後再試一次。" }
+      data: { title: "API 無法連線", detail: "請確認 Backend API 已啟動，並檢查 BACKEND_API_URL 或 NEXT_PUBLIC_API_URL 設定。" }
     };
   }
 
   const data = await response.json().catch(() => ({
-    title: response.ok ? "API 回應格式異常" : "請求失敗",
-    detail: response.ok ? "API 回傳空白內容。" : `API 回傳 HTTP ${response.status}，但沒有 JSON 內容。`
+    title: response.ok ? "API 回應格式錯誤" : "請求失敗",
+    detail: response.ok ? "API 回傳的內容不是有效 JSON。" : `API 回傳 HTTP ${response.status}，且沒有有效 JSON 錯誤內容。`
   }));
   return { response, data };
 }
