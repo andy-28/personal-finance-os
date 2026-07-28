@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import { AetherActionBar, AetherDefinitionRow, AetherPanelHeader, AetherSectionHeader, AetherToolbar } from "@/components/ui/aether-management";
 import { apiFetch, problemMessage, type CategoryDetailDto, type CategoryDto, type CategoryType } from "@/lib/api-client";
 import { categoryTypeLabels } from "@/lib/labels";
 import { useAuth } from "../../auth-context";
@@ -121,7 +122,7 @@ export default function CategoriesPage() {
       {error && <ErrorState message={error} />}
       <GameWindow title="分類" description="Aether Taxonomy Window">
         <div className="aether-management-window">
-          <div className="aether-toolbar">
+          <AetherToolbar role="tablist" ariaLabel="分類篩選">
             {(["Expense", "Income", "All", "Archived"] as CategoryFilter[]).map((nextFilter) => (
               <button key={nextFilter} type="button" className={`aether-filter-tab ${filter === nextFilter ? "aether-filter-tab-active" : ""}`} onClick={() => setFilter(nextFilter)}>
                 {filterLabel(nextFilter)}
@@ -131,7 +132,7 @@ export default function CategoriesPage() {
               <input type="checkbox" checked={includeArchived} onChange={(event) => setIncludeArchived(event.target.checked)} />
               顯示封存項目
             </label>
-          </div>
+          </AetherToolbar>
           {isLoading ? <LoadingState label="載入分類..." /> : (
             <div className="aether-master-detail">
               <div className="aether-list-pane" aria-label="分類樹">
@@ -228,25 +229,29 @@ function CategoryDetail({ category, parent, childCount, siblingIds, siblingIndex
 }) {
   return (
     <div className="aether-detail-scroll">
-      <AetherSectionHeader title={category.name} meta={categoryTypeLabels[category.type]} />
+      <AetherPanelHeader
+        eyebrow="CATEGORY DETAIL"
+        title={category.name}
+        subtitle={categoryTypeLabels[category.type]}
+        status={<Badge tone={category.isArchived ? "neutral" : "success"}>{category.isArchived ? "已封存" : "啟用中"}</Badge>}
+      />
       <div className="flex flex-wrap gap-2">
-        <Badge tone={category.isArchived ? "neutral" : "success"}>{category.isArchived ? "已封存" : "啟用中"}</Badge>
         <Badge tone={category.type === "Income" ? "success" : "warning"}>{categoryTypeLabels[category.type]}</Badge>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <Definition label="分類名稱" value={category.name} />
-        <Definition label="父分類" value={parent?.name ?? "主分類"} />
-        <Definition label="子分類數" value={`${childCount} 個`} />
-        <Definition label="顯示順序" value={`${category.displayOrder}`} />
-        <Definition label="圖示文字" value={category.icon ?? "未設定"} />
-        <Definition label="狀態" value={category.isArchived ? "已封存" : "啟用中"} />
+      <div className="aether-definition-list">
+        <AetherDefinitionRow label="分類名稱" value={category.name} />
+        <AetherDefinitionRow label="父分類" value={parent?.name ?? "主分類"} />
+        <AetherDefinitionRow label="子分類數" value={`${childCount} 個`} />
+        <AetherDefinitionRow label="顯示順序" value={`${category.displayOrder}`} />
+        <AetherDefinitionRow label="圖示文字" value={category.icon ?? "未設定"} />
+        <AetherDefinitionRow label="狀態" value={category.isArchived ? "已封存" : "啟用中"} />
       </div>
-      <div className="aether-action-bar">
+      <AetherActionBar>
         <Button type="button" variant="outline" onClick={() => onMove(siblingIds, siblingIndex, -1)} disabled={category.isArchived || siblingIndex <= 0}>上移</Button>
         <Button type="button" variant="outline" onClick={() => onMove(siblingIds, siblingIndex, 1)} disabled={category.isArchived || siblingIndex >= siblingIds.length - 1}>下移</Button>
         <Button type="button" variant="outline" onClick={onEdit}>編輯</Button>
         {category.isArchived ? <Button type="button" variant="outline" onClick={onRestore}>還原</Button> : <Button type="button" variant="danger" onClick={onArchive}>封存</Button>}
-      </div>
+      </AetherActionBar>
     </div>
   );
 }
@@ -263,14 +268,6 @@ function CategoryListRow({ category, selected, isChild, onSelect }: { category: 
       </span>
     </button>
   );
-}
-
-function AetherSectionHeader({ title, meta }: { title: string; meta?: string }) {
-  return <div className="aether-section-header"><h2>{title}</h2>{meta && <span>{meta}</span>}</div>;
-}
-
-function Definition({ label, value }: { label: string; value: string }) {
-  return <div className="aether-definition"><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function childrenCount(category: CategoryNode, categories: CategoryDto[]) {

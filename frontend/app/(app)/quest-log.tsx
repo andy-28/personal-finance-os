@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { AetherActionBar, AetherEmptyState } from "@/components/ui/aether-management";
 import { Button } from "@/components/ui/button";
 import { GameWindow } from "@/components/ui/game-theme";
 import { ErrorState, LoadingState } from "@/components/ui/states";
@@ -184,7 +185,7 @@ export function QuestLog() {
 
           <aside className="quest-list-panel">
             {isLoading ? <LoadingState label="讀取任務中..." /> : visibleQuests.length === 0 ? (
-              <p className="rounded-ui border border-border/70 bg-surface/60 p-3 text-sm text-muted">目前沒有這類任務。</p>
+              <AetherEmptyState title="沒有符合的任務" description="切換分類或等待下一個財務提醒產生。" />
             ) : (
               <div className="grid gap-1.5">
                 {visibleQuests.map((quest) => (
@@ -238,15 +239,15 @@ export function QuestLog() {
                   </div>
                 </div>
 
-                <div className="quest-info-actions">
+                <AetherActionBar className="quest-info-actions">
                   {selected.href && <Link href={selected.href} onClick={() => setIsOpen(false)}><Button variant="outline">前往頁面</Button></Link>}
                   {selected.secondaryAction && <Button variant="ghost" onClick={selected.secondaryAction} disabled={pendingActionId !== null}>{selected.secondaryLabel}</Button>}
                   {selected.action && <Button onClick={selected.action} isLoading={pendingActionId === selected.id} disabled={pendingActionId !== null}>{selected.actionLabel}</Button>}
-                </div>
+                </AetherActionBar>
               </div>
             )}
             {!error && !selected && !isLoading && (
-              <p className="rounded-ui border border-border/70 bg-surface/60 p-4 text-sm text-muted">目前沒有待完成任務。</p>
+              <AetherEmptyState title="沒有待完成任務" description="目前沒有到期、提醒或固定交易待處理。" />
             )}
           </section>
         </div>

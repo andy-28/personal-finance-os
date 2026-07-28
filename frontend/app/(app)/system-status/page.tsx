@@ -10,8 +10,10 @@ import {
   AetherDefinitionList,
   AetherDefinitionRow,
   AetherListRow,
+  AetherPanelHeader,
   AetherSectionHeader,
-  AetherStatusIndicator
+  AetherStatusIndicator,
+  AetherToolbar
 } from "@/components/ui/aether-management";
 import { getHealth, type HealthCheck, type HealthResponse, type HealthStatus } from "@/lib/api-client";
 import { healthStatusLabels } from "@/lib/labels";
@@ -90,7 +92,14 @@ export default function SystemStatusPage() {
       {state.error && <ErrorState message={state.error} />}
       <GameWindow title="Service Checks" description="Aether Diagnostics Window">
         <div className="aether-management-window" aria-busy={state.isLoading}>
-          <div className="aether-toolbar" role="tablist" aria-label="服務狀態篩選">
+          <AetherPanelHeader
+            eyebrow="SYSTEM DIAGNOSTICS"
+            title="服務狀態"
+            subtitle={state.lastCheckedAt ? `最後檢查 ${formatDateTime(state.lastCheckedAt)}` : "等待健康檢查回應"}
+            summary={`${summary.healthy} 正常 / ${summary.warning} 警告 / ${summary.error} 錯誤`}
+            actions={<Button type="button" variant="outline" onClick={() => runCheck()} isLoading={state.isLoading}>重新檢查</Button>}
+          />
+          <AetherToolbar role="tablist" ariaLabel="服務狀態篩選">
             {(["All", "Healthy", "Warning", "Error"] as StatusFilter[]).map((nextFilter) => (
               <button
                 key={nextFilter}
@@ -108,7 +117,7 @@ export default function SystemStatusPage() {
               <AetherStatusIndicator label={`警告 ${summary.warning}`} tone="warning" />
               <AetherStatusIndicator label={`錯誤 ${summary.error}`} tone="danger" />
             </div>
-          </div>
+          </AetherToolbar>
 
           <div className={`aether-master-detail ${state.isLoading ? "aether-loading-shell" : ""}`}>
             <div className="aether-list-pane" aria-label="服務清單">

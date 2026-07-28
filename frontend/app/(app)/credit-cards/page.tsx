@@ -4,9 +4,9 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AetherHeaderDividerSlot } from "@/components/ui/aether-effect";
-import { AetherListRow, AetherSectionHeader } from "@/components/ui/aether-management";
+import { AetherListRow, AetherMetric, AetherPanelHeader, AetherSectionHeader, AetherSummaryGrid } from "@/components/ui/aether-management";
 import { Button } from "@/components/ui/button";
-import { Card, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { GameBadge, GameProgress, GameTab, GameTabs, GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState } from "@/components/ui/states";
@@ -363,13 +363,13 @@ export default function CreditCardsPage() {
       {error && <ErrorState message={error} />}
 
       <section className="aether-management-window">
-        <div className="game-window-titlebar">
-          <div>
-            <h2 className="game-window-title-text">信用卡管理</h2>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.08em] text-muted">AETHER CARD MANAGEMENT WINDOW</p>
-          </div>
-          <Button type="button" onClick={openCreateCardModal}>{t("addCreditCard")}</Button>
-        </div>
+        <AetherPanelHeader
+          eyebrow="CARD SLOTS"
+          title="卡片管理"
+          subtitle="選取卡片後，在右側查看帳單、入帳、繳款與分期。"
+          summary={`${cards.length} 張卡片`}
+          actions={<Button type="button" onClick={openCreateCardModal}>{t("addCreditCard")}</Button>}
+        />
 
         <div className="aether-master-detail credit-card-management-grid">
           <aside className="aether-list-pane" role="listbox" aria-label="信用卡清單">
@@ -552,10 +552,6 @@ function Row({ label, value }: { label: string; value: string }) {
   return <p className="flex justify-between gap-3"><span className="text-muted">{label}</span><span className="font-semibold">{value}</span></p>;
 }
 
-function Metric({ label, value, hint, tone = "neutral" }: { label: string; value: string; hint?: string; tone?: "neutral" | "primary" | "warning" }) {
-  return <div className={`credit-card-metric credit-card-metric-${tone}`} title={hint}><p>{label}</p><strong>{value}</strong>{hint && <small>{hint}</small>}</div>;
-}
-
 function Panel({ title, children, variant = "panel" }: { title: string; children: React.ReactNode; variant?: "panel" | "plain" }) {
   return <section className={variant === "plain" ? "credit-card-definition-panel" : "game-panel"}><h2 className="mb-3 font-bold">{title}</h2><div className="grid gap-2 text-sm">{children}</div></section>;
 }
@@ -617,11 +613,11 @@ function CreditCardSummary({ summary, compact = false }: { summary: CreditCardDt
   return (
     <div className="mt-4 grid gap-4">
       <CreditUtilization card={summary} />
-      <div className="credit-card-primary-metrics">
-        <Metric label={t("outstanding")} value={money(summary.outstandingAmount, summary.currencyCode)} tone="primary" />
-        <Metric label={t("billedOutstanding")} value={money(billedOutstanding(summary), summary.currencyCode)} hint={t("billedOutstandingHelp")} tone="warning" />
-        <Metric label={t("unbilledAmount")} value={money(unbilledAmount(summary), summary.currencyCode)} hint={t("unbilledAmountHelp")} />
-      </div>
+      <AetherSummaryGrid className="credit-card-primary-metrics">
+        <AetherMetric label={t("outstanding")} value={money(summary.outstandingAmount, summary.currencyCode)} tone="primary" />
+        <AetherMetric label={t("billedOutstanding")} value={money(billedOutstanding(summary), summary.currencyCode)} hint={t("billedOutstandingHelp")} tone="warning" />
+        <AetherMetric label={t("unbilledAmount")} value={money(unbilledAmount(summary), summary.currencyCode)} hint={t("unbilledAmountHelp")} />
+      </AetherSummaryGrid>
       <div className="credit-card-definition-panel">
         <Row label={t("creditLimit")} value={summary.creditLimit == null ? "-" : money(summary.creditLimit, summary.currencyCode)} />
         <Row label={t("availableCredit")} value={available == null ? "-" : money(available, summary.currencyCode)} />
@@ -632,11 +628,11 @@ function CreditCardSummary({ summary, compact = false }: { summary: CreditCardDt
         {summary.creditBalance > 0 && <Row label={t("creditBalance")} value={money(summary.creditBalance, summary.currencyCode)} />}
         {summary.creditBalance > 0 && backendAvailable != null && <Row label={t("availableCreditIncludingBalance")} value={money(backendAvailable, summary.currencyCode)} />}
       </div>
-      {!compact && <div className="grid gap-3 sm:grid-cols-3">
-        <Metric label={t("statementCharges")} value={money(summary.statementCharges, summary.currencyCode)} />
-        <Metric label={t("statementCredits")} value={money(summary.statementCredits, summary.currencyCode)} />
-        <Metric label={t("statementNet")} value={money(summary.estimatedStatementNet, summary.currencyCode)} />
-      </div>}
+      {!compact && <AetherSummaryGrid>
+        <AetherMetric label={t("statementCharges")} value={money(summary.statementCharges, summary.currencyCode)} />
+        <AetherMetric label={t("statementCredits")} value={money(summary.statementCredits, summary.currencyCode)} />
+        <AetherMetric label={t("statementNet")} value={money(summary.estimatedStatementNet, summary.currencyCode)} />
+      </AetherSummaryGrid>}
       {compact && <div className="credit-card-period-strip">
         <Row label={t("statementCharges")} value={money(summary.statementCharges, summary.currencyCode)} />
         <Row label={t("statementCredits")} value={money(summary.statementCredits, summary.currencyCode)} />
@@ -776,7 +772,12 @@ function StatementImportPanel({ batch, history, categories, defaultCategoryId, i
 
   return (
     <Card>
-      <CardTitle title={t("statementImport")} description={t("statementImportDescription")} />
+      <AetherPanelHeader
+        eyebrow="STATEMENT IMPORT"
+        title={t("statementImport")}
+        subtitle={t("statementImportDescription")}
+        summary={batch ? `${totalRows} 列` : t("noStatementParsed")}
+      />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.5fr)]">
         <form onSubmit={onParse} className="game-inspect-panel">
           <div className="game-inspect-header"><div><h3 className="font-bold">{t("uploadPdf")}</h3><p className="text-xs text-muted">{t("passwordRequestOnly")}</p></div></div>

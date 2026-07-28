@@ -5,7 +5,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardTitle } from "@/components/ui/card";
+import { AetherEmptyState, AetherMetric, AetherPanelHeader, AetherSummaryGrid } from "@/components/ui/aether-management";
+import { Card } from "@/components/ui/card";
 import { GameInspectPanel, GameInspectRow, GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
@@ -253,12 +254,17 @@ export default function AccountsPage() {
           <div className="grid gap-4">
             {summary.currencies.map((row) => (
               <Card key={row.currencyCode}>
-                <CardTitle title={row.currencyCode} description="Assets / Liabilities" />
-                <div className="grid gap-2 text-sm">
-                  <SummaryRow label={commonLabels.assetBalance} value={money(row.assetBalance, row.currencyCode)} />
-                  <SummaryRow label="Liability balance" value={money(row.liabilityBalance, row.currencyCode)} />
-                  <SummaryRow label={commonLabels.netWorth} value={money(row.netBalance, row.currencyCode)} strong />
-                </div>
+                <AetherPanelHeader
+                  eyebrow="RESOURCE OVERVIEW"
+                  title={row.currencyCode}
+                  subtitle="Assets / Liabilities"
+                  summary={money(row.netBalance, row.currencyCode)}
+                />
+                <AetherSummaryGrid>
+                  <AetherMetric label={commonLabels.assetBalance} value={money(row.assetBalance, row.currencyCode)} tone="success" />
+                  <AetherMetric label="Liability balance" value={money(row.liabilityBalance, row.currencyCode)} tone="danger" />
+                  <AetherMetric label={commonLabels.netWorth} value={money(row.netBalance, row.currencyCode)} tone={row.netBalance >= 0 ? "primary" : "warning"} />
+                </AetherSummaryGrid>
               </Card>
             ))}
           </div>
@@ -451,10 +457,6 @@ function AccountGlyph({ type }: { type: AccountType }) {
   return <span className="text-sm font-black tracking-[0.08em]">{labels[type]}</span>;
 }
 
-function SummaryRow({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return <p className={`flex justify-between border-t border-border/55 pt-2 first:border-t-0 first:pt-0 ${strong ? "font-semibold" : ""}`}><span className="text-muted">{label}</span><span>{value}</span></p>;
-}
-
 function ResourceBarsPanel({ goals, accounts, onAdd, onRemove }: { goals: FundGoal[]; accounts: AccountDto[]; onAdd: () => void; onRemove: (id: string) => void }) {
   return (
     <section className="grid min-h-[180px] w-full gap-3 self-stretch rounded-[8px] border border-primary/35 bg-[#10141f]/80 p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_40px_rgba(0,0,0,0.28)]">
@@ -466,7 +468,7 @@ function ResourceBarsPanel({ goals, accounts, onAdd, onRemove }: { goals: FundGo
         <button type="button" className="ui-focus grid h-10 w-10 place-items-center rounded-full border border-[#93f5a1] bg-[#5dbb41] text-xl font-black text-[#10210d] shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_0_12px_rgba(93,187,65,0.45)] transition hover:brightness-110" onClick={onAdd} aria-label="Add goal bar">+</button>
       </div>
       {goals.length === 0 ? (
-        <div className="rounded-[6px] border border-border/60 bg-surface/50 px-4 py-6 text-center text-sm text-muted">Press + to pin an account target, such as a travel fund toward 100,000.</div>
+        <AetherEmptyState title="尚未設定目標血條" description="按下 + 釘選一個帳戶目標，例如旅遊基金累積到 100,000。" />
       ) : (
         <div className="grid gap-3 xl:grid-cols-2">
           {goals.map((goal) => <FundGoalBar key={goal.id} goal={goal} account={accounts.find((account) => account.id === goal.accountId)} onRemove={() => onRemove(goal.id)} />)}

@@ -12,8 +12,10 @@ import {
   AetherDefinitionList,
   AetherDefinitionRow,
   AetherListRow,
+  AetherPanelHeader,
   AetherSectionHeader,
-  AetherStatusIndicator
+  AetherStatusIndicator,
+  AetherToolbar
 } from "@/components/ui/aether-management";
 import { builtInVisualAssets, getBuiltInVisualAsset, getDefaultVisualAsset, visualSlots, type VisualSlotKey } from "@/lib/aether/visual-slots";
 import { defaultAetherWorkshopSettings, loadAetherWorkshopSettings, resetAetherWorkshopSettings, saveAetherWorkshopSettings, type AetherWorkshopSettings } from "@/lib/aether/workshop-settings";
@@ -96,7 +98,14 @@ export default function WorkshopPage() {
       />
       <GameWindow title="Visual Configuration" description="Aether Workshop">
         <div className="aether-management-window" aria-live="polite">
-          <div className="aether-toolbar" role="tablist" aria-label="介面工坊分類">
+          <AetherPanelHeader
+            eyebrow="THEME EDITOR"
+            title="Aether 介面工坊"
+            subtitle="Favicon、視覺插槽與本機特效設定"
+            status={<AetherStatusIndicator label={hasChanges ? "待套用" : "已同步"} tone={hasChanges ? "warning" : "success"} />}
+            summary={hasStorageError ? "localStorage unavailable" : "localStorage"}
+          />
+          <AetherToolbar role="tablist" ariaLabel="介面工坊分類">
             {(["All", "Branding", "Effects", "Materials"] as WorkshopFilter[]).map((nextFilter) => (
               <button
                 key={nextFilter}
@@ -114,7 +123,7 @@ export default function WorkshopPage() {
               <span>本機設定</span>
               <AetherStatusIndicator label={hasChanges ? "待套用" : "已同步"} tone={hasChanges ? "warning" : "success"} />
             </div>
-          </div>
+          </AetherToolbar>
 
           <div className="aether-master-detail">
             <div className="aether-list-pane" aria-label="視覺插槽" role="listbox">

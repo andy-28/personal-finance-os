@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
+import { AetherActionBar, AetherDefinitionRow, AetherPanelHeader, AetherSectionHeader, AetherToolbar } from "@/components/ui/aether-management";
 import {
   apiFetch,
   money,
@@ -199,7 +200,7 @@ export default function RecurringTransactionsPage() {
       {error && <ErrorState message={error} />}
       <GameWindow title="固定交易" description="Aether Management Window">
         <div className="aether-management-window">
-          <div className="aether-toolbar">
+          <AetherToolbar role="tablist" ariaLabel="固定交易篩選">
             {(["All", "Income", "Expense", "Transfer", "CreditCard", "Archived"] as RecurringFilter[]).map((nextFilter) => (
               <button key={nextFilter} type="button" className={`aether-filter-tab ${filter === nextFilter ? "aether-filter-tab-active" : ""}`} onClick={() => setFilter(nextFilter)}>
                 {filterLabel(nextFilter)}
@@ -209,7 +210,7 @@ export default function RecurringTransactionsPage() {
               <input type="checkbox" checked={includeArchived} onChange={(event) => setIncludeArchived(event.target.checked)} />
               顯示封存項目
             </label>
-          </div>
+          </AetherToolbar>
           <div className={`aether-master-detail ${isLoading ? "aether-loading-shell" : ""}`}>
             <div className="aether-list-pane" aria-label="固定交易清單">
               <AetherSectionHeader title="任務模板" meta={isLoading ? "載入中" : `${visibleTemplates.length} 筆`} />
@@ -316,26 +317,30 @@ function RecurringForm({ form, setForm, accounts, cards, categories, isSaving, e
 function RecurringDetail({ template, onEdit, onArchive, onRestore }: { template: RecurringTemplateDto; onEdit: () => void; onArchive: () => void; onRestore: () => void }) {
   return (
     <div className="aether-detail-scroll">
-      <AetherSectionHeader title={template.name} meta={template.isActive ? "Active Template" : "Archived Template"} />
+      <AetherPanelHeader
+        eyebrow="RECURRING TEMPLATE"
+        title={template.name}
+        subtitle={template.isActive ? "Active Template" : "Archived Template"}
+        status={<Badge tone={template.isActive ? "success" : "neutral"}>{template.isActive ? "啟用中" : "已封存"}</Badge>}
+      />
       <div className="flex flex-wrap gap-2">
-        <Badge tone={template.isActive ? "success" : "neutral"}>{template.isActive ? "啟用中" : "已封存"}</Badge>
         <Badge tone="credit">{transactionTypeLabels[template.transactionType]}</Badge>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <Definition label="金額" value={money(template.amount, template.currency)} />
-        <Definition label="頻率" value={`${recurringFrequencyLabels[template.frequency]} / 每 ${template.interval} 次`} />
-        <Definition label="下次發生" value={template.nextOccurrenceDate ? formatDate(template.nextOccurrenceDate) : "未排程"} />
-        <Definition label="分類" value={template.categoryName ?? "未分類"} />
-        <Definition label="來源" value={template.sourceAccountName ?? "未設定"} />
-        <Definition label="目標" value={template.destinationAccountName ?? "未設定"} />
-        <Definition label="商家" value={template.merchant ?? "未設定"} />
-        <Definition label="期間" value={`${formatDate(template.startDate)} - ${template.endDate ? formatDate(template.endDate) : "持續"}`} />
-        <Definition label="備註" value={template.note ?? "無"} className="md:col-span-2" />
+      <div className="aether-definition-list">
+        <AetherDefinitionRow label="金額" value={money(template.amount, template.currency)} />
+        <AetherDefinitionRow label="頻率" value={`${recurringFrequencyLabels[template.frequency]} / 每 ${template.interval} 次`} />
+        <AetherDefinitionRow label="下次發生" value={template.nextOccurrenceDate ? formatDate(template.nextOccurrenceDate) : "未排程"} />
+        <AetherDefinitionRow label="分類" value={template.categoryName ?? "未分類"} />
+        <AetherDefinitionRow label="來源" value={template.sourceAccountName ?? "未設定"} />
+        <AetherDefinitionRow label="目標" value={template.destinationAccountName ?? "未設定"} />
+        <AetherDefinitionRow label="商家" value={template.merchant ?? "未設定"} />
+        <AetherDefinitionRow label="期間" value={`${formatDate(template.startDate)} - ${template.endDate ? formatDate(template.endDate) : "持續"}`} />
+        <AetherDefinitionRow label="備註" value={template.note ?? "無"} className="md:col-span-2" />
       </div>
-      <div className="aether-action-bar">
+      <AetherActionBar>
         <Button type="button" variant="outline" onClick={onEdit}>編輯</Button>
         {template.isActive ? <Button type="button" variant="danger" onClick={onArchive}>封存</Button> : <Button type="button" variant="outline" onClick={onRestore}>還原</Button>}
-      </div>
+      </AetherActionBar>
     </div>
   );
 }
@@ -346,14 +351,6 @@ function AccountSelect({ label, value, accounts, onChange }: { label: string; va
 
 function CardSelect({ label, value, cards, onChange }: { label: string; value: string; cards: CreditCardDto[]; onChange: (value: string) => void }) {
   return <label className="ui-label">{label}<select className="ui-input" value={value} onChange={(event) => onChange(event.target.value)}><option value="">選擇信用卡</option>{cards.map((card) => <option key={card.accountId} value={card.accountId}>{card.accountName}</option>)}</select></label>;
-}
-
-function AetherSectionHeader({ title, meta }: { title: string; meta?: string }) {
-  return <div className="aether-section-header"><h2>{title}</h2>{meta && <span>{meta}</span>}</div>;
-}
-
-function Definition({ label, value, className = "" }: { label: string; value: string; className?: string }) {
-  return <div className={`aether-definition ${className}`}><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function filterLabel(filter: RecurringFilter) {
