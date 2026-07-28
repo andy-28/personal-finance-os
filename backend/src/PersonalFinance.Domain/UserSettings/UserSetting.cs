@@ -1,4 +1,4 @@
-﻿using PersonalFinance.Domain.Common;
+using PersonalFinance.Domain.Common;
 
 namespace PersonalFinance.Domain.UserSettings;
 

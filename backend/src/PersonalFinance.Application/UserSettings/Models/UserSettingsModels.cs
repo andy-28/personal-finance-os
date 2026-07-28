@@ -1,4 +1,4 @@
-﻿namespace PersonalFinance.Application.UserSettings.Models;
+namespace PersonalFinance.Application.UserSettings.Models;
 
 public sealed record UserSettingsDto(
     Guid Id,

@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using MediatR;
 using PersonalFinance.Application.Abstractions.Authentication;
 using PersonalFinance.Application.Abstractions.Persistence;

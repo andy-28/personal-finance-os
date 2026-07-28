@@ -1,4 +1,4 @@
-﻿using PersonalFinance.Domain.Accounts;
+using PersonalFinance.Domain.Accounts;
 using PersonalFinance.Domain.Categories;
 using PersonalFinance.Domain.CreditCards;
 using PersonalFinance.Domain.Recurring;

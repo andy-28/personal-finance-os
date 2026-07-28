@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using PersonalFinance.Application.UserSettings;
 using PersonalFinance.Application.UserSettings.Models;

@@ -1,9 +1,10 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -17,6 +18,12 @@ using PersonalFinance.Infrastructure.Seeding;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var port = builder.Configuration["PORT"];
+if (!string.IsNullOrWhiteSpace(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
 
 builder.Host.UseSerilog((context, services, configuration) =>
 {
@@ -35,6 +42,13 @@ builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 
 builder.Services.AddProblemDetails();
@@ -71,9 +85,12 @@ builder.Services.AddCors(options =>
 });
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
-if (string.IsNullOrWhiteSpace(jwtOptions.SigningKey) || jwtOptions.SigningKey.Length < 32)
+var jwtSigningKey = string.IsNullOrWhiteSpace(jwtOptions.SigningKey)
+    ? builder.Configuration["Jwt:Key"] ?? string.Empty
+    : jwtOptions.SigningKey;
+if (string.IsNullOrWhiteSpace(jwtSigningKey) || jwtSigningKey.Length < 32)
 {
-    throw new InvalidOperationException("Jwt:SigningKey must be configured and at least 32 characters long.");
+    throw new InvalidOperationException("Jwt:SigningKey or Jwt:Key must be configured and at least 32 characters long.");
 }
 
 builder.Services
@@ -87,7 +104,7 @@ builder.Services
             ValidateAudience = true,
             ValidAudience = jwtOptions.Audience,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey)),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1)
         };
@@ -147,6 +164,7 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
+app.UseForwardedHeaders();
 app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
@@ -171,26 +189,32 @@ app.MapRecurringTransactionEndpoints();
 app.MapStatementImportEndpoints();
 app.MapUserSettingsEndpoints();
 
+var exposeDetailedHealth = app.Environment.IsDevelopment();
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = async (context, report) =>
     {
         context.Response.ContentType = "application/json";
 
-        var payload = new
-        {
-            status = report.Status.ToString(),
-            totalDuration = report.TotalDuration.TotalMilliseconds,
-            checks = report.Entries.Select(entry => new
+        object payload = exposeDetailedHealth
+            ? new
             {
-                name = entry.Key,
-                status = entry.Value.Status.ToString(),
-                duration = entry.Value.Duration.TotalMilliseconds,
-                description = entry.Value.Description,
-                error = entry.Value.Exception?.Message,
-                tags = entry.Value.Tags
-            })
-        };
+                status = report.Status.ToString(),
+                totalDuration = report.TotalDuration.TotalMilliseconds,
+                checks = report.Entries.Select(entry => new
+                {
+                    name = entry.Key,
+                    status = entry.Value.Status.ToString(),
+                    duration = entry.Value.Duration.TotalMilliseconds,
+                    description = entry.Value.Description,
+                    error = entry.Value.Exception?.Message,
+                    tags = entry.Value.Tags
+                })
+            }
+            : new
+            {
+                status = report.Status.ToString()
+            };
 
         await JsonSerializer.SerializeAsync(
             context.Response.Body,
@@ -202,3 +226,4 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 app.Run();
 
 public partial class Program;
+
