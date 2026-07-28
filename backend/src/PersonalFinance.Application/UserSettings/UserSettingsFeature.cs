@@ -48,6 +48,9 @@ public sealed class UserSettingsHandler :
         if (setting is null) return Result<UserSettingsDto>.Failure(NotAuthenticated());
 
         var normalized = Normalize(request.Request);
+        var validation = ValidateGoalAccountReferences(setting.UserId, normalized.GoalSettings);
+        if (validation.IsFailure) return Result<UserSettingsDto>.Failure(validation.Errors.ToArray());
+
         setting.Update(
             normalized.Theme,
             Serialize(normalized.WorkshopSettings),
@@ -72,6 +75,9 @@ public sealed class UserSettingsHandler :
             request.Request.GoalSettings ?? current.GoalSettings);
 
         var normalized = Normalize(merged);
+        var validation = ValidateGoalAccountReferences(setting.UserId, normalized.GoalSettings);
+        if (validation.IsFailure) return Result<UserSettingsDto>.Failure(validation.Errors.ToArray());
+
         setting.Update(
             normalized.Theme,
             Serialize(normalized.WorkshopSettings),
@@ -131,6 +137,26 @@ public sealed class UserSettingsHandler :
         return new UserSettingsRequest(theme, workshopSettings, visualSettings, goalSettings);
     }
 
+    private Result ValidateGoalAccountReferences(Guid userId, UserGoalSettingsDto goalSettings)
+    {
+        var accountIds = goalSettings.GoalBars
+            .Select(goal => goal.AccountId)
+            .Distinct()
+            .ToArray();
+
+        if (accountIds.Length == 0) return Result.Success();
+
+        var ownedAccountIds = _db.Accounts
+            .Where(account => account.UserId == userId && accountIds.Contains(account.Id))
+            .Select(account => account.Id)
+            .ToHashSet();
+
+        var hasInvalidReference = accountIds.Any(accountId => !ownedAccountIds.Contains(accountId));
+        return hasInvalidReference
+            ? Result.Failure(Error.Validation("GoalSettings.AccountId", "Goal bar account must belong to the current user."))
+            : Result.Success();
+    }
+
     private static string NormalizeGoalColor(string? value)
     {
         var color = string.IsNullOrWhiteSpace(value) ? "violet" : value.Trim().ToLowerInvariant();
@@ -166,5 +192,4 @@ public sealed class UserSettingsHandler :
 
     private static Error NotAuthenticated() => Error.Unauthorized("UserSettings.NotAuthenticated", "Authentication is required to read user settings.");
 }
-
 

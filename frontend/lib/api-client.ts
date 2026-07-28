@@ -2,8 +2,8 @@ import { messageFromProblem } from "./error-messages";
 import { formatCurrency } from "./formatters";
 
 export type HealthStatus = "Healthy" | "Degraded" | "Unhealthy";
-export type HealthCheck = { name: string; status: HealthStatus; duration: number; description?: string | null; error?: string | null; tags: string[] };
-export type HealthResponse = { status: HealthStatus; totalDuration: number; checks: HealthCheck[] };
+export type HealthCheck = { name: string; status: HealthStatus; duration?: number; description?: string | null; error?: string | null; tags: string[] };
+export type HealthResponse = { status: HealthStatus; totalDuration?: number; checks?: HealthCheck[] };
 export type UserDto = { id: string; email: string; displayName: string; createdAtUtc: string };
 export type AuthResponse = { user: UserDto; accessToken: string; refreshToken?: string };
 export type GoalBarColor = "violet" | "cyan" | "emerald" | "amber" | "rose";
@@ -196,8 +196,62 @@ export class ApiError extends Error {
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
   const response = await fetch("/api/health", { cache: "no-store", signal });
   const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) return response.json() as Promise<HealthResponse>;
-  throw new Error(`Health check failed with HTTP ${response.status}`);
+  if (!contentType.includes("application/json")) {
+    throw new Error(`Health check failed with HTTP ${response.status}: expected JSON response.`);
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("Health check returned malformed JSON.");
+  }
+
+  if (!response.ok) {
+    const problem = body && typeof body === "object"
+      ? body as ProblemDetails
+      : { title: "Health check failed", status: response.status, detail: `Health endpoint returned HTTP ${response.status}.` };
+    throw new ApiError(response.status, problem);
+  }
+
+  return normalizeHealthResponse(body);
+}
+
+export function normalizeHealthResponse(body: unknown): HealthResponse {
+  if (!body || typeof body !== "object") {
+    return { status: "Unhealthy", checks: [] };
+  }
+
+  const payload = body as Record<string, unknown>;
+  const checks = Array.isArray(payload.checks)
+    ? payload.checks.map(normalizeHealthCheck).filter((check): check is HealthCheck => check !== null)
+    : [];
+
+  return {
+    status: normalizeHealthStatus(payload.status),
+    totalDuration: typeof payload.totalDuration === "number" && Number.isFinite(payload.totalDuration) ? payload.totalDuration : undefined,
+    checks
+  };
+}
+
+function normalizeHealthCheck(body: unknown): HealthCheck | null {
+  if (!body || typeof body !== "object") return null;
+  const payload = body as Record<string, unknown>;
+  const name = typeof payload.name === "string" && payload.name.trim() ? payload.name.trim() : "";
+  if (!name) return null;
+
+  return {
+    name,
+    status: normalizeHealthStatus(payload.status),
+    duration: typeof payload.duration === "number" && Number.isFinite(payload.duration) ? payload.duration : undefined,
+    description: typeof payload.description === "string" ? payload.description : null,
+    error: typeof payload.error === "string" ? payload.error : null,
+    tags: Array.isArray(payload.tags) ? payload.tags.filter((tag): tag is string => typeof tag === "string") : []
+  };
+}
+
+function normalizeHealthStatus(value: unknown): HealthStatus {
+  return value === "Healthy" || value === "Degraded" || value === "Unhealthy" ? value : "Unhealthy";
 }
 
 export async function apiFetch<T>(path: string, accessToken: string | null, init: RequestInit = {}, retry?: () => Promise<string | null>): Promise<T> {

@@ -37,6 +37,8 @@ type ServiceView = {
   tags?: string[];
 };
 
+const productionHealthMessage = "Production health endpoint does not expose detailed checks.";
+
 export default function SystemStatusPage() {
   const [state, setState] = useState<LoadState>({ isLoading: true });
   const [selectedId, setSelectedId] = useState("backend");
@@ -173,6 +175,7 @@ function buildServices(state: LoadState): ServiceView[] {
   const data = state.data;
   const postgres = findCheck(data, "postgresql");
   const redis = findCheck(data, "redis");
+  const hasDetailedChecks = Boolean(data?.checks?.length);
 
   return [
     {
@@ -190,19 +193,25 @@ function buildServices(state: LoadState): ServiceView[] {
       status: state.isLoading && !data ? "Checking" : state.error && !data ? "Unhealthy" : data?.status ?? "Unknown",
       endpoint: "/health",
       duration: data?.totalDuration,
-      message: data ? "API service reachable." : undefined,
+      message: data
+        ? hasDetailedChecks
+          ? "API service reachable."
+          : data.status === "Healthy"
+            ? "Backend API: Healthy. Production health endpoint does not expose detailed checks."
+            : "API service reachable, but detailed dependency checks are unavailable."
+        : undefined,
       error: state.error
     },
-    normalizeHealthCheck(postgres, "postgresql", "PostgreSQL", "Database", "postgresql"),
-    normalizeHealthCheck(redis, "redis", "Redis", "Cache", "redis")
+    normalizeHealthCheck(postgres, "postgresql", "PostgreSQL", "Database", "postgresql", data && !hasDetailedChecks ? productionHealthMessage : undefined),
+    normalizeHealthCheck(redis, "redis", "Redis", "Cache", "redis", data && !hasDetailedChecks ? productionHealthMessage : undefined)
   ];
 }
 
 function findCheck(data: HealthResponse | undefined, name: string) {
-  return data?.checks.find((check) => check.name === name);
+  return data?.checks?.find((check) => check.name === name);
 }
 
-function normalizeHealthCheck(check: HealthCheck | undefined, id: string, name: string, type: string, tag: string): ServiceView {
+function normalizeHealthCheck(check: HealthCheck | undefined, id: string, name: string, type: string, tag: string, fallbackMessage?: string): ServiceView {
   if (!check) {
     return {
       id,
@@ -210,7 +219,7 @@ function normalizeHealthCheck(check: HealthCheck | undefined, id: string, name: 
       type,
       status: "Unknown",
       duration: undefined,
-      message: "API 尚未回傳此服務狀態。",
+      message: fallbackMessage ?? "API 尚未回傳此服務狀態。",
       error: null,
       tags: [tag]
     };
@@ -224,7 +233,7 @@ function normalizeHealthCheck(check: HealthCheck | undefined, id: string, name: 
     duration: check.duration,
     message: check.description ?? undefined,
     error: check.error,
-    tags: check.tags
+    tags: check.tags ?? []
   };
 }
 

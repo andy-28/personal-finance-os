@@ -78,15 +78,28 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const lastFailedPatchRef = useRef<UserSettingsPatchRequest | null>(null);
+  const confirmedSettingsRef = useRef<UserSettingsDto>(defaultUserSettings(user?.id));
+  const settingsRef = useRef(settings);
+  const saveSequenceRef = useRef(0);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   useEffect(() => {
     let isCancelled = false;
 
     async function loadSettings() {
+      saveSequenceRef.current += 1;
       if (!user) {
-        setSettings(defaultUserSettings());
+        const fallback = defaultUserSettings();
+        confirmedSettingsRef.current = fallback;
+        settingsRef.current = fallback;
+        setSettings(fallback);
         setIsLoaded(false);
         setStatus("idle");
+        setError("");
+        lastFailedPatchRef.current = null;
         return;
       }
 
@@ -96,12 +109,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       try {
         const serverSettings = await apiFetch<UserSettingsDto>("/api/user-settings", accessToken, undefined, refreshSession);
         if (isCancelled) return;
-        setSettings(normalizeSettings(serverSettings, user.id));
+        const normalized = normalizeSettings(serverSettings, user.id);
+        confirmedSettingsRef.current = normalized;
+        settingsRef.current = normalized;
+        setSettings(normalized);
         setIsLoaded(true);
         setStatus("saved");
+        lastFailedPatchRef.current = null;
       } catch (caught) {
         if (isCancelled) return;
-        setSettings((current) => normalizeSettings(current, user.id));
+        const fallback = normalizeSettings(settingsRef.current, user.id);
+        confirmedSettingsRef.current = fallback;
+        settingsRef.current = fallback;
+        setSettings(fallback);
         setIsLoaded(true);
         setStatus("error");
         setError(problemMessage(caught));
@@ -115,7 +135,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [accessToken, refreshSession, user]);
 
   const updateSettings = useCallback(async (patch: UserSettingsPatchRequest) => {
-    const optimistic = mergeSettings(settings, patch);
+    const sequence = saveSequenceRef.current + 1;
+    saveSequenceRef.current = sequence;
+    const optimistic = mergeSettings(settingsRef.current, patch);
+    settingsRef.current = optimistic;
     setSettings(optimistic);
     setStatus("saving");
     setError("");
@@ -125,15 +148,23 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         method: "PATCH",
         body: JSON.stringify(patch)
       }, refreshSession);
-      setSettings(normalizeSettings(saved, user?.id));
+      if (saveSequenceRef.current !== sequence) return;
+      const normalized = normalizeSettings(saved, user?.id);
+      confirmedSettingsRef.current = normalized;
+      settingsRef.current = normalized;
+      setSettings(normalized);
       setStatus("saved");
       lastFailedPatchRef.current = null;
     } catch (caught) {
+      if (saveSequenceRef.current !== sequence) return;
+      const rollback = confirmedSettingsRef.current;
+      settingsRef.current = rollback;
+      setSettings(rollback);
       setStatus("error");
       setError(problemMessage(caught));
       lastFailedPatchRef.current = patch;
     }
-  }, [accessToken, refreshSession, settings, user]);
+  }, [accessToken, refreshSession, user]);
 
   const updateWorkshopSettings = useCallback((patch: Partial<UserWorkshopSettingsDto>) => {
     return updateSettings({ workshopSettings: { ...settings.workshopSettings, ...patch } });
@@ -167,5 +198,4 @@ export function useSettings() {
   if (!context) throw new Error("useSettings must be used inside SettingsProvider");
   return context;
 }
-
 
