@@ -352,12 +352,15 @@ export default function AccountsPage() {
               onPointerDown={(event) => {
                 if (account.isArchived) return;
                 if (event.button !== 0) return;
-                if ((event.target as HTMLElement).closest("button,input,select,textarea,a")) return;
+                const target = event.target as HTMLElement;
+                if (!target.closest("[data-account-drag-handle]")) return;
                 pointerStartYRef.current = event.clientY;
                 pointerDraggingRef.current = false;
                 pointerMovedRef.current = false;
+                suppressNextClickRef.current = true;
                 setDraggedId(account.id);
                 event.currentTarget.setPointerCapture(event.pointerId);
+                event.preventDefault();
               }}
               onPointerMove={(event) => {
                 if (!draggedId) return;
@@ -386,11 +389,20 @@ export default function AccountsPage() {
               }}
               onPointerCancel={resetDragState}
               style={draggedId === account.id ? { transform: `translateY(${dragOffsetY}px) scale(1.01)` } : undefined}
-              className={`game-item-card game-account-slot cursor-pointer touch-none select-none transition-[transform,filter,opacity,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:brightness-[1.04] active:translate-y-0 ${draggedId === account.id ? "relative z-10 cursor-grabbing opacity-90 shadow-2xl duration-75" : ""} ${dragOverId === account.id ? "ring-2 ring-primary/70" : ""}`}
+              className={`game-item-card game-account-slot cursor-pointer touch-pan-y select-none transition-[transform,filter,opacity,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:brightness-[1.04] active:translate-y-0 ${draggedId === account.id ? "relative z-10 cursor-grabbing opacity-90 shadow-2xl duration-75" : ""} ${dragOverId === account.id ? "ring-2 ring-primary/70" : ""}`}
             >
               <div className="game-item-header flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="game-slot game-slot-md" aria-hidden="true"><AccountGlyph type={account.type} /></span>
+                  <button
+                    type="button"
+                    data-account-drag-handle
+                    className="game-slot game-slot-md touch-none cursor-grab transition hover:border-primary/80 hover:text-primary active:cursor-grabbing"
+                    aria-label={`拖曳排序 ${account.name}`}
+                    title="拖曳排序"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <AccountGlyph type={account.type} />
+                  </button>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="truncate text-lg font-bold">{account.name}</h2>
@@ -500,3 +512,4 @@ function FundGoalBar({ goal, account, onRemove }: { goal: FundGoal; account?: Ac
     </article>
   );
 }
+

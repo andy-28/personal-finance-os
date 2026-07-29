@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/app/auth-context";
@@ -198,4 +198,3 @@ export function useSettings() {
   if (!context) throw new Error("useSettings must be used inside SettingsProvider");
   return context;
 }
-
