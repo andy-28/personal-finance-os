@@ -22,7 +22,7 @@ public sealed class UserSettingsHandler :
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly UserWorkshopSettingsDto DefaultWorkshopSettings = new("default-favicon", true);
     private static readonly UserVisualSettingsDto DefaultVisualSettings = new("purple-energy-divider");
-    private static readonly UserGoalSettingsDto DefaultGoalSettings = new(Array.Empty<UserGoalBarDto>(), false, "compact");
+    private static readonly UserGoalSettingsDto DefaultGoalSettings = new(Array.Empty<UserGoalBarDto>(), Array.Empty<UserResourceWidgetDto>(), false, "compact");
 
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUser _currentUser;
@@ -132,7 +132,17 @@ public sealed class UserSettingsHandler :
                 item.TargetAmount,
                 NormalizeGoalColor(item.Color)))
             .ToArray();
-        var goalSettings = new UserGoalSettingsDto(goalBars, goal.Collapsed, string.IsNullOrWhiteSpace(goal.DisplayStyle) ? "compact" : goal.DisplayStyle.Trim());
+        var resourceWidgets = (goal.ResourceWidgets ?? Array.Empty<UserResourceWidgetDto>())
+            .Where(item => item.AccountId != Guid.Empty && item.TargetAmount >= 0)
+            .Select(item => new UserResourceWidgetDto(
+                string.IsNullOrWhiteSpace(item.Id) ? Guid.NewGuid().ToString("N") : item.Id.Trim(),
+                item.AccountId,
+                string.IsNullOrWhiteSpace(item.Title) ? "Resource" : item.Title.Trim(),
+                string.IsNullOrWhiteSpace(item.Description) ? string.Empty : item.Description.Trim(),
+                item.TargetAmount,
+                NormalizeGoalColor(item.Accent)))
+            .ToArray();
+        var goalSettings = new UserGoalSettingsDto(goalBars, resourceWidgets, goal.Collapsed, string.IsNullOrWhiteSpace(goal.DisplayStyle) ? "compact" : goal.DisplayStyle.Trim());
 
         return new UserSettingsRequest(theme, workshopSettings, visualSettings, goalSettings);
     }
@@ -141,6 +151,7 @@ public sealed class UserSettingsHandler :
     {
         var accountIds = goalSettings.GoalBars
             .Select(goal => goal.AccountId)
+            .Concat(goalSettings.ResourceWidgets.Select(widget => widget.AccountId))
             .Distinct()
             .ToArray();
 
@@ -153,7 +164,7 @@ public sealed class UserSettingsHandler :
 
         var hasInvalidReference = accountIds.Any(accountId => !ownedAccountIds.Contains(accountId));
         return hasInvalidReference
-            ? Result.Failure(Error.Validation("GoalSettings.AccountId", "Goal bar account must belong to the current user."))
+            ? Result.Failure(Error.Validation("GoalSettings.AccountId", "Goal setting account must belong to the current user."))
             : Result.Success();
     }
 

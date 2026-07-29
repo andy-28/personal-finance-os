@@ -14,9 +14,11 @@ public sealed record UserWorkshopSettingsDto(string FaviconAssetId, bool HeaderD
 
 public sealed record UserVisualSettingsDto(string HeaderDividerAssetId);
 
-public sealed record UserGoalSettingsDto(IReadOnlyList<UserGoalBarDto> GoalBars, bool Collapsed, string DisplayStyle);
+public sealed record UserGoalSettingsDto(IReadOnlyList<UserGoalBarDto> GoalBars, IReadOnlyList<UserResourceWidgetDto> ResourceWidgets, bool Collapsed, string DisplayStyle);
 
 public sealed record UserGoalBarDto(string Id, Guid AccountId, string Title, decimal TargetAmount, string Color);
+
+public sealed record UserResourceWidgetDto(string Id, Guid AccountId, string Title, string Description, decimal TargetAmount, string Accent);
 
 public sealed record UserSettingsRequest(
     string Theme,

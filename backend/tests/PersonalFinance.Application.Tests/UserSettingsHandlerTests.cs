@@ -30,7 +30,7 @@ public sealed class UserSettingsHandlerTests
             null,
             null,
             null,
-            new UserGoalSettingsDto([goal], false, "compact"))), CancellationToken.None);
+            new UserGoalSettingsDto([goal], [], false, "compact"))), CancellationToken.None);
         var reloaded = await handler.Handle(new GetUserSettingsQuery(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -57,7 +57,7 @@ public sealed class UserSettingsHandlerTests
             null,
             null,
             null,
-            new UserGoalSettingsDto([goal], false, "compact"))), CancellationToken.None);
+            new UserGoalSettingsDto([goal], [], false, "compact"))), CancellationToken.None);
 
         Assert.True(result.IsFailure);
         Assert.Contains(result.Errors, error => error.Code == "GoalSettings.AccountId");

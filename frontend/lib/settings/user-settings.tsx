@@ -9,6 +9,7 @@ export type SettingsSyncStatus = "idle" | "loading" | "saving" | "saved" | "erro
 
 const defaultGoalSettings: UserGoalSettingsDto = {
   goalBars: [],
+  resourceWidgets: [],
   collapsed: false,
   displayStyle: "compact"
 };
@@ -43,7 +44,8 @@ function normalizeSettings(settings: UserSettingsDto | null | undefined, userId 
     goalSettings: {
       ...fallback.goalSettings,
       ...(settings.goalSettings ?? {}),
-      goalBars: Array.isArray(settings.goalSettings?.goalBars) ? settings.goalSettings.goalBars : []
+      goalBars: Array.isArray(settings.goalSettings?.goalBars) ? settings.goalSettings.goalBars : [],
+      resourceWidgets: Array.isArray(settings.goalSettings?.resourceWidgets) ? settings.goalSettings.resourceWidgets : []
     }
   };
 }

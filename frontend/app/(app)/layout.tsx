@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -25,6 +25,7 @@ const navGroups = [
   {
     title: t("planning"),
     links: [
+      ["/dashboard", "儀表板", "Dashboard"],
       ["/recurring-transactions", t("recurring"), t("recurringHint")],
       ["/categories", t("categories"), t("categoriesHint")]
     ]

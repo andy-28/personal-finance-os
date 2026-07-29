@@ -17,28 +17,40 @@ import {
   AetherStatusIndicator,
   AetherToolbar
 } from "@/components/ui/aether-management";
+import {
+  dashboardProfileImageOptions,
+  defaultDashboardProfileImageSettings,
+  useDashboardProfileImageSettings,
+  type DashboardProfileImageSettings
+} from "@/lib/aether/dashboard-profile-settings";
 import { builtInVisualAssets, getBuiltInVisualAsset, getDefaultVisualAsset, visualSlots, type VisualSlotKey } from "@/lib/aether/visual-slots";
 import { defaultAetherWorkshopSettings, type AetherWorkshopSettings } from "@/lib/aether/workshop-settings";
 import { useSettings, type SettingsSyncStatus } from "@/lib/settings/user-settings";
 
-type WorkshopFilter = "All" | "Branding" | "Effects" | "Materials";
+type WorkshopFilter = "All" | "Branding" | "Effects" | "Dashboard" | "Materials";
+type WorkshopSlotKey = VisualSlotKey | "dashboard.profile-image";
 
 const slotSections = [
   { title: "品牌識別", slots: [visualSlots.favicon] },
-  { title: "視覺特效", slots: [visualSlots.headerDivider] }
+  { title: "視覺特效", slots: [visualSlots.headerDivider] },
+  { title: "Dashboard", slots: [{ key: "dashboard.profile-image" as const, label: "Dashboard Profile Image" }] }
 ];
 
 export default function WorkshopPage() {
   const defaultAsset = getDefaultVisualAsset();
   const { settings, status, error, updateWorkshopSettings, retry } = useSettings();
+  const dashboardProfile = useDashboardProfileImageSettings();
   const [filter, setFilter] = useState<WorkshopFilter>("All");
-  const [selectedSlotKey, setSelectedSlotKey] = useState<VisualSlotKey>(visualSlots.favicon.key);
+  const [selectedSlotKey, setSelectedSlotKey] = useState<WorkshopSlotKey>(visualSlots.favicon.key);
   const [failedPreviewIds, setFailedPreviewIds] = useState<string[]>([]);
 
   const appliedSettings = settings.workshopSettings;
   const selectedAsset = useMemo(() => getBuiltInVisualAsset(appliedSettings.faviconAssetId) ?? defaultAsset, [appliedSettings.faviconAssetId, defaultAsset]);
   const availableAssets = builtInVisualAssets.filter((asset) => asset.slotKeys.includes(visualSlots.favicon.key));
-  const isDefault = appliedSettings.faviconAssetId === defaultAsset.id && appliedSettings.headerDividerEnabled === visualSlots.headerDivider.defaultEnabled;
+  const isDefault = appliedSettings.faviconAssetId === defaultAsset.id
+    && appliedSettings.headerDividerEnabled === visualSlots.headerDivider.defaultEnabled
+    && dashboardProfile.settings.imageId === defaultDashboardProfileImageSettings.imageId
+    && dashboardProfile.settings.customImageUrl === defaultDashboardProfileImageSettings.customImageUrl;
 
   const onImageError = (assetId: string) => {
     setFailedPreviewIds((current) => current.includes(assetId) ? current : [...current, assetId]);
@@ -61,7 +73,7 @@ export default function WorkshopPage() {
             summary="Server Settings"
           />
           <AetherToolbar role="tablist" ariaLabel="介面工坊篩選">
-            {(["All", "Branding", "Effects", "Materials"] as WorkshopFilter[]).map((nextFilter) => (
+            {(["All", "Branding", "Effects", "Dashboard", "Materials"] as WorkshopFilter[]).map((nextFilter) => (
               <button
                 key={nextFilter}
                 type="button"
@@ -82,7 +94,7 @@ export default function WorkshopPage() {
 
           <div className="aether-master-detail">
             <div className="aether-list-pane" aria-label="視覺槽位" role="listbox">
-              <AetherSectionHeader title="視覺槽位" meta="2 slots" />
+              <AetherSectionHeader title="視覺槽位" meta="3 slots" />
               {slotSections.filter((section) => filter === "All" || sectionFilter(section.title) === filter).map((section) => (
                 <div key={section.title} className="grid gap-2">
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">{section.title}</p>
@@ -90,7 +102,7 @@ export default function WorkshopPage() {
                     <AetherListRow
                       key={slot.key}
                       title={slot.label}
-                      subtitle={`${slot.key} / ${slotSubtitle(slot.key, appliedSettings, selectedAsset.name)}`}
+                      subtitle={`${slot.key} / ${slotSubtitle(slot.key, appliedSettings, selectedAsset.name, dashboardProfile.resolvedImage.name)}`}
                       meta={<AetherStatusIndicator label={slotStatusLabel(slot.key, appliedSettings)} tone={slotStatusTone(slot.key, appliedSettings)} />}
                       isActive={selectedSlotKey === slot.key}
                       onClick={() => setSelectedSlotKey(slot.key)}
@@ -105,7 +117,14 @@ export default function WorkshopPage() {
 
             <div className="aether-detail-pane">
               <div className="aether-detail-scroll">
-                {selectedSlotKey === visualSlots.favicon.key ? (
+                {selectedSlotKey === "dashboard.profile-image" ? (
+                  <DashboardProfileImageSlotDetail
+                    settings={dashboardProfile.settings}
+                    resolvedImage={dashboardProfile.resolvedImage}
+                    onUpdate={dashboardProfile.updateSettings}
+                    onReset={dashboardProfile.resetSettings}
+                  />
+                ) : selectedSlotKey === visualSlots.favicon.key ? (
                   <FaviconSlotDetail
                     selectedAsset={selectedAsset}
                     availableAssets={availableAssets}
@@ -126,7 +145,17 @@ export default function WorkshopPage() {
 
                 <AetherActionBar>
                   {status === "error" && <Button type="button" variant="outline" onClick={retry}>重試同步</Button>}
-                  <Button type="button" variant="outline" onClick={() => updateWorkshopSettings(defaultAetherWorkshopSettings)} disabled={isDefault}>重設所選</Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      updateWorkshopSettings(defaultAetherWorkshopSettings);
+                      dashboardProfile.resetSettings();
+                    }}
+                    disabled={isDefault}
+                  >
+                    重設工坊
+                  </Button>
                 </AetherActionBar>
               </div>
             </div>
@@ -229,6 +258,88 @@ function HeaderDividerSlotDetail({ enabled, onToggle }: { enabled: boolean; onTo
   );
 }
 
+function DashboardProfileImageSlotDetail({
+  settings,
+  resolvedImage,
+  onUpdate,
+  onReset
+}: {
+  settings: DashboardProfileImageSettings;
+  resolvedImage: { id: string; name: string; src: string; description: string };
+  onUpdate: (settings: DashboardProfileImageSettings) => void;
+  onReset: () => void;
+}) {
+  return (
+    <>
+      <AetherSectionHeader title="Dashboard Appearance" meta="dashboard.profile-image" />
+      <div className="grid gap-3 rounded-ui border border-border/60 bg-background/35 p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-ui border border-primary/50 bg-background/70">
+            <img className="h-full w-full object-contain p-2" src={resolvedImage.src} alt="" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold text-foreground">Dashboard Profile Image</h2>
+            <p className="mt-1 text-sm text-muted">控制儀錶板 Finance Profile 中央圖片。第一版先存在這台瀏覽器。</p>
+          </div>
+          <AetherStatusIndicator label="Local Preview" tone="warning" />
+        </div>
+      </div>
+
+      <AetherDefinitionList>
+        <AetherDefinitionRow label="Slot Key" value="dashboard.profile-image" />
+        <AetherDefinitionRow label="儲存方式" value="LocalStorage client setting" />
+        <AetherDefinitionRow label="目前圖片" value={resolvedImage.name} />
+        <AetherDefinitionRow label="圖片路徑" value={<span className="break-all">{resolvedImage.src}</span>} />
+      </AetherDefinitionList>
+
+      <section className="grid gap-3">
+        <AetherSectionHeader title="內建圖片" meta={`${dashboardProfileImageOptions.length} assets`} />
+        <div className="grid gap-2 sm:grid-cols-2">
+          {dashboardProfileImageOptions.map((option) => {
+            const isSelected = settings.imageId === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                className={`aether-asset-option ${isSelected ? "aether-asset-option-active" : ""}`}
+                aria-pressed={isSelected}
+                onClick={() => onUpdate({ imageId: option.id, customImageUrl: settings.customImageUrl })}
+              >
+                <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-ui border border-border/75 bg-background/80">
+                  <img className="h-9 w-9 object-contain" src={option.src} alt="" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 text-left">
+                  <strong>{option.name}</strong>
+                  <small>{option.description}</small>
+                </span>
+                {isSelected && <AetherStatusIndicator label="目前" tone="success" />}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="grid gap-3">
+        <AetherSectionHeader title="自訂圖片 URL" meta="optional" />
+        <label className="grid gap-2 text-sm font-semibold text-foreground">
+          圖片網址
+          <input
+            className="h-11 rounded-ui border border-border/75 bg-background/70 px-3 text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/30"
+            value={settings.customImageUrl}
+            placeholder="https://... 或 /aether/..."
+            onChange={(event) => onUpdate({ imageId: "custom", customImageUrl: event.target.value })}
+          />
+        </label>
+        <p className="text-xs text-muted">這個版本不會上傳檔案；你可以先使用公開圖片網址或 public 目錄中的路徑。</p>
+      </section>
+
+      <AetherActionBar>
+        <Button type="button" variant="outline" onClick={onReset}>Reset</Button>
+      </AetherActionBar>
+    </>
+  );
+}
+
 function PreviewIcon({ assetId, src, name, failedPreviewIds, onError, size = "normal" }: { assetId: string; src: string; name: string; failedPreviewIds: string[]; onError: (assetId: string) => void; size?: "normal" | "large" }) {
   const hasFailedPreview = failedPreviewIds.includes(assetId);
   const sizeClass = size === "large" ? "h-16 w-16" : "h-11 w-11";
@@ -240,24 +351,28 @@ function PreviewIcon({ assetId, src, name, failedPreviewIds, onError, size = "no
   );
 }
 
-function slotSubtitle(slotKey: VisualSlotKey, settings: AetherWorkshopSettings, savedAssetName: string) {
+function slotSubtitle(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings, savedAssetName: string, dashboardImageName: string) {
   if (slotKey === visualSlots.favicon.key) return `目前：${savedAssetName}`;
+  if (slotKey === "dashboard.profile-image") return `目前：${dashboardImageName}`;
   return settings.headerDividerEnabled ? "頁首光效啟用" : "頁首光效停用";
 }
 
-function slotStatusLabel(slotKey: VisualSlotKey, settings: AetherWorkshopSettings) {
+function slotStatusLabel(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings) {
   if (slotKey === visualSlots.favicon.key) return "同步";
+  if (slotKey === "dashboard.profile-image") return "本機";
   return settings.headerDividerEnabled ? "啟用" : "停用";
 }
 
-function slotStatusTone(slotKey: VisualSlotKey, settings: AetherWorkshopSettings) {
+function slotStatusTone(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings) {
   if (slotKey === visualSlots.favicon.key) return "credit";
+  if (slotKey === "dashboard.profile-image") return "warning";
   return settings.headerDividerEnabled ? "success" : "neutral";
 }
 
 function sectionFilter(sectionTitle: string): WorkshopFilter {
   if (sectionTitle === "品牌識別") return "Branding";
   if (sectionTitle === "視覺特效") return "Effects";
+  if (sectionTitle === "Dashboard") return "Dashboard";
   return "Materials";
 }
 
@@ -266,6 +381,7 @@ function workshopFilterLabel(filter: WorkshopFilter) {
     All: "全部",
     Branding: "品牌",
     Effects: "特效",
+    Dashboard: "Dashboard",
     Materials: "材質"
   };
   return labels[filter];

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { GameInspectPanel, GameInspectRow, GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
-import { apiFetch, money, problemMessage, type AccountDto, type AccountSummaryDto, type AccountType, type GoalBarColor, type PagedTransactionsDto, type TransactionDto, type UserGoalBarDto } from "@/lib/api-client";
+import { apiFetch, money, problemMessage, type AccountDto, type AccountSummaryDto, type AccountType, type GoalBarColor, type PagedTransactionsDto, type TransactionDto, type UserGoalBarDto, type UserResourceWidgetDto } from "@/lib/api-client";
 import { financeDataChangedEvent } from "@/lib/app-events";
 import { todayInputValue } from "@/lib/formatters";
 import { accountTypeLabels, commonLabels } from "@/lib/labels";
@@ -20,7 +20,9 @@ import { useAuth } from "../../auth-context";
 const accountTypes: AccountType[] = ["Cash", "Checking", "Savings", "CreditCard", "Investment", "Loan", "Other"];
 const emptyForm = { name: "", type: "Cash" as AccountType, currencyCode: "TWD", institutionName: "" };
 type FundGoal = UserGoalBarDto;
+type ResourceWidget = UserResourceWidgetDto;
 const emptyGoalForm = { accountId: "", title: "", targetAmount: "100000", color: "violet" as GoalBarColor };
+const emptyResourceWidgetForm = { accountId: "", title: "", description: "", targetAmount: "100000", accent: "cyan" as GoalBarColor };
 const goalBarColors: Record<GoalBarColor, { label: string; fill: string; glow: string; border: string; track: string; frameGlow: string }> = {
   violet: { label: "Arcane violet", fill: "linear-gradient(90deg, #6d28d9 0%, #a855f7 55%, #f0abfc 100%)", glow: "0 0 10px rgba(168, 85, 247, 0.75)", border: "#a78bfa", track: "#2b1743", frameGlow: "0 0 16px rgba(124, 58, 237, 0.35)" },
   cyan: { label: "Aether cyan", fill: "linear-gradient(90deg, #0891b2 0%, #22d3ee 55%, #a5f3fc 100%)", glow: "0 0 10px rgba(34, 211, 238, 0.75)", border: "#67e8f9", track: "#0f2f3a", frameGlow: "0 0 16px rgba(34, 211, 238, 0.32)" },
@@ -41,8 +43,11 @@ export default function AccountsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+  const [isResourceWidgetModalOpen, setIsResourceWidgetModalOpen] = useState(false);
   const [goalForm, setGoalForm] = useState(emptyGoalForm);
+  const [resourceWidgetForm, setResourceWidgetForm] = useState(emptyResourceWidgetForm);
   const goalIdFallbackRef = useRef(0);
+  const resourceWidgetIdFallbackRef = useRef(0);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
@@ -80,18 +85,19 @@ export default function AccountsPage() {
   }, [accessToken, includeArchived]);
 
   useEffect(() => {
-    if (!editingId && !isCreateOpen && !isGoalModalOpen) return;
+    if (!editingId && !isCreateOpen && !isGoalModalOpen && !isResourceWidgetModalOpen) return;
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setEditingId(null);
       setIsCreateOpen(false);
       setIsGoalModalOpen(false);
+      setIsResourceWidgetModalOpen(false);
       setForm(emptyForm);
     }
     window.addEventListener("keydown", closeOnEscape);
 
   return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [editingId, isCreateOpen, isGoalModalOpen]);
+  }, [editingId, isCreateOpen, isGoalModalOpen, isResourceWidgetModalOpen]);
 
   async function submit(event: FormEvent, targetId: string | null = editingId) {
     event.preventDefault();
@@ -180,6 +186,24 @@ export default function AccountsPage() {
   function removeFundGoal(id: string) {
     void updateGoalSettings({ ...settings.goalSettings, goalBars: fundGoals.filter((goal) => goal.id !== id) });
   }
+
+  function addResourceWidget(event: FormEvent) {
+    event.preventDefault();
+    const targetAmount = Number(resourceWidgetForm.targetAmount);
+    if (!resourceWidgetForm.accountId || !Number.isFinite(targetAmount) || targetAmount < 0) return;
+    const account = accounts.find((candidate) => candidate.id === resourceWidgetForm.accountId);
+    const title = resourceWidgetForm.title.trim() || `${account?.name ?? "Resource"} 指引`;
+    const description = resourceWidgetForm.description.trim() || "確認資料來源後，這裡會以遊戲提示視窗呈現目前進度。";
+    const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `resource-widget-${resourceWidgetIdFallbackRef.current++}`;
+    const nextWidgets = [...resourceWidgets, { id, accountId: resourceWidgetForm.accountId, title, description, targetAmount, accent: resourceWidgetForm.accent }];
+    void updateGoalSettings({ ...settings.goalSettings, resourceWidgets: nextWidgets });
+    setResourceWidgetForm(emptyResourceWidgetForm);
+    setIsResourceWidgetModalOpen(false);
+  }
+
+  function removeResourceWidget(id: string) {
+    void updateGoalSettings({ ...settings.goalSettings, resourceWidgets: resourceWidgets.filter((widget) => widget.id !== id) });
+  }
   function resetDragState() {
     pointerDraggingRef.current = false;
     dragTargetIdRef.current = null;
@@ -216,6 +240,7 @@ export default function AccountsPage() {
   }
 
   const fundGoals = settings.goalSettings.goalBars;
+  const resourceWidgets = settings.goalSettings.resourceWidgets ?? [];
   const resourceBarsPanel = (
     <ResourceBarsPanel
       goals={fundGoals}
@@ -258,6 +283,8 @@ export default function AccountsPage() {
         )}
         {resourceBarsPanel}
       </div>
+
+      <ResourceWidgetPanel widgets={resourceWidgets} accounts={accounts} onAdd={() => setIsResourceWidgetModalOpen(true)} onRemove={removeResourceWidget} />
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setIsCreateOpen(false); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); }}>
@@ -317,6 +344,30 @@ export default function AccountsPage() {
                 </select></label>
                 <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
                   <Button type="button" variant="outline" onClick={() => { setIsGoalModalOpen(false); setGoalForm(emptyGoalForm); }}>{commonLabels.cancel}</Button>
+                  <Button type="submit">新增</Button>
+                </div>
+              </form>
+            </GameInspectPanel>
+          </GameWindow>
+        </div>
+      )}
+      {isResourceWidgetModalOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setIsResourceWidgetModalOpen(false); setResourceWidgetForm(emptyResourceWidgetForm); }}>
+          <GameWindow title="新增指引視窗" description="Enhancement guide" className="w-full max-w-xl" onRequestClose={() => { setIsResourceWidgetModalOpen(false); setResourceWidgetForm(emptyResourceWidgetForm); }} onClick={(event) => event.stopPropagation()}>
+            <GameInspectPanel title={resourceWidgetForm.title || "新的資源指引"} subtitle="Account source" icon={<span className="text-sm font-black">UI</span>}>
+              <form onSubmit={addResourceWidget} className="grid gap-4 sm:grid-cols-2">
+                <label className="ui-label sm:col-span-2">資料來源<select className="ui-input" value={resourceWidgetForm.accountId} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, accountId: e.target.value })} autoFocus>
+                  <option value="">選擇帳戶</option>
+                  {accounts.filter((account) => !account.isArchived).map((account) => <option key={account.id} value={account.id}>{account.name} / {money(account.balance, account.currencyCode)}</option>)}
+                </select></label>
+                <label className="ui-label">標題<input className="ui-input" value={resourceWidgetForm.title} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, title: e.target.value })} placeholder="例如：復活資金" /></label>
+                <label className="ui-label">參考目標<input className="ui-input" type="number" min="0" step="1" value={resourceWidgetForm.targetAmount} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, targetAmount: e.target.value })} /></label>
+                <label className="ui-label sm:col-span-2">內容呈現<textarea className="ui-input min-h-20" value={resourceWidgetForm.description} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, description: e.target.value })} placeholder="例如：確認目前帳戶資源是否足以支援下一次任務。" /></label>
+                <label className="ui-label sm:col-span-2">視窗色系<select className="ui-input" value={resourceWidgetForm.accent} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, accent: e.target.value as GoalBarColor })}>
+                  {(Object.keys(goalBarColors) as GoalBarColor[]).map((color) => <option key={color} value={color}>{goalBarColors[color].label}</option>)}
+                </select></label>
+                <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
+                  <Button type="button" variant="outline" onClick={() => { setIsResourceWidgetModalOpen(false); setResourceWidgetForm(emptyResourceWidgetForm); }}>{commonLabels.cancel}</Button>
                   <Button type="submit">新增</Button>
                 </div>
               </form>
@@ -512,4 +563,63 @@ function FundGoalBar({ goal, account, onRemove }: { goal: FundGoal; account?: Ac
     </article>
   );
 }
+function ResourceWidgetPanel({ widgets, accounts, onAdd, onRemove }: { widgets: ResourceWidget[]; accounts: AccountDto[]; onAdd: () => void; onRemove: (id: string) => void }) {
+  return (
+    <section className="rounded-[8px] border border-primary/35 bg-[#071a24]/80 p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_40px_rgba(0,0,0,0.25)]">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Enhancement Guides</p>
+          <h2 className="text-lg font-bold text-foreground">資源指引</h2>
+          <p className="text-xs text-muted">用帳戶資料來源生成像遊戲提示視窗一樣的資源狀態。</p>
+        </div>
+        <button type="button" className="ui-focus grid h-10 w-10 place-items-center rounded-full border border-[#93f5a1] bg-[#5dbb41] text-xl font-black text-[#10210d] shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_0_12px_rgba(93,187,65,0.45)] transition hover:brightness-110" onClick={onAdd} aria-label="新增資源指引">+</button>
+      </div>
+      {widgets.length === 0 ? (
+        <AetherEmptyState title="尚未建立資源指引" description="點擊右上角 +，選擇資料來源與內容呈現，建立像遊戲提示窗的資源摘要。" />
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {widgets.map((widget) => <ResourceGuideCard key={widget.id} widget={widget} account={accounts.find((account) => account.id === widget.accountId)} onRemove={() => onRemove(widget.id)} />)}
+        </div>
+      )}
+    </section>
+  );
+}
 
+function ResourceGuideCard({ widget, account, onRemove }: { widget: ResourceWidget; account?: AccountDto; onRemove: () => void }) {
+  const color = goalBarColors[widget.accent] ?? goalBarColors.cyan;
+  const current = Math.max(0, account?.balance ?? 0);
+  const target = Math.max(0, widget.targetAmount);
+  const percent = target > 0 ? Math.max(0, Math.min(100, (current / target) * 100)) : 100;
+  const currency = account?.currencyCode ?? "TWD";
+
+  return (
+    <article className="relative overflow-hidden rounded-[18px] border-2 border-[#7df9ff]/80 bg-[#1bb9d0] p-3 text-white shadow-[0_0_0_2px_rgba(0,0,0,0.72),0_0_20px_rgba(34,211,238,0.38)]">
+      <button type="button" className="absolute right-3 top-3 z-10 grid h-5 w-5 place-items-center rounded-full border border-white/45 bg-[#163446]/70 text-[11px] leading-none text-white hover:bg-danger/70" onClick={onRemove} aria-label="移除資源指引">x</button>
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),transparent_46%,rgba(0,62,92,0.18))] opacity-70" aria-hidden="true" />
+      <div className="relative grid gap-3 rounded-[14px] border border-white/35 bg-[#23bfd4]/82 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.28),inset_0_-14px_24px_rgba(0,79,111,0.2)] sm:grid-cols-[64px_minmax(0,1fr)]">
+        <div className="grid h-14 w-14 place-items-center rounded-[8px] border border-white/45 bg-[#e9f6ef]/90 text-2xl shadow-[inset_0_-8px_16px_rgba(0,0,0,0.18)]" aria-hidden="true">▣</div>
+        <div className="min-w-0 pr-6">
+          <h3 className="text-base font-black text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.45)]">{widget.title}</h3>
+          <p className="mt-1 text-sm font-semibold leading-relaxed text-cyan-50">{widget.description}</p>
+        </div>
+        <div className="sm:col-span-2 rounded-[10px] border border-[#66c7df]/70 bg-[#1577a0] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_0_16px_rgba(0,43,68,0.32),0_1px_0_rgba(255,255,255,0.08)]">
+          <p className="mb-2 text-xs font-bold text-cyan-50">{account ? `${account.name} 目前資源` : "找不到資料來源"}</p>
+          <div className="relative h-5 overflow-hidden rounded-[4px] border border-[#0c2635] bg-[#07303f] shadow-[inset_0_0_8px_rgba(0,0,0,0.8)]">
+            <div className="h-full rounded-[3px] bg-gradient-to-r from-[#ffb703] via-[#ffe066] to-[#fff4a3] shadow-[0_0_12px_rgba(255,224,102,0.8)] transition-[width] duration-300" style={{ width: `${percent}%` }} />
+            <div className="absolute inset-0 grid place-items-center text-[11px] font-black text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">{money(current, currency)} / {target > 0 ? money(target, currency) : "自由值"}</div>
+          </div>
+          <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-xs font-black text-[#fff200]">
+            <span>NPC/確認</span>
+            <div className="h-2 overflow-hidden rounded-full bg-[#044059] shadow-[inset_0_0_5px_rgba(0,0,0,0.75)]">
+              <div className="h-full rounded-full" style={{ width: `${percent}%`, background: color.fill, boxShadow: color.glow }} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-cyan-50">
+            <span>{account ? account.institutionName || account.name : "未連結"}</span>
+            <span>{percent.toFixed(1)}%</span>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
