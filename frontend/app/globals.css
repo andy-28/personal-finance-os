@@ -196,9 +196,11 @@ body {
   }
 
   .game-window-close {
+    position: relative;
+    z-index: 5;
     display: inline-grid;
-    width: 1.85rem;
-    height: 1.55rem;
+    width: 2.35rem;
+    height: 2.1rem;
     place-items: center;
     border: 1px solid rgb(var(--border) / 0.72);
     border-radius: 0.16rem;
@@ -407,6 +409,54 @@ body {
     width: min(100%, 32rem);
   }
 
+  @media (max-width: 640px) {
+    .game-dialog-backdrop {
+      align-items: start;
+      justify-items: center;
+      padding: max(0.75rem, env(safe-area-inset-top)) 0.5rem max(0.75rem, env(safe-area-inset-bottom));
+      overflow: hidden;
+    }
+
+    .quest-log-window {
+      display: grid;
+      width: min(100%, calc(100vw - 1rem));
+      max-height: calc(100dvh - max(1.5rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom)));
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .quest-log-window .game-window-titlebar {
+      position: sticky;
+      top: 0;
+      z-index: 12;
+      min-height: 3rem;
+      padding-right: 0.55rem;
+    }
+
+    .quest-log-window .game-window-close {
+      width: 2.75rem;
+      height: 2.5rem;
+      border-color: rgb(var(--border) / 0.95);
+      font-size: 1.35rem;
+    }
+
+    .quest-log-window .game-window-body {
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .quest-log-window .quest-window-layout {
+      min-height: 0;
+      max-height: 100%;
+      overflow: hidden;
+    }
+
+    .quest-log-window .quest-info-panel,
+    .quest-log-window .quest-list-panel {
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
   .quest-window-layout {
     display: grid;
     min-height: min(68dvh, 40rem);

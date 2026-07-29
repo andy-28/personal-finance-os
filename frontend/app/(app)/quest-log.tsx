@@ -165,7 +165,7 @@ export function QuestLog() {
 
   const dialog = (
     <div className="game-dialog-backdrop p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="quest-log-title" onClick={() => setIsOpen(false)}>
-      <GameWindow title="財務任務" description="Quest log" className="w-[min(calc(100vw-1.5rem),60rem)]" onRequestClose={() => setIsOpen(false)} onClick={(event) => event.stopPropagation()}>
+      <GameWindow title="財務任務" description="Quest log" className="quest-log-window w-[min(calc(100vw-1.5rem),60rem)]" onRequestClose={() => setIsOpen(false)} onClick={(event) => event.stopPropagation()}>
         <div className="quest-window-layout">
           <div className="quest-tabs-bar">
             {categories.map((category) => (
