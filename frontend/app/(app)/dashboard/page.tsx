@@ -13,7 +13,6 @@ import { AetherEmptyState } from "@/components/ui/aether-management";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ErrorState } from "@/components/ui/states";
-import { useDashboardProfileImageSettings } from "@/lib/aether/dashboard-profile-settings";
 import { apiFetch, problemMessage, type AccountDto, type AccountSummaryDto, type CreditCardDto, type PagedTransactionsDto, type UpcomingDto } from "@/lib/api-client";
 import { financeDataChangedEvent } from "@/lib/app-events";
 import { todayInputValue } from "@/lib/formatters";
@@ -35,7 +34,6 @@ const emptyTransactions: PagedTransactionsDto = { items: [], page: 1, pageSize: 
 export default function DashboardPage() {
   const { accessToken, refreshSession } = useAuth();
   const { settings } = useSettings();
-  const { settings: profileImageSettings } = useDashboardProfileImageSettings();
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [accountSummary, setAccountSummary] = useState<AccountSummaryDto>(emptySummary);
   const [creditCards, setCreditCards] = useState<CreditCardDto[]>([]);
@@ -98,7 +96,7 @@ export default function DashboardPage() {
             summary={accountSummary}
             creditCards={creditCards}
             monthlyTransactions={monthlyTransactions.items}
-            profileImageSettings={profileImageSettings}
+            profileImageSettings={settings.workshopSettings.dashboardProfileImage}
           />
           <DashboardFinancialSummary summary={accountSummary} accounts={accounts} transactions={monthlyTransactions.items} />
           <DashboardCreditCards cards={creditCards} />

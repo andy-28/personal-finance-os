@@ -20,7 +20,7 @@ import {
 import {
   dashboardProfileImageOptions,
   defaultDashboardProfileImageSettings,
-  useDashboardProfileImageSettings,
+  resolveDashboardProfileImage,
   type DashboardProfileImageSettings
 } from "@/lib/aether/dashboard-profile-settings";
 import { builtInVisualAssets, getBuiltInVisualAsset, getDefaultVisualAsset, visualSlots, type VisualSlotKey } from "@/lib/aether/visual-slots";
@@ -39,18 +39,19 @@ const slotSections = [
 export default function WorkshopPage() {
   const defaultAsset = getDefaultVisualAsset();
   const { settings, status, error, updateWorkshopSettings, retry } = useSettings();
-  const dashboardProfile = useDashboardProfileImageSettings();
   const [filter, setFilter] = useState<WorkshopFilter>("All");
   const [selectedSlotKey, setSelectedSlotKey] = useState<WorkshopSlotKey>(visualSlots.favicon.key);
   const [failedPreviewIds, setFailedPreviewIds] = useState<string[]>([]);
 
   const appliedSettings = settings.workshopSettings;
   const selectedAsset = useMemo(() => getBuiltInVisualAsset(appliedSettings.faviconAssetId) ?? defaultAsset, [appliedSettings.faviconAssetId, defaultAsset]);
+  const dashboardProfileSettings = appliedSettings.dashboardProfileImage;
+  const dashboardProfileImage = useMemo(() => resolveDashboardProfileImage(dashboardProfileSettings), [dashboardProfileSettings]);
   const availableAssets = builtInVisualAssets.filter((asset) => asset.slotKeys.includes(visualSlots.favicon.key));
   const isDefault = appliedSettings.faviconAssetId === defaultAsset.id
     && appliedSettings.headerDividerEnabled === visualSlots.headerDivider.defaultEnabled
-    && dashboardProfile.settings.imageId === defaultDashboardProfileImageSettings.imageId
-    && dashboardProfile.settings.customImageUrl === defaultDashboardProfileImageSettings.customImageUrl;
+    && dashboardProfileSettings.imageId === defaultDashboardProfileImageSettings.imageId
+    && dashboardProfileSettings.customImageUrl === defaultDashboardProfileImageSettings.customImageUrl;
 
   const onImageError = (assetId: string) => {
     setFailedPreviewIds((current) => current.includes(assetId) ? current : [...current, assetId]);
@@ -102,7 +103,7 @@ export default function WorkshopPage() {
                     <AetherListRow
                       key={slot.key}
                       title={slot.label}
-                      subtitle={`${slot.key} / ${slotSubtitle(slot.key, appliedSettings, selectedAsset.name, dashboardProfile.resolvedImage.name)}`}
+                      subtitle={`${slot.key} / ${slotSubtitle(slot.key, appliedSettings, selectedAsset.name, dashboardProfileImage.name)}`}
                       meta={<AetherStatusIndicator label={slotStatusLabel(slot.key, appliedSettings)} tone={slotStatusTone(slot.key, appliedSettings)} />}
                       isActive={selectedSlotKey === slot.key}
                       onClick={() => setSelectedSlotKey(slot.key)}
@@ -119,10 +120,10 @@ export default function WorkshopPage() {
               <div className="aether-detail-scroll">
                 {selectedSlotKey === "dashboard.profile-image" ? (
                   <DashboardProfileImageSlotDetail
-                    settings={dashboardProfile.settings}
-                    resolvedImage={dashboardProfile.resolvedImage}
-                    onUpdate={dashboardProfile.updateSettings}
-                    onReset={dashboardProfile.resetSettings}
+                    settings={dashboardProfileSettings}
+                    resolvedImage={dashboardProfileImage}
+                    onUpdate={(dashboardProfileImage) => updateWorkshopSettings({ dashboardProfileImage })}
+                    onReset={() => updateWorkshopSettings({ dashboardProfileImage: defaultDashboardProfileImageSettings })}
                   />
                 ) : selectedSlotKey === visualSlots.favicon.key ? (
                   <FaviconSlotDetail
@@ -150,7 +151,6 @@ export default function WorkshopPage() {
                     variant="outline"
                     onClick={() => {
                       updateWorkshopSettings(defaultAetherWorkshopSettings);
-                      dashboardProfile.resetSettings();
                     }}
                     disabled={isDefault}
                   >
@@ -279,15 +279,15 @@ function DashboardProfileImageSlotDetail({
           </span>
           <div className="min-w-0">
             <h2 className="text-xl font-bold text-foreground">Dashboard Profile Image</h2>
-            <p className="mt-1 text-sm text-muted">控制儀錶板 Finance Profile 中央圖片。第一版先存在這台瀏覽器。</p>
+            <p className="mt-1 text-sm text-muted">控制儀錶板 Finance Profile 中央圖片，並由 User Settings 同步。</p>
           </div>
-          <AetherStatusIndicator label="Local Preview" tone="warning" />
+          <AetherStatusIndicator label="已同步" tone="success" />
         </div>
       </div>
 
       <AetherDefinitionList>
         <AetherDefinitionRow label="Slot Key" value="dashboard.profile-image" />
-        <AetherDefinitionRow label="儲存方式" value="LocalStorage client setting" />
+        <AetherDefinitionRow label="儲存方式" value="Server User Settings" />
         <AetherDefinitionRow label="目前圖片" value={resolvedImage.name} />
         <AetherDefinitionRow label="圖片路徑" value={<span className="break-all">{resolvedImage.src}</span>} />
       </AetherDefinitionList>
@@ -310,7 +310,7 @@ function DashboardProfileImageSlotDetail({
                 </span>
                 <span className="min-w-0 text-left">
                   <strong>{option.name}</strong>
-                  <small>{option.description}</small>
+                <small>{option.description}</small>
                 </span>
                 {isSelected && <AetherStatusIndicator label="目前" tone="success" />}
               </button>
@@ -330,7 +330,7 @@ function DashboardProfileImageSlotDetail({
             onChange={(event) => onUpdate({ imageId: "custom", customImageUrl: event.target.value })}
           />
         </label>
-        <p className="text-xs text-muted">這個版本不會上傳檔案；你可以先使用公開圖片網址或 public 目錄中的路徑。</p>
+        <p className="text-xs text-muted">這個版本不會上傳檔案；你可以先使用公開圖片網址或 public 目錄中的路徑，設定會同步到伺服器。</p>
       </section>
 
       <AetherActionBar>
@@ -359,13 +359,13 @@ function slotSubtitle(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings
 
 function slotStatusLabel(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings) {
   if (slotKey === visualSlots.favicon.key) return "同步";
-  if (slotKey === "dashboard.profile-image") return "本機";
+  if (slotKey === "dashboard.profile-image") return "同步";
   return settings.headerDividerEnabled ? "啟用" : "停用";
 }
 
 function slotStatusTone(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings) {
   if (slotKey === visualSlots.favicon.key) return "credit";
-  if (slotKey === "dashboard.profile-image") return "warning";
+  if (slotKey === "dashboard.profile-image") return "success";
   return settings.headerDividerEnabled ? "success" : "neutral";
 }
 

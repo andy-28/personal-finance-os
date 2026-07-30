@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FaviconController } from "@/components/aether/favicon-controller";
+import { ServiceConnectionState } from "@/components/system/service-connection-state";
 import { Button } from "@/components/ui/button";
 import { GameTheme } from "@/components/ui/game-theme";
-import { LoadingState } from "@/components/ui/states";
 import { useAuth } from "../auth-context";
 import { t } from "@/lib/i18n";
 import { SettingsProvider } from "@/lib/settings/user-settings";
@@ -50,7 +50,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isLoading, router, user]);
 
   if (isLoading || !user) {
-    return <main className="grid min-h-screen place-items-center bg-background p-5"><LoadingState label={t("loadingInterface")} /></main>;
+    return (
+      <main className="grid min-h-screen place-items-center bg-background p-5">
+        <ServiceConnectionState
+          stage="waking-api"
+          title="正在連線到服務"
+          detail="Render 免費服務可能正在喚醒中，通常等待一下就會恢復。"
+        />
+      </main>
+    );
   }
 
   const nav = (
@@ -86,51 +94,64 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <GameTheme>
       <SettingsProvider>
-      <FaviconController />
-      <main className="min-h-screen text-foreground">
-        <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/70 bg-surface/72 px-4 py-5 shadow-panel backdrop-blur-xl lg:block">
-          <div className="mb-8 border-b border-border/55 pb-5">
-            <p className="text-lg font-bold tracking-normal">PersonalFinanceOS</p>
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">{t("aetherCommandMenu")}</p>
-          </div>
-          {nav}
-        </aside>
-
-        {isMenuOpen && (
-          <div className="fixed inset-0 z-50 bg-background/70 p-3 backdrop-blur-lg lg:hidden" onClick={() => setIsMenuOpen(false)}>
-            <div className="game-panel h-full w-72" onClick={(event) => event.stopPropagation()}>
-              <div className="mb-5 flex items-center justify-between border-b border-border/55 pb-4">
-                <div>
-                  <p className="font-bold">PersonalFinanceOS</p>
-                  <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">{t("aetherCommandMenu")}</p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(false)}>{t("close")}</Button>
-              </div>
-              {nav}
+        <FaviconController />
+        <main className="min-h-screen text-foreground">
+          <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/70 bg-surface/72 px-4 py-5 shadow-panel backdrop-blur-xl lg:block">
+            <div className="mb-8 border-b border-border/55 pb-5">
+              <p className="text-lg font-bold tracking-normal">PersonalFinanceOS</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">{t("aetherCommandMenu")}</p>
             </div>
-          </div>
-        )}
+            {nav}
+          </aside>
 
-        <section className="lg:pl-64">
-          <header className="sticky top-0 z-30 border-b border-border/65 bg-background/78 shadow-panel backdrop-blur-xl">
-            <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-2 sm:flex-nowrap sm:px-6 sm:py-0">
-              <div className="flex min-w-0 items-center gap-3">
-                <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsMenuOpen(true)}>{t("menu")}</Button>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold">{user.displayName}</p>
-                  <p className="truncate text-xs text-muted">{user.email}</p>
+          {isMenuOpen && (
+            <div className="fixed inset-0 z-50 bg-background/70 p-3 backdrop-blur-lg lg:hidden" onClick={() => setIsMenuOpen(false)}>
+              <div className="game-panel h-full w-72" onClick={(event) => event.stopPropagation()}>
+                <div className="mb-5 flex items-center justify-between border-b border-border/55 pb-4">
+                  <div>
+                    <p className="font-bold">PersonalFinanceOS</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">{t("aetherCommandMenu")}</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(false)}>
+                    關閉
+                  </Button>
                 </div>
-              </div>
-              <div className="ml-auto flex shrink-0 items-center gap-2">
-                <QuestLog />
-                <QuickAdd />
-                <Button variant="outline" size="sm" onClick={async () => { await logout(); router.replace("/login"); }}>{t("logout")}</Button>
+                {nav}
               </div>
             </div>
-          </header>
-          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-7 sm:px-6">{children}</div>
-        </section>
-      </main>
+          )}
+
+          <section className="lg:pl-64">
+            <header className="sticky top-0 z-30 border-b border-border/65 bg-background/78 shadow-panel backdrop-blur-xl">
+              <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-2 sm:flex-nowrap sm:px-6 sm:py-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsMenuOpen(true)}>
+                    {t("menu")}
+                  </Button>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">{user.displayName}</p>
+                    <p className="truncate text-xs text-muted">{user.email}</p>
+                  </div>
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <QuestLog />
+                  <QuickAdd />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await logout();
+                      router.replace("/login");
+                    }}
+                  >
+                    {t("logout")}
+                  </Button>
+                </div>
+              </div>
+            </header>
+            <div className="mx-auto grid max-w-7xl gap-8 px-4 py-7 sm:px-6">{children}</div>
+          </section>
+        </main>
       </SettingsProvider>
     </GameTheme>
   );

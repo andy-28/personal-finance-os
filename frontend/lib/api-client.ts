@@ -10,7 +10,9 @@ export type GoalBarColor = "violet" | "cyan" | "emerald" | "amber" | "rose";
 export type UserGoalBarDto = { id: string; accountId: string; title: string; targetAmount: number; color: GoalBarColor };
 export type UserResourceWidgetDto = { id: string; accountId: string; title: string; description: string; targetAmount: number; accent: GoalBarColor };
 export type UserGoalSettingsDto = { goalBars: UserGoalBarDto[]; resourceWidgets: UserResourceWidgetDto[]; collapsed: boolean; displayStyle: string };
-export type UserWorkshopSettingsDto = { faviconAssetId: string; headerDividerEnabled: boolean };
+export type DashboardProfileImageId = "aether-orb" | "aether-favicon" | "custom";
+export type DashboardProfileImageSettingsDto = { imageId: DashboardProfileImageId; customImageUrl: string };
+export type UserWorkshopSettingsDto = { faviconAssetId: string; headerDividerEnabled: boolean; dashboardProfileImage: DashboardProfileImageSettingsDto };
 export type UserVisualSettingsDto = { headerDividerAssetId: string };
 export type UserSettingsDto = {
   id: string;
@@ -23,7 +25,15 @@ export type UserSettingsDto = {
   updatedAtUtc: string;
 };
 export type UserSettingsPatchRequest = Partial<Pick<UserSettingsDto, "theme" | "workshopSettings" | "visualSettings" | "goalSettings">>;
-export type ProblemDetails = { title?: string; detail?: string; status?: number; errors?: Array<{ code: string; message: string; type: string }> };
+export type ProblemDetails = {
+  title?: string;
+  detail?: string;
+  status?: number;
+  code?: "BACKEND_UNAVAILABLE" | "BACKEND_TIMEOUT" | string;
+  message?: string;
+  retryable?: boolean;
+  errors?: Array<{ code: string; message: string; type: string }>;
+};
 export type AccountType = "Cash" | "Checking" | "Savings" | "CreditCard" | "Investment" | "Loan" | "Other";
 export type AccountDto = { id: string; name: string; type: AccountType; currencyCode: string; institutionName?: string | null; displayOrder: number; isArchived: boolean; createdAtUtc: string; updatedAtUtc: string; balance: number; balanceLabel: string; hasOpeningBalance: boolean };
 export type AccountSummaryCurrencyDto = { currencyCode: string; assetBalance: number; liabilityBalance: number; netBalance: number };
@@ -187,6 +197,41 @@ export type CreditCardReminderDto = { accountId: string; accountName: string; ki
 export type UpcomingDto = { recurringOccurrences: RecurringOccurrenceDto[]; installments: UpcomingInstallmentDto[]; creditCardReminders: CreditCardReminderDto[] };
 
 const apiBaseUrl = "";
+export const CONNECTION_NOTICE_DELAY_MS = 2_000;
+export const COLD_START_NOTICE_DELAY_MS = 5_000;
+export const REQUEST_TIMEOUT_MS = 60_000;
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function isRetryableStatus(status: number) {
+  return status === 408 || status === 502 || status === 503 || status === 504;
+}
+
+function backendProblem(code: "BACKEND_UNAVAILABLE" | "BACKEND_TIMEOUT", status = code === "BACKEND_TIMEOUT" ? 504 : 503): ProblemDetails {
+  return {
+    title: code === "BACKEND_TIMEOUT" ? "Backend timeout" : "Backend temporarily unavailable",
+    detail: code === "BACKEND_TIMEOUT"
+      ? "The API service did not respond in time. It may still be waking up."
+      : "The API service is temporarily unavailable. It may be waking up from a cold start.",
+    status,
+    code,
+    message: code === "BACKEND_TIMEOUT" ? "Backend service did not respond in time." : "Backend service is temporarily unavailable.",
+    retryable: true
+  };
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export class ApiError extends Error {
   constructor(public status: number, public problem: ProblemDetails) {
@@ -261,18 +306,29 @@ export async function apiFetch<T>(path: string, accessToken: string | null, init
   if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
 
-  let response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers, cache: "no-store" });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${apiBaseUrl}${path}`, { ...init, headers, cache: "no-store" });
+  } catch (error) {
+    throw new ApiError(isAbortError(error) ? 504 : 503, backendProblem(isAbortError(error) ? "BACKEND_TIMEOUT" : "BACKEND_UNAVAILABLE"));
+  }
+
   if (response.status === 401 && retry) {
     const refreshed = await retry();
     if (refreshed && refreshed !== accessToken) {
       headers.set("Authorization", `Bearer ${refreshed}`);
-      response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers, cache: "no-store" });
+      try {
+        response = await fetchWithTimeout(`${apiBaseUrl}${path}`, { ...init, headers, cache: "no-store" });
+      } catch (error) {
+        throw new ApiError(isAbortError(error) ? 504 : 503, backendProblem(isAbortError(error) ? "BACKEND_TIMEOUT" : "BACKEND_UNAVAILABLE"));
+      }
     }
   }
 
   if (response.status === 204) return undefined as T;
   const contentType = response.headers.get("content-type") ?? "";
   const body = contentType.includes("application/json") ? await response.json() : undefined;
+  if (isRetryableStatus(response.status) && !body) throw new ApiError(response.status, backendProblem("BACKEND_UNAVAILABLE", response.status));
   if (!response.ok) throw new ApiError(response.status, body ?? { title: "Request failed", status: response.status });
   return body as T;
 }

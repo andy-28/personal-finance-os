@@ -60,6 +60,31 @@ function mergeSettings(current: UserSettingsDto, patch: UserSettingsPatchRequest
   }, current.userId);
 }
 
+function mergeSavedSettings(optimistic: UserSettingsDto, saved: UserSettingsDto): UserSettingsDto {
+  return {
+    ...optimistic,
+    ...saved,
+    workshopSettings: {
+      ...optimistic.workshopSettings,
+      ...(saved.workshopSettings ?? {})
+    },
+    visualSettings: {
+      ...optimistic.visualSettings,
+      ...(saved.visualSettings ?? {})
+    },
+    goalSettings: {
+      ...optimistic.goalSettings,
+      ...(saved.goalSettings ?? {}),
+      goalBars: Array.isArray(saved.goalSettings?.goalBars)
+        ? saved.goalSettings.goalBars
+        : optimistic.goalSettings.goalBars,
+      resourceWidgets: Array.isArray(saved.goalSettings?.resourceWidgets)
+        ? saved.goalSettings.resourceWidgets
+        : optimistic.goalSettings.resourceWidgets
+    }
+  };
+}
+
 type SettingsContextValue = {
   settings: UserSettingsDto;
   status: SettingsSyncStatus;
@@ -151,7 +176,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify(patch)
       }, refreshSession);
       if (saveSequenceRef.current !== sequence) return;
-      const normalized = normalizeSettings(saved, user?.id);
+      const normalized = normalizeSettings(mergeSavedSettings(optimistic, saved), user?.id);
       confirmedSettingsRef.current = normalized;
       settingsRef.current = normalized;
       setSettings(normalized);
@@ -169,8 +194,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [accessToken, refreshSession, user]);
 
   const updateWorkshopSettings = useCallback((patch: Partial<UserWorkshopSettingsDto>) => {
-    return updateSettings({ workshopSettings: { ...settings.workshopSettings, ...patch } });
-  }, [settings.workshopSettings, updateSettings]);
+    return updateSettings({ workshopSettings: { ...settingsRef.current.workshopSettings, ...patch } });
+  }, [updateSettings]);
 
   const updateGoalSettings = useCallback((goalSettings: UserGoalSettingsDto) => {
     return updateSettings({ goalSettings });

@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { AuthResponse, UserDto } from "@/lib/api-client";
+import type { AuthResponse, ProblemDetails, UserDto } from "@/lib/api-client";
 import { problemMessage } from "@/lib/api-client";
 
 type AuthContextValue = {
@@ -24,8 +24,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
 
+  async function readProblem(response: Response) {
+    return await response.json().catch(() => ({ title: "Request failed", status: response.status } satisfies ProblemDetails));
+  }
+
+  function isRetryableAuthProblem(response: Response, problem: ProblemDetails) {
+    return problem.retryable === true || response.status === 408 || response.status === 502 || response.status === 503 || response.status === 504;
+  }
+
   async function handleAuthResponse(response: Response) {
-    const data = await response.json();
+    const data = await readProblem(response);
     if (!response.ok) throw new Error(problemMessage(data));
     const auth = data as AuthResponse;
     setUser(auth.user);
@@ -52,14 +60,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const response = await fetch("/api/auth/refresh", { method: "POST" });
         if (!response.ok) {
-          setUser(null);
-          setAccessToken(null);
+          const problem = await readProblem(response);
+          if (!isRetryableAuthProblem(response, problem)) {
+            setUser(null);
+            setAccessToken(null);
+          }
           return null;
         }
         return handleAuthResponse(response);
       } catch {
-        setUser(null);
-        setAccessToken(null);
         return null;
       } finally {
         refreshPromiseRef.current = null;

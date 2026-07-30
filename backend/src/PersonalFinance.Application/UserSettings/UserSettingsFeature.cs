@@ -20,7 +20,8 @@ public sealed class UserSettingsHandler :
 {
     private const string DefaultTheme = "Aether";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private static readonly UserWorkshopSettingsDto DefaultWorkshopSettings = new("default-favicon", true);
+    private static readonly DashboardProfileImageSettingsDto DefaultDashboardProfileImageSettings = new("aether-orb", string.Empty);
+    private static readonly UserWorkshopSettingsDto DefaultWorkshopSettings = new("default-favicon", true, DefaultDashboardProfileImageSettings);
     private static readonly UserVisualSettingsDto DefaultVisualSettings = new("purple-energy-divider");
     private static readonly UserGoalSettingsDto DefaultGoalSettings = new(Array.Empty<UserGoalBarDto>(), Array.Empty<UserResourceWidgetDto>(), false, "compact");
 
@@ -116,7 +117,8 @@ public sealed class UserSettingsHandler :
         var workshop = request.WorkshopSettings ?? DefaultWorkshopSettings;
         var workshopSettings = new UserWorkshopSettingsDto(
             string.IsNullOrWhiteSpace(workshop.FaviconAssetId) ? DefaultWorkshopSettings.FaviconAssetId : workshop.FaviconAssetId.Trim(),
-            workshop.HeaderDividerEnabled);
+            workshop.HeaderDividerEnabled,
+            NormalizeDashboardProfileImage(workshop.DashboardProfileImage));
 
         var visual = request.VisualSettings ?? DefaultVisualSettings;
         var visualSettings = new UserVisualSettingsDto(
@@ -174,6 +176,19 @@ public sealed class UserSettingsHandler :
         return color is "violet" or "cyan" or "emerald" or "amber" or "rose" ? color : "violet";
     }
 
+    private static DashboardProfileImageSettingsDto NormalizeDashboardProfileImage(DashboardProfileImageSettingsDto? value)
+    {
+        if (value is null) return DefaultDashboardProfileImageSettings;
+
+        var imageId = string.IsNullOrWhiteSpace(value.ImageId) ? DefaultDashboardProfileImageSettings.ImageId : value.ImageId.Trim();
+        if (imageId is not ("aether-orb" or "aether-favicon" or "custom")) imageId = DefaultDashboardProfileImageSettings.ImageId;
+
+        var customImageUrl = string.IsNullOrWhiteSpace(value.CustomImageUrl) ? string.Empty : value.CustomImageUrl.Trim();
+        if (customImageUrl.Length > 500) customImageUrl = customImageUrl[..500];
+
+        return new DashboardProfileImageSettingsDto(imageId, customImageUrl);
+    }
+
     private static UserSettingsDto ToDto(UserSetting setting)
     {
         return new UserSettingsDto(
@@ -203,4 +218,3 @@ public sealed class UserSettingsHandler :
 
     private static Error NotAuthenticated() => Error.Unauthorized("UserSettings.NotAuthenticated", "Authentication is required to read user settings.");
 }
-

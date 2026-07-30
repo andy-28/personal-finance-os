@@ -1,3 +1,5 @@
+import { backendProblem, fetchWithTimeout, isAbortError, isTransientBackendStatus } from "../_shared/backend-proxy";
+
 const backendApiUrl = process.env.BACKEND_API_URL ?? "http://localhost:5000";
 
 type ProxyContext = { params: { backend: string[] } | Promise<{ backend: string[] }> };
@@ -45,18 +47,21 @@ async function proxyBackend(request: Request, context: ProxyContext) {
 
   let backendResponse: Response;
   try {
-    backendResponse = await fetch(targetUrl, {
+    backendResponse = await fetchWithTimeout(targetUrl, {
       method: request.method,
       headers,
       body,
       cache: "no-store",
       redirect: "manual"
     });
-  } catch {
-    return Response.json(
-      { title: "API unavailable", detail: "Check whether BACKEND_API_URL points to a reachable backend service." },
-      { status: 503 }
-    );
+  } catch (error) {
+    const problem = backendProblem(isAbortError(error) ? "BACKEND_TIMEOUT" : "BACKEND_UNAVAILABLE");
+    return Response.json(problem, { status: problem.status });
+  }
+
+  if (isTransientBackendStatus(backendResponse.status)) {
+    const problem = backendProblem("BACKEND_UNAVAILABLE", backendResponse.status);
+    return Response.json(problem, { status: backendResponse.status });
   }
 
   const responseHeaders = new Headers(backendResponse.headers);

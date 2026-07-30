@@ -10,7 +10,9 @@ public sealed record UserSettingsDto(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc);
 
-public sealed record UserWorkshopSettingsDto(string FaviconAssetId, bool HeaderDividerEnabled);
+public sealed record UserWorkshopSettingsDto(string FaviconAssetId, bool HeaderDividerEnabled, DashboardProfileImageSettingsDto DashboardProfileImage);
+
+public sealed record DashboardProfileImageSettingsDto(string ImageId, string CustomImageUrl);
 
 public sealed record UserVisualSettingsDto(string HeaderDividerAssetId);
 

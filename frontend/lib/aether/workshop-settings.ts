@@ -1,13 +1,16 @@
-﻿import { getBuiltInVisualAsset, visualSlots } from "./visual-slots";
+import { defaultDashboardProfileImageSettings, normalizeDashboardProfileImageSettings, type DashboardProfileImageSettings } from "./dashboard-profile-settings";
+import { getBuiltInVisualAsset, visualSlots } from "./visual-slots";
 
 export interface AetherWorkshopSettings {
   faviconAssetId: string;
   headerDividerEnabled: boolean;
+  dashboardProfileImage: DashboardProfileImageSettings;
 }
 
 export const defaultAetherWorkshopSettings: AetherWorkshopSettings = {
   faviconAssetId: visualSlots.favicon.defaultAssetId,
-  headerDividerEnabled: visualSlots.headerDivider.defaultEnabled
+  headerDividerEnabled: visualSlots.headerDivider.defaultEnabled,
+  dashboardProfileImage: defaultDashboardProfileImageSettings
 };
 
 export function normalizeAetherWorkshopSettings(value: unknown): AetherWorkshopSettings {
@@ -20,6 +23,7 @@ export function normalizeAetherWorkshopSettings(value: unknown): AetherWorkshopS
   const headerDividerEnabled = typeof candidate.headerDividerEnabled === "boolean"
     ? candidate.headerDividerEnabled
     : defaultAetherWorkshopSettings.headerDividerEnabled;
+  const dashboardProfileImage = normalizeDashboardProfileImageSettings(candidate.dashboardProfileImage);
 
-  return { faviconAssetId, headerDividerEnabled };
+  return { faviconAssetId, headerDividerEnabled, dashboardProfileImage };
 }
