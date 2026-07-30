@@ -6,9 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FaviconController } from "@/components/aether/favicon-controller";
 import { useAuth } from "@/app/auth-context";
 import { SettingsProvider } from "@/lib/settings/user-settings";
-import { clearDesktopLabStorage, defaultDesktopLayout, readDesktopLayout, readDesktopWallpaper, writeDesktopLayout, writeDesktopWallpaper } from "@/lib/desktop-lab/storage";
-import { creditTerminalRows, desktopWallpapers, desktopWindows, financeOverviewRows, missionBoardRows, recentActivityRows } from "./desktop-mock-data";
-import type { DesktopPoint, DesktopWallpaperId, DesktopWindowId, DesktopWindowLayout } from "./desktop-types";
+import { clearDesktopLabStorage, defaultDesktopLayout, readDesktopLayout, readDesktopPreferences, writeDesktopLayout, writeDesktopPreference } from "@/lib/desktop-lab/storage";
+import { desktopDockStylePresets, desktopHudStylePresets, desktopWallpaperPresets, desktopWindowSkinPresets, type DesktopLabPreferences } from "@/lib/desktop-lab/presets";
+import { desktopWindowRegistry } from "@/lib/desktop-lab/window-registry";
+import { creditTerminalRows, financeOverviewRows, missionBoardRows, recentActivityRows } from "./desktop-mock-data";
+import type { DesktopPoint, DesktopWindowId, DesktopWindowLayout } from "./desktop-types";
 import { DesktopWindow } from "./desktop-window";
 
 type DesktopDockItem = { id: string; label: string; icon: string; windowId?: DesktopWindowId; href?: string };
@@ -35,7 +37,7 @@ function DesktopPrototype() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
-  const [wallpaper, setWallpaper] = useState<DesktopWallpaperId>("aether-grid");
+  const [preferences, setPreferences] = useState<DesktopLabPreferences>(() => readDesktopPreferences());
   const [layout, setLayout] = useState<DesktopWindowLayout>(() => defaultDesktopLayout());
 
   useEffect(() => {
@@ -45,10 +47,26 @@ function DesktopPrototype() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setIsMounted(true);
-      setWallpaper(readDesktopWallpaper());
+      setPreferences(readDesktopPreferences());
       setLayout(readDesktopLayout());
     }, 0);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => {
+      setLayout((current) => {
+        const next = Object.fromEntries(Object.values(current).map((state) => {
+          const definition = desktopWindowRegistry.find((window) => window.id === state.id);
+          if (!definition) return [state.id, state];
+          return [state.id, { ...state, position: clampDesktopSpawn(state.position, definition.size) }];
+        })) as DesktopWindowLayout;
+        writeDesktopLayout(next);
+        return next;
+      });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const activeWindowId = useMemo(() => {
@@ -81,7 +99,7 @@ function DesktopPrototype() {
 
   const openWindow = useCallback((id: DesktopWindowId) => {
     setLayout((current) => {
-      const definition = desktopWindows.find((window) => window.id === id);
+      const definition = desktopWindowRegistry.find((window) => window.id === id);
       const openCount = Object.values(current).filter((window) => window.isOpen).length;
       const shouldCascade = !current[id].isOpen;
       const cascadedPosition = shouldCascade && definition
@@ -115,18 +133,21 @@ function DesktopPrototype() {
     });
   }, []);
 
+  const updatePreference = <TKey extends keyof DesktopLabPreferences>(key: TKey, value: DesktopLabPreferences[TKey]) => {
+    const next = writeDesktopPreference(key, value);
+    setPreferences(next);
+  };
+
   const cycleWallpaper = () => {
-    const currentIndex = desktopWallpapers.findIndex((item) => item.id === wallpaper);
-    const next = desktopWallpapers[(currentIndex + 1) % desktopWallpapers.length].id;
-    setWallpaper(next);
-    writeDesktopWallpaper(next);
+    const currentIndex = desktopWallpaperPresets.findIndex((item) => item.id === preferences.wallpaper);
+    const next = desktopWallpaperPresets[(currentIndex + 1) % desktopWallpaperPresets.length].id;
+    updatePreference("wallpaper", next);
   };
 
   const resetLayout = () => {
     if (!window.confirm("確定要重設實驗桌面配置嗎？")) return;
     clearDesktopLabStorage();
     const next = defaultDesktopLayout();
-    setWallpaper("aether-grid");
     setLayout(next);
   };
 
@@ -135,7 +156,7 @@ function DesktopPrototype() {
   }
 
   return (
-    <main className={`desktop-lab desktop-lab-wallpaper-${wallpaper}`}>
+    <main className={`desktop-lab desktop-lab-wallpaper-${preferences.wallpaper} desktop-window-skin-${preferences.windowSkin} desktop-dock-style-${preferences.dockStyle} desktop-hud-style-${preferences.hudStyle}`}>
       <div className="desktop-lab-mobile">
         <section>
           <p className="desktop-lab-eyebrow">DESKTOP MODE</p>
@@ -148,10 +169,10 @@ function DesktopPrototype() {
         </section>
       </div>
 
-      <DesktopHud />
+      <DesktopHud layout={layout} activeWindowId={activeWindowId} hudStyle={preferences.hudStyle} />
 
       <div className="desktop-window-layer" aria-label="Desktop prototype windows">
-        {desktopWindows.map((definition) => {
+        {desktopWindowRegistry.map((definition) => {
           const state = layout[definition.id];
           if (!state?.isOpen) return null;
           return (
@@ -176,30 +197,43 @@ function DesktopPrototype() {
         })}
       </div>
 
-      <DesktopControls wallpaper={wallpaper} onCycleWallpaper={cycleWallpaper} onReset={resetLayout} />
+      <DesktopControls preferences={preferences} onUpdatePreference={updatePreference} onCycleWallpaper={cycleWallpaper} onReset={resetLayout} />
       <DesktopDock layout={layout} activeWindowId={activeWindowId} onOpen={openWindow} />
     </main>
   );
 }
 
-function DesktopHud() {
+function DesktopHud({ layout, activeWindowId, hudStyle }: { layout: DesktopWindowLayout; activeWindowId?: DesktopWindowId; hudStyle: DesktopLabPreferences["hudStyle"] }) {
+  if (hudStyle === "hidden") return null;
+  const openCount = Object.values(layout).filter((window) => window.isOpen).length;
+  const activeWindow = desktopWindowRegistry.find((window) => window.id === activeWindowId);
   return (
     <aside className="desktop-hud" aria-label="Desktop Lab status">
       <p className="desktop-lab-eyebrow">AETHER DESKTOP</p>
       <strong>Prototype Mode</strong>
-      <span>4 Windows Available</span>
-      <span>Classic Finance Data: Disconnected</span>
+      {hudStyle === "system" && <span>{desktopWindowRegistry.length} Windows Available</span>}
+      {hudStyle === "system" && <span>{openCount} Windows Open</span>}
+      {hudStyle === "system" && <span>Active Window: {activeWindow?.title ?? "None"}</span>}
       <span>Mock Data Only</span>
     </aside>
   );
 }
 
-function DesktopControls({ wallpaper, onCycleWallpaper, onReset }: { wallpaper: DesktopWallpaperId; onCycleWallpaper: () => void; onReset: () => void }) {
-  const current = desktopWallpapers.find((item) => item.id === wallpaper) ?? desktopWallpapers[0];
+function DesktopControls({ preferences, onUpdatePreference, onCycleWallpaper, onReset }: { preferences: DesktopLabPreferences; onUpdatePreference: <TKey extends keyof DesktopLabPreferences>(key: TKey, value: DesktopLabPreferences[TKey]) => void; onCycleWallpaper: () => void; onReset: () => void }) {
+  const current = desktopWallpaperPresets.find((item) => item.id === preferences.wallpaper) ?? desktopWallpaperPresets[0];
   return (
     <div className="desktop-controls" aria-label="Desktop Lab controls">
       <Link className="desktop-control-button" href="/workshop">返回介面工坊</Link>
-      <button type="button" className="desktop-control-button" onClick={onCycleWallpaper}>Wallpaper: {current.name}</button>
+      <button type="button" className="desktop-control-button" onClick={onCycleWallpaper}>Wallpaper: {current.label}</button>
+      <select className="desktop-control-button" value={preferences.windowSkin} onChange={(event) => onUpdatePreference("windowSkin", event.target.value as DesktopLabPreferences["windowSkin"])} aria-label="Window skin">
+        {desktopWindowSkinPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+      </select>
+      <select className="desktop-control-button" value={preferences.dockStyle} onChange={(event) => onUpdatePreference("dockStyle", event.target.value as DesktopLabPreferences["dockStyle"])} aria-label="Dock style">
+        {desktopDockStylePresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+      </select>
+      <select className="desktop-control-button" value={preferences.hudStyle} onChange={(event) => onUpdatePreference("hudStyle", event.target.value as DesktopLabPreferences["hudStyle"])} aria-label="HUD style">
+        {desktopHudStylePresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
+      </select>
       <button type="button" className="desktop-control-button" onClick={onReset}>Reset Layout</button>
     </div>
   );
@@ -268,6 +302,7 @@ function WindowContent({ id }: { id: DesktopWindowId }) {
   if (id === "finance-overview") {
     return (
       <div className="desktop-data-list">
+        <span className="desktop-mock-badge">Mock Finance</span>
         {financeOverviewRows.map(([label, value, tone]) => (
           <div key={label} className={`desktop-data-row desktop-data-${tone}`}>
             <span>{label}</span>
@@ -281,6 +316,7 @@ function WindowContent({ id }: { id: DesktopWindowId }) {
   if (id === "credit-terminal") {
     return (
       <div className="desktop-terminal">
+        <span className="desktop-mock-badge">Mock Credit</span>
         {creditTerminalRows.map(([label, value]) => (
           <div key={label} className="desktop-data-row">
             <span>{label}</span>
@@ -297,8 +333,9 @@ function WindowContent({ id }: { id: DesktopWindowId }) {
   if (id === "recent-activity") {
     return (
       <div className="desktop-data-list">
-        {recentActivityRows.map(([label, value]) => (
-          <div key={label} className="desktop-data-row">
+        <span className="desktop-mock-badge">Mock Activity</span>
+        {recentActivityRows.map(([label, value, tone]) => (
+          <div key={label} className={`desktop-data-row desktop-data-${tone}`}>
             <span>{label}</span>
             <strong>{value}</strong>
           </div>
@@ -308,8 +345,9 @@ function WindowContent({ id }: { id: DesktopWindowId }) {
   }
 
   return (
-    <ul className="desktop-mission-list">
-      {missionBoardRows.map((item) => <li key={item}>{item}</li>)}
-    </ul>
+    <div className="desktop-mission-list">
+      <span className="desktop-mock-badge">Mock Missions</span>
+      {missionBoardRows.map(([item, status]) => <div key={item} className="desktop-data-row"><span>{item}</span><strong>{status}</strong></div>)}
+    </div>
   );
 }

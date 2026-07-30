@@ -1,11 +1,13 @@
-import { desktopWallpapers, desktopWindows } from "@/components/desktop-lab/desktop-mock-data";
-import type { DesktopPoint, DesktopWallpaperId, DesktopWindowId, DesktopWindowLayout, DesktopWindowState } from "@/components/desktop-lab/desktop-types";
+import { desktopWindowRegistry } from "@/lib/desktop-lab/window-registry";
+import { defaultDesktopLabPreferences, desktopWallpaperPresets, normalizeDesktopLabPreferences, type DesktopLabPreferences, type DesktopWallpaperPreset } from "@/lib/desktop-lab/presets";
+import type { DesktopPoint, DesktopWindowId, DesktopWindowLayout, DesktopWindowState } from "@/components/desktop-lab/desktop-types";
 
-const wallpaperKey = "desktop-lab.wallpaper";
+const legacyWallpaperKey = "desktop-lab.wallpaper";
 const layoutKey = "desktop-lab.window-layout";
+const preferencesKey = "desktop-lab.preferences";
 
 export function defaultDesktopLayout(): DesktopWindowLayout {
-  return desktopWindows.reduce((layout, window, index) => {
+  return desktopWindowRegistry.reduce((layout, window, index) => {
     layout[window.id] = {
       id: window.id,
       isOpen: index < 4,
@@ -17,15 +19,36 @@ export function defaultDesktopLayout(): DesktopWindowLayout {
   }, {} as DesktopWindowLayout);
 }
 
-export function readDesktopWallpaper(): DesktopWallpaperId {
-  if (typeof window === "undefined") return "aether-grid";
-  const stored = window.localStorage.getItem(wallpaperKey);
-  return isWallpaperId(stored) ? stored : "aether-grid";
+export function readDesktopPreferences(): DesktopLabPreferences {
+  if (typeof window === "undefined") return defaultDesktopLabPreferences;
+  try {
+    const raw = window.localStorage.getItem(preferencesKey);
+    const legacyWallpaper = window.localStorage.getItem(legacyWallpaperKey);
+    const normalized = normalizeDesktopLabPreferences(raw ? JSON.parse(raw) : null);
+    if (!raw && isWallpaperId(legacyWallpaper)) return { ...normalized, wallpaper: legacyWallpaper };
+    return normalized;
+  } catch {
+    return defaultDesktopLabPreferences;
+  }
 }
 
-export function writeDesktopWallpaper(wallpaper: DesktopWallpaperId) {
+export function writeDesktopPreferences(preferences: DesktopLabPreferences) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(wallpaperKey, wallpaper);
+  window.localStorage.setItem(preferencesKey, JSON.stringify(normalizeDesktopLabPreferences(preferences)));
+}
+
+export function writeDesktopPreference<TKey extends keyof DesktopLabPreferences>(key: TKey, value: DesktopLabPreferences[TKey]) {
+  const next = { ...readDesktopPreferences(), [key]: value };
+  writeDesktopPreferences(next);
+  return next;
+}
+
+export function readDesktopWallpaper(): DesktopWallpaperPreset {
+  return readDesktopPreferences().wallpaper;
+}
+
+export function writeDesktopWallpaper(wallpaper: DesktopWallpaperPreset) {
+  writeDesktopPreference("wallpaper", wallpaper);
 }
 
 export function readDesktopLayout(): DesktopWindowLayout {
@@ -47,8 +70,13 @@ export function writeDesktopLayout(layout: DesktopWindowLayout) {
 
 export function clearDesktopLabStorage() {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(wallpaperKey);
   window.localStorage.removeItem(layoutKey);
+}
+
+export function clearDesktopAppearanceStorage() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(legacyWallpaperKey);
+  window.localStorage.removeItem(preferencesKey);
 }
 
 export function normalizeLayout(candidate: unknown): DesktopWindowLayout {
@@ -56,7 +84,7 @@ export function normalizeLayout(candidate: unknown): DesktopWindowLayout {
   if (!candidate || typeof candidate !== "object") return fallback;
   const source = candidate as Partial<Record<DesktopWindowId, Partial<DesktopWindowState>>>;
 
-  return desktopWindows.reduce((layout, definition) => {
+  return desktopWindowRegistry.reduce((layout, definition) => {
     const next = source[definition.id];
     layout[definition.id] = {
       ...fallback[definition.id],
@@ -80,6 +108,6 @@ function normalizePoint(candidate: unknown, fallback: DesktopPoint): DesktopPoin
   };
 }
 
-function isWallpaperId(value: unknown): value is DesktopWallpaperId {
-  return desktopWallpapers.some((wallpaper) => wallpaper.id === value);
+function isWallpaperId(value: unknown): value is DesktopWallpaperPreset {
+  return desktopWallpaperPresets.some((wallpaper) => wallpaper.id === value);
 }

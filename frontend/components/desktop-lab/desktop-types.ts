@@ -18,6 +18,7 @@ export type DesktopWindowDefinition = {
   icon: string;
   defaultPosition: DesktopPoint;
   size: DesktopSize;
+  minSize?: DesktopSize;
 };
 
 export type DesktopWindowState = {
