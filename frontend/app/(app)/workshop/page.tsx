@@ -3,8 +3,10 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { AetherEnergyDivider } from "@/components/ui/aether-effect";
 import { Button } from "@/components/ui/button";
+import { ResourceGuide, SoulInterface, gameUiAccentStyles, type GameUiAccent } from "@/components/game-ui";
 import { GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -25,29 +27,83 @@ import {
 } from "@/lib/aether/dashboard-profile-settings";
 import { builtInVisualAssets, getBuiltInVisualAsset, getDefaultVisualAsset, visualSlots, type VisualSlotKey } from "@/lib/aether/visual-slots";
 import { defaultAetherWorkshopSettings, type AetherWorkshopSettings } from "@/lib/aether/workshop-settings";
+import { clearDesktopLabStorage, defaultDesktopLayout, readDesktopLayout, readDesktopWallpaper } from "@/lib/desktop-lab/storage";
+import { desktopWallpapers } from "@/components/desktop-lab/desktop-mock-data";
 import { useSettings, type SettingsSyncStatus } from "@/lib/settings/user-settings";
 
-type WorkshopFilter = "All" | "Branding" | "Effects" | "Dashboard" | "Materials";
-type WorkshopSlotKey = VisualSlotKey | "dashboard.profile-image";
+type WorkshopAreaKey = "Appearance" | "Assets" | "UiLab" | "LayoutLab" | "DesktopLab";
+type WorkshopSlotKey =
+  | VisualSlotKey
+  | "dashboard.profile-image"
+  | "assets.library"
+  | "ui-lab.resource-guide"
+  | "ui-lab.soul-interface"
+  | "ui-lab.future"
+  | "layout-lab.previews"
+  | "desktop-lab";
 
-const slotSections = [
-  { title: "品牌識別", slots: [visualSlots.favicon] },
-  { title: "視覺特效", slots: [visualSlots.headerDivider] },
-  { title: "Dashboard", slots: [{ key: "dashboard.profile-image" as const, label: "Dashboard Profile Image" }] }
+const workshopAreas: Array<{ key: WorkshopAreaKey; label: string; description: string; slots: Array<{ key: WorkshopSlotKey; label: string; subtitle: string }> }> = [
+  {
+    key: "Appearance",
+    label: "Appearance",
+    description: "正式外觀設定",
+    slots: [
+      { key: visualSlots.favicon.key, label: "Favicon", subtitle: "Browser and app icon" },
+      { key: visualSlots.headerDivider.key, label: "Header Divider", subtitle: "Page energy divider" },
+      { key: "dashboard.profile-image", label: "Dashboard Profile Image", subtitle: "Finance profile visual" }
+    ]
+  },
+  {
+    key: "Assets",
+    label: "Assets",
+    description: "素材索引",
+    slots: [
+      { key: "assets.library", label: "Asset Library", subtitle: "Icons, effects, HUD images and wallpaper catalog" }
+    ]
+  },
+  {
+    key: "UiLab",
+    label: "UI Lab",
+    description: "MMORPG 元件試驗",
+    slots: [
+      { key: "ui-lab.resource-guide", label: "Resource Guide", subtitle: "Mock enhancement guide card" },
+      { key: "ui-lab.soul-interface", label: "Soul Interface", subtitle: "Mock soul meter card" },
+      { key: "ui-lab.future", label: "Future Components", subtitle: "Game numbers, gauges and mission panels" }
+    ]
+  },
+  {
+    key: "LayoutLab",
+    label: "Layout Lab",
+    description: "頁面構圖預覽",
+    slots: [
+      { key: "layout-lab.previews", label: "Layout Previews", subtitle: "Dashboard, accounts and credit terminal sketches" }
+    ]
+  },
+  {
+    key: "DesktopLab",
+    label: "Desktop Lab",
+    description: "隔離桌面實驗",
+    slots: [
+      { key: "desktop-lab", label: "Desktop Mode Prototype", subtitle: "Wallpaper, dock and draggable windows" }
+    ]
+  }
 ];
 
 export default function WorkshopPage() {
   const defaultAsset = getDefaultVisualAsset();
   const { settings, status, error, updateWorkshopSettings, retry } = useSettings();
-  const [filter, setFilter] = useState<WorkshopFilter>("All");
+  const [activeArea, setActiveArea] = useState<WorkshopAreaKey>("Appearance");
   const [selectedSlotKey, setSelectedSlotKey] = useState<WorkshopSlotKey>(visualSlots.favicon.key);
   const [failedPreviewIds, setFailedPreviewIds] = useState<string[]>([]);
+  const [resourceGuideDemo, setResourceGuideDemo] = useState({ title: "復活資金", current: 68000, target: 100000, accent: "cyan" as GameUiAccent });
+  const [soulDemo, setSoulDemo] = useState({ value: 615, max: 1000 });
 
   const appliedSettings = settings.workshopSettings;
   const selectedAsset = useMemo(() => getBuiltInVisualAsset(appliedSettings.faviconAssetId) ?? defaultAsset, [appliedSettings.faviconAssetId, defaultAsset]);
   const dashboardProfileSettings = appliedSettings.dashboardProfileImage;
   const dashboardProfileImage = useMemo(() => resolveDashboardProfileImage(dashboardProfileSettings), [dashboardProfileSettings]);
   const availableAssets = builtInVisualAssets.filter((asset) => asset.slotKeys.includes(visualSlots.favicon.key));
+  const activeWorkshopArea = workshopAreas.find((area) => area.key === activeArea) ?? workshopAreas[0];
   const isDefault = appliedSettings.faviconAssetId === defaultAsset.id
     && appliedSettings.headerDividerEnabled === visualSlots.headerDivider.defaultEnabled
     && dashboardProfileSettings.imageId === defaultDashboardProfileImageSettings.imageId
@@ -61,30 +117,32 @@ export default function WorkshopPage() {
     <section className="grid gap-6">
       <PageHeader
         title="介面工坊"
-        description="管理 PersonalFinanceOS 的品牌圖示、視覺特效與 Aether 介面偏好。"
+        description="管理正式外觀，並隔離 UI Lab、Layout Lab 與 Desktop Lab 實驗。"
         actions={<Button type="button" variant="outline" onClick={() => updateWorkshopSettings(defaultAetherWorkshopSettings)} disabled={isDefault}>重設工坊</Button>}
       />
       <GameWindow title="Visual Configuration" description="Aether Workshop">
-        <div className="aether-management-window" aria-live="polite">
+        <div className="aether-management-window aether-workshop" aria-live="polite">
           <AetherPanelHeader
             eyebrow="THEME EDITOR"
             title="Aether 介面工坊"
-            subtitle="Favicon、頁首能量分隔線與未來主題素材統一由 User Settings 同步。"
+            subtitle="正式設定與實驗原型分區管理，避免 UI Lab 影響財務資料。"
             status={<AetherStatusIndicator label={settingsStatusLabel(status)} tone={settingsStatusTone(status)} />}
             summary="Server Settings"
           />
           <AetherToolbar role="tablist" ariaLabel="介面工坊篩選">
-            {(["All", "Branding", "Effects", "Dashboard", "Materials"] as WorkshopFilter[]).map((nextFilter) => (
+            {workshopAreas.map((area) => (
               <button
-                key={nextFilter}
+                key={area.key}
                 type="button"
                 role="tab"
-                aria-selected={filter === nextFilter}
-                className={`aether-filter-tab ${filter === nextFilter ? "aether-filter-tab-active" : ""}`}
-                onClick={() => setFilter(nextFilter)}
-                disabled={nextFilter === "Materials"}
+                aria-selected={activeArea === area.key}
+                className={`aether-filter-tab ${activeArea === area.key ? "aether-filter-tab-active" : ""}`}
+                onClick={() => {
+                  setActiveArea(area.key);
+                  setSelectedSlotKey(area.slots[0].key);
+                }}
               >
-                {workshopFilterLabel(nextFilter)}
+                {area.label}
               </button>
             ))}
             <div className="aether-toolbar-check">
@@ -95,30 +153,40 @@ export default function WorkshopPage() {
 
           <div className="aether-master-detail">
             <div className="aether-list-pane" aria-label="視覺槽位" role="listbox">
-              <AetherSectionHeader title="視覺槽位" meta="3 slots" />
-              {slotSections.filter((section) => filter === "All" || sectionFilter(section.title) === filter).map((section) => (
-                <div key={section.title} className="grid gap-2">
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">{section.title}</p>
-                  {section.slots.map((slot) => (
-                    <AetherListRow
-                      key={slot.key}
-                      title={slot.label}
-                      subtitle={`${slot.key} / ${slotSubtitle(slot.key, appliedSettings, selectedAsset.name, dashboardProfileImage.name)}`}
-                      meta={<AetherStatusIndicator label={slotStatusLabel(slot.key, appliedSettings)} tone={slotStatusTone(slot.key, appliedSettings)} />}
-                      isActive={selectedSlotKey === slot.key}
-                      onClick={() => setSelectedSlotKey(slot.key)}
-                    />
-                  ))}
-                </div>
-              ))}
+              <AetherSectionHeader title={activeWorkshopArea.label} meta={`${activeWorkshopArea.slots.length} items`} />
+              <p className="text-sm text-muted">{activeWorkshopArea.description}</p>
+              <div className="grid gap-2">
+                {activeWorkshopArea.slots.map((slot) => (
+                  <AetherListRow
+                    key={slot.key}
+                    title={slot.label}
+                    subtitle={`${slot.key} / ${slotSubtitle(slot.key, appliedSettings, selectedAsset.name, dashboardProfileImage.name, slot.subtitle)}`}
+                    meta={<AetherStatusIndicator label={slotStatusLabel(slot.key, appliedSettings)} tone={slotStatusTone(slot.key, appliedSettings)} />}
+                    isActive={selectedSlotKey === slot.key}
+                    onClick={() => setSelectedSlotKey(slot.key)}
+                  />
+                ))}
+              </div>
               <div className="rounded-ui border border-border/60 bg-background/30 p-3 text-sm text-muted">
-                本頁設定已改由後端 User Settings 保存。未來部署上雲後，登入同一帳號即可同步工坊偏好。
+                Appearance 會同步到 User Settings；UI Lab、Layout Lab 與 Desktop Lab 只做隔離實驗，不寫入財務資料。
               </div>
             </div>
 
             <div className="aether-detail-pane">
               <div className="aether-detail-scroll">
-                {selectedSlotKey === "dashboard.profile-image" ? (
+                {selectedSlotKey === "desktop-lab" ? (
+                  <DesktopLabSlotDetail />
+                ) : selectedSlotKey === "assets.library" ? (
+                  <AssetLibraryDetail failedPreviewIds={failedPreviewIds} onImageError={onImageError} />
+                ) : selectedSlotKey === "ui-lab.resource-guide" ? (
+                  <ResourceGuideLabDetail state={resourceGuideDemo} onChange={setResourceGuideDemo} />
+                ) : selectedSlotKey === "ui-lab.soul-interface" ? (
+                  <SoulInterfaceLabDetail state={soulDemo} onChange={setSoulDemo} />
+                ) : selectedSlotKey === "ui-lab.future" ? (
+                  <FutureComponentsDetail />
+                ) : selectedSlotKey === "layout-lab.previews" ? (
+                  <LayoutLabDetail />
+                ) : selectedSlotKey === "dashboard.profile-image" ? (
                   <DashboardProfileImageSlotDetail
                     settings={dashboardProfileSettings}
                     resolvedImage={dashboardProfileImage}
@@ -340,6 +408,170 @@ function DashboardProfileImageSlotDetail({
   );
 }
 
+function DesktopLabSlotDetail() {
+  const storedWallpaper = readDesktopWallpaper();
+  const storedLayout = readDesktopLayout();
+  const openWindows = Object.values(storedLayout).filter((windowState) => windowState.isOpen).length;
+  const minimizedWindows = Object.values(storedLayout).filter((windowState) => windowState.isOpen && windowState.isMinimized).length;
+  const currentWallpaper = desktopWallpapers.find((wallpaper) => wallpaper.id === storedWallpaper) ?? desktopWallpapers[0];
+
+  return (
+    <>
+      <AetherSectionHeader title="DESKTOP MODE" meta="Experimental Desktop Lab" />
+      <div className="grid gap-4 rounded-ui border border-primary/45 bg-primary/8 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex rounded-full border border-warning/45 bg-warning/12 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em] text-warning">
+              Experimental
+            </div>
+            <h2 className="text-2xl font-black text-foreground">Desktop Mode</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+              以 Wallpaper、Dock 與浮動視窗測試另一種操作模式。不會影響目前 Classic UI 與財務資料。
+            </p>
+          </div>
+          <Link className="game-button game-button-primary ui-focus inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold" href="/desktop-lab">
+            開啟實驗桌面
+          </Link>
+        </div>
+        <AetherDefinitionList>
+          <AetherDefinitionRow label="資料來源" value="Mock Data Only" />
+          <AetherDefinitionRow label="隔離範圍" value="不修改 Backend / API / Ledger / Finance UI" />
+          <AetherDefinitionRow label="測試互動" value="Wallpaper、Dock、Window 拖曳、最小化、關閉、Z-index" />
+          <AetherDefinitionRow label="儲存方式" value="desktop-lab.* localStorage namespace" />
+          <AetherDefinitionRow label="目前桌布" value={currentWallpaper.name} />
+          <AetherDefinitionRow label="開啟視窗" value={`${openWindows} open / ${minimizedWindows} minimized`} />
+        </AetherDefinitionList>
+        <AetherActionBar>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              clearDesktopLabStorage();
+              window.dispatchEvent(new StorageEvent("storage", { key: "desktop-lab.window-layout", newValue: JSON.stringify(defaultDesktopLayout()) }));
+            }}
+          >
+            重設 Desktop Lab
+          </Button>
+        </AetherActionBar>
+        <p className="text-sm text-muted">此功能目前為 Prototype，只使用模擬資料。成熟後再評估是否升級成正式 Shell。</p>
+      </div>
+    </>
+  );
+}
+
+function AssetLibraryDetail({ failedPreviewIds, onImageError }: { failedPreviewIds: string[]; onImageError: (assetId: string) => void }) {
+  const dashboardAssets = dashboardProfileImageOptions.map((asset) => ({ id: asset.id, name: asset.name, src: asset.src, format: "Image", usage: "Dashboard Profile" }));
+  const visualAssets = builtInVisualAssets.map((asset) => ({ id: asset.id, name: asset.name, src: asset.src, format: asset.format, usage: asset.slotKeys.join(", ") }));
+  const wallpaperAssets = desktopWallpapers.map((wallpaper) => ({ id: wallpaper.id, name: wallpaper.name, src: "", format: "CSS", usage: "Desktop Lab wallpaper" }));
+  const allAssets = [...visualAssets, ...dashboardAssets, ...wallpaperAssets];
+
+  return (
+    <>
+      <AetherSectionHeader title="Asset Library" meta={`${allAssets.length} assets`} />
+      <div className="aether-asset-library">
+        {allAssets.map((asset) => (
+          <article key={asset.id} className="aether-asset-card">
+            {asset.src ? (
+              <PreviewIcon assetId={asset.id} src={asset.src} name={asset.name} failedPreviewIds={failedPreviewIds} onError={onImageError} />
+            ) : (
+              <span className="aether-css-asset-preview">{asset.id.slice(0, 2).toUpperCase()}</span>
+            )}
+            <div>
+              <strong>{asset.name}</strong>
+              <span>{asset.format}</span>
+              <small>{asset.usage}</small>
+            </div>
+          </article>
+        ))}
+      </div>
+      <p className="text-sm text-muted">素材庫只索引內建資產；目前不新增上傳流程，也不使用第三方遊戲素材。</p>
+    </>
+  );
+}
+
+function ResourceGuideLabDetail({ state, onChange }: { state: { title: string; current: number; target: number; accent: GameUiAccent }; onChange: (state: { title: string; current: number; target: number; accent: GameUiAccent }) => void }) {
+  return (
+    <>
+      <AetherSectionHeader title="Resource Guide" meta="UI Lab / Mock only" />
+      <div className="aether-ui-lab">
+        <div className="aether-ui-lab-controls">
+          <label>標題<input value={state.title} onChange={(event) => onChange({ ...state, title: event.target.value })} /></label>
+          <label>目前值<input type="number" value={state.current} onChange={(event) => onChange({ ...state, current: Number(event.target.value) })} /></label>
+          <label>目標值<input type="number" value={state.target} onChange={(event) => onChange({ ...state, target: Number(event.target.value) })} /></label>
+          <label>色系<select value={state.accent} onChange={(event) => onChange({ ...state, accent: event.target.value as GameUiAccent })}>
+            {(Object.keys(gameUiAccentStyles) as GameUiAccent[]).map((accent) => <option key={accent} value={accent}>{gameUiAccentStyles[accent].label}</option>)}
+          </select></label>
+        </div>
+        <ResourceGuide
+          title={state.title || "復活資金"}
+          description="確認目前資源是否足以支援下一次任務。這裡只使用 UI Lab mock 資料。"
+          sourceLabel="Mock Account 目前資源"
+          current={state.current}
+          target={state.target}
+          accent={state.accent}
+        />
+      </div>
+    </>
+  );
+}
+
+function SoulInterfaceLabDetail({ state, onChange }: { state: { value: number; max: number }; onChange: (state: { value: number; max: number }) => void }) {
+  return (
+    <>
+      <AetherSectionHeader title="Soul Interface" meta="UI Lab / Mock only" />
+      <div className="aether-ui-lab aether-ui-lab-compact">
+        <div className="aether-ui-lab-controls">
+          <label>目前值<input type="number" value={state.value} onChange={(event) => onChange({ ...state, value: Number(event.target.value) })} /></label>
+          <label>最大值<input type="number" value={state.max} onChange={(event) => onChange({ ...state, max: Number(event.target.value) })} /></label>
+        </div>
+        <SoulInterface value={state.value} max={state.max} />
+      </div>
+    </>
+  );
+}
+
+function FutureComponentsDetail() {
+  const items = ["Game Number", "Gauge", "Notice Panel", "Mission Panel", "Inventory Grid"];
+  return (
+    <>
+      <AetherSectionHeader title="Future Components" meta="Backlog preview" />
+      <div className="aether-layout-lab-grid">
+        {items.map((item) => (
+          <article key={item} className="aether-layout-preview-card">
+            <span>{item.slice(0, 2).toUpperCase()}</span>
+            <strong>{item}</strong>
+            <p>預留元件，不連接 API，不影響正式頁面。</p>
+          </article>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function LayoutLabDetail() {
+  const previews = [
+    ["Dashboard Profile Layout", "Avatar + resource bars + mission hints"],
+    ["Account Overview Layout", "Summary card + compact account slots"],
+    ["Credit Terminal Layout", "Statement cards + import console"]
+  ];
+
+  return (
+    <>
+      <AetherSectionHeader title="Layout Lab" meta="Structure sketches" />
+      <div className="aether-layout-lab-grid">
+        {previews.map(([title, description]) => (
+          <article key={title} className="aether-layout-preview-card">
+            <span>{title.slice(0, 2).toUpperCase()}</span>
+            <strong>{title}</strong>
+            <p>{description}</p>
+          </article>
+        ))}
+      </div>
+      <p className="text-sm text-muted">Layout Lab 只做構圖比較；成熟後才逐頁搬進正式 Finance UI。</p>
+    </>
+  );
+}
+
 function PreviewIcon({ assetId, src, name, failedPreviewIds, onError, size = "normal" }: { assetId: string; src: string; name: string; failedPreviewIds: string[]; onError: (assetId: string) => void; size?: "normal" | "large" }) {
   const hasFailedPreview = failedPreviewIds.includes(assetId);
   const sizeClass = size === "large" ? "h-16 w-16" : "h-11 w-11";
@@ -351,40 +583,30 @@ function PreviewIcon({ assetId, src, name, failedPreviewIds, onError, size = "no
   );
 }
 
-function slotSubtitle(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings, savedAssetName: string, dashboardImageName: string) {
+function slotSubtitle(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings, savedAssetName: string, dashboardImageName: string, fallback: string) {
   if (slotKey === visualSlots.favicon.key) return `目前：${savedAssetName}`;
   if (slotKey === "dashboard.profile-image") return `目前：${dashboardImageName}`;
-  return settings.headerDividerEnabled ? "頁首光效啟用" : "頁首光效停用";
+  if (slotKey === "desktop-lab") return "Prototype / Mock Data Only";
+  if (slotKey === visualSlots.headerDivider.key) return settings.headerDividerEnabled ? "頁首光效啟用" : "頁首光效停用";
+  return fallback;
 }
 
 function slotStatusLabel(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings) {
   if (slotKey === visualSlots.favicon.key) return "同步";
   if (slotKey === "dashboard.profile-image") return "同步";
+  if (slotKey === "desktop-lab") return "Experimental";
+  if (slotKey === "ui-lab.resource-guide" || slotKey === "ui-lab.soul-interface" || slotKey === "ui-lab.future" || slotKey === "layout-lab.previews") return "Mock";
+  if (slotKey === "assets.library") return "索引";
   return settings.headerDividerEnabled ? "啟用" : "停用";
 }
 
 function slotStatusTone(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings) {
   if (slotKey === visualSlots.favicon.key) return "credit";
   if (slotKey === "dashboard.profile-image") return "success";
+  if (slotKey === "desktop-lab") return "warning";
+  if (slotKey === "ui-lab.resource-guide" || slotKey === "ui-lab.soul-interface" || slotKey === "ui-lab.future" || slotKey === "layout-lab.previews") return "neutral";
+  if (slotKey === "assets.library") return "credit";
   return settings.headerDividerEnabled ? "success" : "neutral";
-}
-
-function sectionFilter(sectionTitle: string): WorkshopFilter {
-  if (sectionTitle === "品牌識別") return "Branding";
-  if (sectionTitle === "視覺特效") return "Effects";
-  if (sectionTitle === "Dashboard") return "Dashboard";
-  return "Materials";
-}
-
-function workshopFilterLabel(filter: WorkshopFilter) {
-  const labels: Record<WorkshopFilter, string> = {
-    All: "全部",
-    Branding: "品牌",
-    Effects: "特效",
-    Dashboard: "Dashboard",
-    Materials: "材質"
-  };
-  return labels[filter];
 }
 
 function settingsStatusLabel(status: SettingsSyncStatus) {

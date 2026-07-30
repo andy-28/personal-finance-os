@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { GameInspectPanel, GameInspectRow, GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
-import { apiFetch, money, problemMessage, type AccountDto, type AccountSummaryDto, type AccountType, type GoalBarColor, type PagedTransactionsDto, type TransactionDto, type UserGoalBarDto, type UserResourceWidgetDto } from "@/lib/api-client";
+import { apiFetch, money, problemMessage, type AccountDto, type AccountSummaryDto, type AccountType, type GoalBarColor, type PagedTransactionsDto, type TransactionDto, type UserGoalBarDto } from "@/lib/api-client";
 import { financeDataChangedEvent } from "@/lib/app-events";
 import { todayInputValue } from "@/lib/formatters";
 import { accountTypeLabels, commonLabels } from "@/lib/labels";
@@ -20,9 +20,7 @@ import { useAuth } from "../../auth-context";
 const accountTypes: AccountType[] = ["Cash", "Checking", "Savings", "CreditCard", "Investment", "Loan", "Other"];
 const emptyForm = { name: "", type: "Cash" as AccountType, currencyCode: "TWD", institutionName: "" };
 type FundGoal = UserGoalBarDto;
-type ResourceWidget = UserResourceWidgetDto;
 const emptyGoalForm = { accountId: "", title: "", targetAmount: "100000", color: "violet" as GoalBarColor };
-const emptyResourceWidgetForm = { accountId: "", title: "", description: "", targetAmount: "100000", accent: "cyan" as GoalBarColor };
 const goalBarColors: Record<GoalBarColor, { label: string; fill: string; glow: string; border: string; track: string; frameGlow: string }> = {
   violet: { label: "Arcane violet", fill: "linear-gradient(90deg, #6d28d9 0%, #a855f7 55%, #f0abfc 100%)", glow: "0 0 10px rgba(168, 85, 247, 0.75)", border: "#a78bfa", track: "#2b1743", frameGlow: "0 0 16px rgba(124, 58, 237, 0.35)" },
   cyan: { label: "Aether cyan", fill: "linear-gradient(90deg, #0891b2 0%, #22d3ee 55%, #a5f3fc 100%)", glow: "0 0 10px rgba(34, 211, 238, 0.75)", border: "#67e8f9", track: "#0f2f3a", frameGlow: "0 0 16px rgba(34, 211, 238, 0.32)" },
@@ -42,14 +40,10 @@ export default function AccountsPage() {
   const [openingTransaction, setOpeningTransaction] = useState<TransactionDto | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
-  const [editingResourceWidgetId, setEditingResourceWidgetId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
-  const [isResourceWidgetModalOpen, setIsResourceWidgetModalOpen] = useState(false);
   const [goalForm, setGoalForm] = useState(emptyGoalForm);
-  const [resourceWidgetForm, setResourceWidgetForm] = useState(emptyResourceWidgetForm);
   const goalIdFallbackRef = useRef(0);
-  const resourceWidgetIdFallbackRef = useRef(0);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragOffsetY, setDragOffsetY] = useState(0);
@@ -87,23 +81,20 @@ export default function AccountsPage() {
   }, [accessToken, includeArchived]);
 
   useEffect(() => {
-    if (!editingId && !isCreateOpen && !isGoalModalOpen && !isResourceWidgetModalOpen) return;
+    if (!editingId && !isCreateOpen && !isGoalModalOpen) return;
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setEditingId(null);
       setIsCreateOpen(false);
       setIsGoalModalOpen(false);
-      setIsResourceWidgetModalOpen(false);
       setEditingGoalId(null);
-      setEditingResourceWidgetId(null);
       setForm(emptyForm);
       setGoalForm(emptyGoalForm);
-      setResourceWidgetForm(emptyResourceWidgetForm);
     }
     window.addEventListener("keydown", closeOnEscape);
 
   return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [editingId, isCreateOpen, isGoalModalOpen, isResourceWidgetModalOpen]);
+  }, [editingId, isCreateOpen, isGoalModalOpen]);
 
   async function submit(event: FormEvent, targetId: string | null = editingId) {
     event.preventDefault();
@@ -218,54 +209,6 @@ export default function AccountsPage() {
     void updateGoalSettings({ ...settings.goalSettings, goalBars: fundGoals.filter((goal) => goal.id !== id) });
   }
 
-  function closeResourceWidgetModal() {
-    setIsResourceWidgetModalOpen(false);
-    setEditingResourceWidgetId(null);
-    setResourceWidgetForm(emptyResourceWidgetForm);
-  }
-
-  function openAddResourceWidget() {
-    setEditingResourceWidgetId(null);
-    setResourceWidgetForm(emptyResourceWidgetForm);
-    setIsResourceWidgetModalOpen(true);
-  }
-
-  function openEditResourceWidget(widget: ResourceWidget) {
-    setEditingResourceWidgetId(widget.id);
-    setResourceWidgetForm({
-      accountId: widget.accountId,
-      title: widget.title,
-      description: widget.description,
-      targetAmount: String(widget.targetAmount),
-      accent: widget.accent
-    });
-    setIsResourceWidgetModalOpen(true);
-  }
-
-  function saveResourceWidget(event: FormEvent) {
-    event.preventDefault();
-    const targetAmount = Number(resourceWidgetForm.targetAmount);
-    if (!resourceWidgetForm.accountId || !Number.isFinite(targetAmount) || targetAmount < 0) return;
-    const account = accounts.find((candidate) => candidate.id === resourceWidgetForm.accountId);
-    const title = resourceWidgetForm.title.trim() || `${account?.name ?? "Resource"} 指引`;
-    const description = resourceWidgetForm.description.trim() || "確認資料來源後，這裡會以遊戲提示視窗呈現目前進度。";
-    const nextWidget = {
-      id: editingResourceWidgetId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `resource-widget-${resourceWidgetIdFallbackRef.current++}`),
-      accountId: resourceWidgetForm.accountId,
-      title,
-      description,
-      targetAmount,
-      accent: resourceWidgetForm.accent
-    };
-    const nextWidgets = editingResourceWidgetId ? resourceWidgets.map((widget) => widget.id === editingResourceWidgetId ? nextWidget : widget) : [...resourceWidgets, nextWidget];
-    void updateGoalSettings({ ...settings.goalSettings, resourceWidgets: nextWidgets });
-    closeResourceWidgetModal();
-  }
-
-  function removeResourceWidget(id: string) {
-    if (editingResourceWidgetId === id) closeResourceWidgetModal();
-    void updateGoalSettings({ ...settings.goalSettings, resourceWidgets: resourceWidgets.filter((widget) => widget.id !== id) });
-  }
   function resetDragState() {
     pointerDraggingRef.current = false;
     dragTargetIdRef.current = null;
@@ -302,7 +245,6 @@ export default function AccountsPage() {
   }
 
   const fundGoals = settings.goalSettings.goalBars;
-  const resourceWidgets = settings.goalSettings.resourceWidgets ?? [];
   const resourceBarsPanel = (
     <ResourceBarsPanel
       goals={fundGoals}
@@ -346,10 +288,6 @@ export default function AccountsPage() {
         )}
         {resourceBarsPanel}
       </div>
-
-      <ResourceWidgetPanel widgets={resourceWidgets} accounts={accounts} onAdd={openAddResourceWidget} onEdit={openEditResourceWidget} onRemove={removeResourceWidget} />
-
-      <SoulWeaponPanel />
 
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={() => { setIsCreateOpen(false); setForm(emptyForm); setBalanceForm({ targetBalance: "", openingAmount: 0, date: todayInputValue() }); }}>
@@ -410,30 +348,6 @@ export default function AccountsPage() {
                 <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
                   <Button type="button" variant="outline" onClick={closeGoalModal}>{commonLabels.cancel}</Button>
                   <Button type="submit">{editingGoalId ? "保存" : "新增"}</Button>
-                </div>
-              </form>
-            </GameInspectPanel>
-          </GameWindow>
-        </div>
-      )}
-      {isResourceWidgetModalOpen && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={closeResourceWidgetModal}>
-          <GameWindow title={editingResourceWidgetId ? "編輯指引視窗" : "新增指引視窗"} description="Enhancement guide" className="w-full max-w-xl" onRequestClose={closeResourceWidgetModal} onClick={(event) => event.stopPropagation()}>
-            <GameInspectPanel title={resourceWidgetForm.title || "新的資源指引"} subtitle="Account source" icon={<span className="text-sm font-black">UI</span>}>
-              <form onSubmit={saveResourceWidget} className="grid gap-4 sm:grid-cols-2">
-                <label className="ui-label sm:col-span-2">資料來源<select className="ui-input" value={resourceWidgetForm.accountId} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, accountId: e.target.value })} autoFocus>
-                  <option value="">選擇帳戶</option>
-                  {accounts.filter((account) => !account.isArchived).map((account) => <option key={account.id} value={account.id}>{account.name} / {money(account.balance, account.currencyCode)}</option>)}
-                </select></label>
-                <label className="ui-label">標題<input className="ui-input" value={resourceWidgetForm.title} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, title: e.target.value })} placeholder="例如：復活資金" /></label>
-                <label className="ui-label">參考目標<input className="ui-input" type="number" min="0" step="1" value={resourceWidgetForm.targetAmount} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, targetAmount: e.target.value })} /></label>
-                <label className="ui-label sm:col-span-2">內容呈現<textarea className="ui-input min-h-20" value={resourceWidgetForm.description} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, description: e.target.value })} placeholder="例如：確認目前帳戶資源是否足以支援下一次任務。" /></label>
-                <label className="ui-label sm:col-span-2">視窗色系<select className="ui-input" value={resourceWidgetForm.accent} onChange={(e) => setResourceWidgetForm({ ...resourceWidgetForm, accent: e.target.value as GoalBarColor })}>
-                  {(Object.keys(goalBarColors) as GoalBarColor[]).map((color) => <option key={color} value={color}>{goalBarColors[color].label}</option>)}
-                </select></label>
-                <div className="flex flex-wrap justify-end gap-2 sm:col-span-2">
-                  <Button type="button" variant="outline" onClick={closeResourceWidgetModal}>{commonLabels.cancel}</Button>
-                  <Button type="submit">{editingResourceWidgetId ? "保存" : "新增"}</Button>
                 </div>
               </form>
             </GameInspectPanel>
@@ -624,128 +538,6 @@ function FundGoalBar({ goal, account, onEdit, onRemove }: { goal: FundGoal; acco
       <div className="mt-1 flex items-center justify-between px-1 text-[10px] font-semibold text-muted">
         <span className="truncate">{account ? account.name : "Missing account"}</span>
         <span>{percent.toFixed(1)}%</span>
-      </div>
-    </article>
-  );
-}
-function ResourceWidgetPanel({ widgets, accounts, onAdd, onEdit, onRemove }: { widgets: ResourceWidget[]; accounts: AccountDto[]; onAdd: () => void; onEdit: (widget: ResourceWidget) => void; onRemove: (id: string) => void }) {
-  return (
-    <section className="rounded-[8px] border border-primary/35 bg-[#071a24]/80 p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_40px_rgba(0,0,0,0.25)]">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Enhancement Guides</p>
-          <h2 className="text-lg font-bold text-foreground">資源指引</h2>
-          <p className="text-xs text-muted">用帳戶資料來源生成像遊戲提示視窗一樣的資源狀態。</p>
-        </div>
-        <button type="button" className="ui-focus grid h-10 w-10 place-items-center rounded-full border border-[#93f5a1] bg-[#5dbb41] text-xl font-black text-[#10210d] shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_0_12px_rgba(93,187,65,0.45)] transition hover:brightness-110" onClick={onAdd} aria-label="新增資源指引">+</button>
-      </div>
-      {widgets.length === 0 ? (
-        <AetherEmptyState title="尚未建立資源指引" description="點擊右上角 +，選擇資料來源與內容呈現，建立像遊戲提示窗的資源摘要。" />
-      ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {widgets.map((widget) => <ResourceGuideCard key={widget.id} widget={widget} account={accounts.find((account) => account.id === widget.accountId)} onEdit={() => onEdit(widget)} onRemove={() => onRemove(widget.id)} />)}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function SoulWeaponPanel() {
-  return (
-    <section className="rounded-[8px] border border-primary/35 bg-[#071a24]/80 p-4 shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_40px_rgba(0,0,0,0.25)]">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">Soul Interface</p>
-          <h2 className="text-lg font-bold text-foreground">靈魂儀表</h2>
-          <p className="text-xs text-muted">用小型能力視窗呈現可累積的資源狀態。</p>
-        </div>
-      </div>
-      <SoulWeaponCard />
-    </section>
-  );
-}
-
-function SoulWeaponCard() {
-  const value = 615;
-  const max = 1000;
-  const percent = (value / max) * 100;
-  const slots = ["◇", "◆", "⌂", "⌂", "商"];
-
-  return (
-    <article className="w-full max-w-[260px] rounded-[10px] border-2 border-[#bfc2ce] bg-[#222832] p-[5px] text-white shadow-[0_0_0_2px_rgba(0,0,0,0.9),0_10px_24px_rgba(0,0,0,0.42)]">
-      <div className="flex h-5 items-center justify-between rounded-t-[7px] border border-[#4d5662] bg-[#2d2438] px-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]">
-        <span className="text-[8px] font-black uppercase tracking-[0.08em] text-[#ffe85b]">Soul Weapon</span>
-        <span className="flex items-center gap-1 text-[10px] font-black leading-none">
-          <span className="grid h-3 w-3 place-items-center rounded-full bg-[#bdf759] text-[#244300]">-</span>
-          <span className="grid h-3 w-3 place-items-center rounded-full border border-white/45 text-white">x</span>
-        </span>
-      </div>
-      <div className="rounded-b-[8px] border border-[#747985] bg-[#44515d] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-12px_20px_rgba(0,0,0,0.22)]">
-        <div className="grid grid-cols-[1fr_48px] items-center gap-2">
-          <div className="flex items-end gap-1">
-            <strong className="text-[32px] font-black leading-none text-[#c44cff] [text-shadow:0_2px_0_#fff,0_0_8px_rgba(196,76,255,0.9)]">{value}</strong>
-            <span className="pb-1 text-sm font-black text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.85)]">/ {max}</span>
-          </div>
-          <button type="button" className="h-10 rounded-[8px] border border-[#e5ff88] bg-[#83d751] text-[10px] font-black leading-tight text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_1px_0_rgba(0,0,0,0.45)]">
-            全靈魂<br />填滿
-          </button>
-        </div>
-        <div className="mt-2 h-[15px] rounded-[3px] border border-[#11151a] bg-[#14181e] p-[2px] shadow-[inset_0_0_6px_rgba(0,0,0,0.85)]">
-          <div className="h-full rounded-[2px] bg-[linear-gradient(90deg,#6724ff,#ba43ff,#f1a6ff)] shadow-[0_0_8px_rgba(186,67,255,0.72)]" style={{ width: `${percent}%` }} />
-        </div>
-        <div className="mt-2 flex items-center justify-between border-y border-white/15 py-1 text-[11px] font-bold">
-          <span className="text-slate-100">攻擊力</span>
-          <strong className="text-white">+20</strong>
-        </div>
-        <div className="mt-2 flex items-center gap-1">
-          {slots.map((slot, index) => (
-            <span key={`${slot}-${index}`} className="grid h-7 w-7 place-items-center rounded-[5px] border border-[#aeb8c8] bg-[#edf6ff] text-[13px] font-black text-[#4e6172] shadow-[inset_0_-4px_8px_rgba(86,100,115,0.35)]">
-              {slot}
-            </span>
-          ))}
-        </div>
-        <div className="mt-2 flex justify-end">
-          <span className="rounded-full border border-[#cfff66] bg-[#6bd13d] px-2 py-[1px] text-[9px] font-black text-white shadow-[0_0_8px_rgba(107,209,61,0.55)]">OFF</span>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function ResourceGuideCard({ widget, account, onEdit, onRemove }: { widget: ResourceWidget; account?: AccountDto; onEdit: () => void; onRemove: () => void }) {
-  const color = goalBarColors[widget.accent] ?? goalBarColors.cyan;
-  const current = Math.max(0, account?.balance ?? 0);
-  const target = Math.max(0, widget.targetAmount);
-  const percent = target > 0 ? Math.max(0, Math.min(100, (current / target) * 100)) : 100;
-  const currency = account?.currencyCode ?? "TWD";
-
-  return (
-    <article className="ui-focus relative cursor-pointer overflow-hidden rounded-[18px] border-2 border-[#7df9ff]/80 bg-[#1bb9d0] p-3 text-white shadow-[0_0_0_2px_rgba(0,0,0,0.72),0_0_20px_rgba(34,211,238,0.38)] transition hover:brightness-105" role="button" tabIndex={0} onClick={onEdit} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onEdit(); } }} aria-label={`編輯 ${widget.title}`}>
-      <button type="button" className="absolute right-3 top-3 z-10 grid h-5 w-5 place-items-center rounded-full border border-white/45 bg-[#163446]/70 text-[11px] leading-none text-white hover:bg-danger/70" onClick={(event) => { event.stopPropagation(); onRemove(); }} aria-label="移除資源指引">x</button>
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.18),transparent_46%,rgba(0,62,92,0.18))] opacity-70" aria-hidden="true" />
-      <div className="relative grid gap-3 rounded-[14px] border border-white/35 bg-[#23bfd4]/82 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.28),inset_0_-14px_24px_rgba(0,79,111,0.2)] sm:grid-cols-[64px_minmax(0,1fr)]">
-        <div className="grid h-14 w-14 place-items-center rounded-[8px] border border-white/45 bg-[#e9f6ef]/90 text-2xl shadow-[inset_0_-8px_16px_rgba(0,0,0,0.18)]" aria-hidden="true">▣</div>
-        <div className="min-w-0 pr-6">
-          <h3 className="text-base font-black text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.45)]">{widget.title}</h3>
-          <p className="mt-1 text-sm font-semibold leading-relaxed text-cyan-50">{widget.description}</p>
-        </div>
-        <div className="sm:col-span-2 rounded-[10px] border border-[#66c7df]/70 bg-[#1577a0] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_0_16px_rgba(0,43,68,0.32),0_1px_0_rgba(255,255,255,0.08)]">
-          <p className="mb-2 text-xs font-bold text-cyan-50">{account ? `${account.name} 目前資源` : "找不到資料來源"}</p>
-          <div className="relative h-5 overflow-hidden rounded-[4px] border border-[#0c2635] bg-[#07303f] shadow-[inset_0_0_8px_rgba(0,0,0,0.8)]">
-            <div className="h-full rounded-[3px] bg-gradient-to-r from-[#ffb703] via-[#ffe066] to-[#fff4a3] shadow-[0_0_12px_rgba(255,224,102,0.8)] transition-[width] duration-300" style={{ width: `${percent}%` }} />
-            <div className="absolute inset-0 grid place-items-center text-[11px] font-black text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">{money(current, currency)} / {target > 0 ? money(target, currency) : "自由值"}</div>
-          </div>
-          <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-xs font-black text-[#fff200]">
-            <span>NPC/確認</span>
-            <div className="h-2 overflow-hidden rounded-full bg-[#044059] shadow-[inset_0_0_5px_rgba(0,0,0,0.75)]">
-              <div className="h-full rounded-full" style={{ width: `${percent}%`, background: color.fill, boxShadow: color.glow }} />
-            </div>
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold text-cyan-50">
-            <span>{account ? account.institutionName || account.name : "未連結"}</span>
-            <span>{percent.toFixed(1)}%</span>
-          </div>
-        </div>
       </div>
     </article>
   );
