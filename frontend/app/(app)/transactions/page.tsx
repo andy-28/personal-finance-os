@@ -4,6 +4,10 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { activeFilterCount, MobileFilterSheet } from "@/components/mobile/mobile-filter-sheet";
+import { MobileTransactionCard } from "@/components/mobile/mobile-transaction-card";
+import { MobileHudEmptyState, MobileTransactionSkeleton } from "@/components/mobile/mobile-skeletons";
+import { MobileUpcomingSummary } from "@/components/mobile/mobile-upcoming-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,6 +39,7 @@ export default function TransactionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const flatIncome = useMemo(() => incomeCategories.flatMap((category) => [category, ...category.children]), [incomeCategories]);
   const flatExpense = useMemo(() => expenseCategories.flatMap((category) => [category, ...category.children]), [expenseCategories]);
@@ -165,18 +170,46 @@ export default function TransactionsPage() {
   const showCategory = selected ? editableCategoryTypes.includes(selected.type) : false;
   const showSingleAccount = selected ? !["Transfer", "CreditCardPayment"].includes(selected.type) : false;
   const singleAccountOptions = selected?.type === "CreditCardPurchase" || selected?.type === "CreditCardRefund" ? creditCardAccounts : activeAccounts;
+  const monthlyIncome = data.items.filter((item) => item.type === "Income" || item.type === "CreditCardRefund").reduce((sum, item) => sum + item.displayAmount, 0);
+  const monthlyExpense = data.items.filter((item) => item.type === "Expense" || item.type === "CreditCardPurchase").reduce((sum, item) => sum + item.displayAmount, 0);
+  const monthlyFlow = monthlyIncome - monthlyExpense;
+  const primaryCurrency = accounts[0]?.currencyCode ?? "TWD";
+  const filterCount = activeFilterCount(filters);
 
   return (
     <section className="grid gap-6">
-      <PageHeader title="Transaction log" description="Click a row to edit transaction details and category." actions={<Link href="/transactions/new"><Button>New transaction</Button></Link>} />
+      <div className="hidden md:block">
+        <PageHeader title="Transaction log" description="Click a row to edit transaction details and category." actions={<Link href="/transactions/new"><Button>New transaction</Button></Link>} />
+      </div>
       {error && <ErrorState message={error} />}
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="mobile-transaction-ia md:hidden">
+        <div className="mobile-transaction-toolbar">
+          <div>
+            <p className="mobile-section-eyebrow">TRANSACTION LOG</p>
+            <h1>最近交易</h1>
+          </div>
+          <button type="button" className="mobile-filter-trigger ui-focus" onClick={() => setIsFilterOpen(true)} aria-label={filterCount > 0 ? `開啟篩選，目前 ${filterCount} 個條件` : "開啟篩選"}>
+            <span>篩選</span>
+            {filterCount > 0 && <strong>{filterCount}</strong>}
+          </button>
+        </div>
+        <Card className="mobile-transaction-month-panel">
+          <p className="mobile-section-eyebrow">本月摘要</p>
+          <div className="mobile-transaction-month-grid">
+            <span><small>收入</small><strong className="text-income">{money(monthlyIncome, primaryCurrency)}</strong></span>
+            <span><small>支出</small><strong className="text-expense">{money(monthlyExpense, primaryCurrency)}</strong></span>
+            <span><small>淨流量</small><strong className={monthlyFlow >= 0 ? "text-income" : "text-warning"}>{money(monthlyFlow, primaryCurrency)}</strong></span>
+          </div>
+        </Card>
+        <MobileUpcomingSummary upcoming={upcoming} />
+      </div>
+      <div className="hidden gap-3 md:grid md:grid-cols-4">
         <Card><Stat label="Recurring due" value={String(upcoming.recurringOccurrences.length)} /></Card>
         <Card><Stat label="Installments due" value={String(upcoming.installments.length)} /></Card>
         <Card><Stat label="Card reminders" value={String(upcoming.creditCardReminders.length)} /></Card>
         <Link href="/upcoming" className="ui-card grid place-items-center text-sm font-medium hover:bg-surface-muted">View upcoming</Link>
       </div>
-      <Card>
+      <Card className="hidden md:block">
         <div className="grid gap-3 md:grid-cols-6">
           <label className="ui-label">From<input className="ui-input" type="date" value={filters.from} onChange={(e) => setFilters({ ...filters, from: e.target.value, page: 1 })} /></label>
           <label className="ui-label">To<input className="ui-input" type="date" value={filters.to} onChange={(e) => setFilters({ ...filters, to: e.target.value, page: 1 })} /></label>
@@ -186,8 +219,24 @@ export default function TransactionsPage() {
           <label className="ui-label">Status<select className="ui-input" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value as TransactionStatus, page: 1 })}>{statuses.map((status) => <option key={status} value={status}>{transactionStatusLabels[status]}</option>)}</select></label>
         </div>
       </Card>
-      {isLoading ? <LoadingState /> : data.items.length === 0 ? <EmptyState title="No transactions found" description="Adjust filters or create a new transaction." /> : (
-        <div className="overflow-x-auto rounded-ui border bg-surface shadow-panel">
+      {isLoading ? (
+        <>
+          <MobileTransactionSkeleton />
+          <div className="hidden md:block"><LoadingState /></div>
+        </>
+      ) : data.items.length === 0 ? (
+        <>
+          <div className="md:hidden"><MobileHudEmptyState title="沒有符合條件的交易" description="調整篩選，或按底部 + 建立新交易。" /></div>
+          <div className="hidden md:block"><EmptyState title="No transactions found" description="Adjust filters or create a new transaction." /></div>
+        </>
+      ) : (
+        <>
+        <div className="grid gap-3 md:hidden">
+          {data.items.map((transaction) => (
+            <MobileTransactionCard key={transaction.id} transaction={transaction} accounts={accounts} onEdit={openEditor} />
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto rounded-ui border bg-surface shadow-panel md:block">
           <table className="ui-table min-w-[820px]">
             <thead><tr><th>Date</th><th>Type</th><th>Account</th><th>Category</th><th>Merchant</th><th className="text-right">Amount</th><th>Status</th></tr></thead>
             <tbody>{data.items.map((transaction) => {
@@ -208,12 +257,24 @@ export default function TransactionsPage() {
             })}</tbody>
           </table>
         </div>
+        </>
       )}
       <div className="flex items-center justify-between text-sm">
-        <Button variant="outline" size="sm" disabled={data.page <= 1} onClick={() => setFilters({ ...filters, page: filters.page - 1 })}>Previous</Button>
-        <span className="text-muted">Page {data.page} / {Math.max(data.totalPages, 1)}</span>
-        <Button variant="outline" size="sm" disabled={data.page >= data.totalPages} onClick={() => setFilters({ ...filters, page: filters.page + 1 })}>Next</Button>
+        <Button variant="outline" size="sm" disabled={data.page <= 1} onClick={() => setFilters({ ...filters, page: filters.page - 1 })}><span className="md:hidden">上一頁</span><span className="hidden md:inline">Previous</span></Button>
+        <span className="text-muted"><span className="md:hidden">第 {data.page} / {Math.max(data.totalPages, 1)} 頁</span><span className="hidden md:inline">Page {data.page} / {Math.max(data.totalPages, 1)}</span></span>
+        <Button variant="outline" size="sm" disabled={data.page >= data.totalPages} onClick={() => setFilters({ ...filters, page: filters.page + 1 })}><span className="md:hidden">下一頁</span><span className="hidden md:inline">Next</span></Button>
       </div>
+
+      {isFilterOpen && (
+        <MobileFilterSheet
+          isOpen={isFilterOpen}
+          filters={filters}
+          accounts={accounts}
+          categories={flatCategories}
+          onApply={setFilters}
+          onClose={() => setIsFilterOpen(false)}
+        />
+      )}
 
       {selected && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={closeEditor}>

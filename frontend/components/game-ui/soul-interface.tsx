@@ -10,11 +10,13 @@ type SoulInterfaceProps = {
   state: "off" | "active" | "complete";
   numberStyle: "default" | "aether" | "damage";
   actionLabel: string;
+  showSlots?: boolean;
+  showStateBadge?: boolean;
 };
 
 const soulSlots = ["◇", "◆", "⌂", "⌂", "商"];
 
-export function SoulInterface({ title, current, maximum, bonusLabel, bonusValue, state, numberStyle, actionLabel }: SoulInterfaceProps) {
+export function SoulInterface({ title, current, maximum, bonusLabel, bonusValue, state, numberStyle, actionLabel, showSlots = true, showStateBadge = true }: SoulInterfaceProps) {
   const safeMaximum = Number.isFinite(maximum) ? Math.max(0, maximum) : 0;
   const safeCurrent = Number.isFinite(current) ? Math.max(0, current) : 0;
   const clampedCurrent = safeMaximum > 0 ? Math.min(safeCurrent, safeMaximum) : 0;
@@ -35,19 +37,19 @@ export function SoulInterface({ title, current, maximum, bonusLabel, bonusValue,
             <GameNumber value={clampedCurrent} variant={numberVariant} size="xl" glow outline />
             <span>/ {new Intl.NumberFormat("en-US").format(safeMaximum)}</span>
           </div>
-          <button type="button">{actionLabel}</button>
+          <span className="game-ui-soul-action">{actionLabel}</span>
         </div>
         <GameGauge current={clampedCurrent} maximum={safeMaximum} variant="purple" size="sm" showPercentage={false} />
         <div className="game-ui-soul-stat">
           <span>{bonusLabel}</span>
           <strong>{bonusValue}</strong>
         </div>
-        <div className="game-ui-soul-slots">
+        {showSlots && <div className="game-ui-soul-slots">
           {soulSlots.map((slot, index) => <span key={`${slot}-${index}`}>{slot}</span>)}
-        </div>
-        <div className="game-ui-soul-state">
+        </div>}
+        {showStateBadge && <div className="game-ui-soul-state">
           <span>{state}</span>
-        </div>
+        </div>}
       </div>
     </article>
   );

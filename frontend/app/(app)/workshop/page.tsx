@@ -418,7 +418,7 @@ function DashboardProfileImageSlotDetail({
           </span>
           <div className="min-w-0">
             <h2 className="text-xl font-bold text-foreground">Dashboard Profile Image</h2>
-            <p className="mt-1 text-sm text-muted">控制儀錶板 Finance Profile 中央圖片，並由 User Settings 同步。</p>
+            <p className="mt-1 text-sm text-muted">控制儀表板 Finance Profile 中央圖片，並由 User Settings 同步。</p>
           </div>
           <AetherStatusIndicator label="已同步" tone="success" />
         </div>
@@ -696,8 +696,8 @@ function GameNumberLabDetail({ state, onChange }: { state: { value: string; vari
       </WorkshopInspector>
       <WorkshopPreviewStage title="Preview Matrix" meta="Game format, not finance format">
         <div className="game-number-matrix">
-          {[state.value, "615", "1,000", "12,983", "100,000", "999,999,999", "-24,495"].map((value) => (
-            <GameNumber key={value} value={value} variant={state.variant} size={state.size} prefix={state.prefix} suffix={state.suffix} glow={state.glow} outline={state.outline} />
+          {[state.value, "615", "1,000", "12,983", "100,000", "999,999,999", "-24,495"].map((value, index) => (
+            <GameNumber key={`${index}-${value}`} value={value} variant={state.variant} size={state.size} prefix={state.prefix} suffix={state.suffix} glow={state.glow} outline={state.outline} />
           ))}
         </div>
       </WorkshopPreviewStage>

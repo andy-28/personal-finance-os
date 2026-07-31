@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FaviconController } from "@/components/aether/favicon-controller";
+import { MobileAppHeader } from "@/components/mobile/mobile-app-header";
+import { MobileBottomNavigation } from "@/components/mobile/mobile-bottom-navigation";
+import { MobileDrawer } from "@/components/mobile/mobile-drawer";
 import { ServiceConnectionState } from "@/components/system/service-connection-state";
 import { Button } from "@/components/ui/button";
 import { GameTheme } from "@/components/ui/game-theme";
@@ -26,6 +29,7 @@ const navGroups = [
     title: t("planning"),
     links: [
       ["/dashboard", "儀表板", "Dashboard"],
+      ["/hud", "我的介面", "Personal HUD"],
       ["/recurring-transactions", t("recurring"), t("recurringHint")],
       ["/categories", t("categories"), t("categoriesHint")]
     ]
@@ -38,6 +42,21 @@ const navGroups = [
     ]
   }
 ] as const;
+
+function mobileTitle(pathname: string) {
+  if (pathname === "/" || pathname.startsWith("/dashboard")) return "Coin Engine";
+  if (pathname.startsWith("/transactions")) return "交易紀錄";
+  if (pathname.startsWith("/hud")) return "我的介面";
+  if (pathname.startsWith("/accounts")) return "帳戶";
+  if (pathname.startsWith("/credit-cards")) return "信用卡";
+  if (pathname.startsWith("/recurring-transactions")) return "週期交易";
+  if (pathname.startsWith("/categories")) return "分類";
+  if (pathname.startsWith("/upcoming")) return "待處理";
+  if (pathname.startsWith("/workshop")) return "介面工坊";
+  if (pathname.startsWith("/desktop-lab")) return "Desktop Lab";
+  if (pathname.startsWith("/system-status")) return "系統狀態";
+  return "Coin Engine";
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
@@ -104,7 +123,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {nav}
           </aside>
 
-          {isMenuOpen && (
+          {false && isMenuOpen && (
             <div className="fixed inset-0 z-50 bg-background/70 p-3 backdrop-blur-lg lg:hidden" onClick={() => setIsMenuOpen(false)}>
               <div className="game-panel h-full w-72" onClick={(event) => event.stopPropagation()}>
                 <div className="mb-5 flex items-center justify-between border-b border-border/55 pb-4">
@@ -121,19 +140,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
+          <MobileDrawer
+            isOpen={isMenuOpen}
+            nav={nav}
+            user={user}
+            onClose={() => setIsMenuOpen(false)}
+            onLogout={async () => {
+              await logout();
+              setIsMenuOpen(false);
+              router.replace("/login");
+            }}
+          />
+
           <section className="lg:pl-64">
             <header className="sticky top-0 z-30 border-b border-border/65 bg-background/78 shadow-panel backdrop-blur-xl">
-              <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-2 sm:flex-nowrap sm:px-6 sm:py-0">
+              <MobileAppHeader title={mobileTitle(pathname)} user={user} onMenu={() => setIsMenuOpen(true)} />
+              <div className="hidden min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-2 sm:flex-nowrap sm:px-6 sm:py-0 lg:flex">
                 <div className="flex min-w-0 items-center gap-3">
-                  <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setIsMenuOpen(true)}>
-                    {t("menu")}
-                  </Button>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold">{user.displayName}</p>
                     <p className="truncate text-xs text-muted">{user.email}</p>
                   </div>
                 </div>
-                <div className="ml-auto flex shrink-0 items-center gap-2">
+                <div className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
                   <QuestLog />
                   <QuickAdd />
                   <Button
@@ -149,8 +178,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             </header>
-            <div className="mx-auto grid max-w-7xl gap-8 px-4 py-7 sm:px-6">{children}</div>
+            <div key={pathname} className="mobile-page-transition mx-auto grid max-w-7xl gap-8 px-4 py-7 pb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:px-6 lg:pb-7">{children}</div>
           </section>
+          <MobileBottomNavigation onMore={() => setIsMenuOpen(true)} />
         </main>
       </SettingsProvider>
     </GameTheme>

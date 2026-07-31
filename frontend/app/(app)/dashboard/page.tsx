@@ -9,6 +9,8 @@ import { DashboardFinancialSummary } from "@/components/dashboard/dashboard-fina
 import { DashboardMissionBoard } from "@/components/dashboard/dashboard-mission-board";
 import { DashboardRecentTransactions } from "@/components/dashboard/dashboard-recent-transactions";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { MobileDashboard } from "@/components/mobile/mobile-dashboard";
+import { MobileDashboardSkeleton } from "@/components/mobile/mobile-skeletons";
 import { AetherEmptyState } from "@/components/ui/aether-management";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -32,7 +34,7 @@ const emptyUpcoming: UpcomingDto = { recurringOccurrences: [], installments: [],
 const emptyTransactions: PagedTransactionsDto = { items: [], page: 1, pageSize: 8, totalCount: 0, totalPages: 0 };
 
 export default function DashboardPage() {
-  const { accessToken, refreshSession } = useAuth();
+  const { accessToken, refreshSession, user } = useAuth();
   const { settings } = useSettings();
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [accountSummary, setAccountSummary] = useState<AccountSummaryDto>(emptySummary);
@@ -85,23 +87,41 @@ export default function DashboardPage() {
 
   return (
     <section className="grid gap-6">
-      <PageHeader title="儀錶板" description="總覽資產、負債、信用卡、現金流與即將到來的財務任務。" />
+      <div className="hidden md:block">
+        <PageHeader title="儀表板" description="總覽資產、負債、信用卡、現金流與即將到來的財務任務。" />
+      </div>
       {errors.length > 0 && <ErrorState message={`Dashboard 部分資料載入失敗：${errors.join(" / ")}`} />}
-      {isLoading ? <DashboardSkeleton /> : accounts.length === 0 && creditCards.length === 0 && recentTransactions.items.length === 0 ? (
+      {isLoading ? (
+        <>
+          <MobileDashboardSkeleton />
+          <div className="hidden md:block"><DashboardSkeleton /></div>
+        </>
+      ) : accounts.length === 0 && creditCards.length === 0 && recentTransactions.items.length === 0 ? (
         <Card><AetherEmptyState title="尚未建立 Dashboard 資料" description="建立帳戶、信用卡與交易後，這裡會顯示你的財務角色首頁。" /></Card>
       ) : (
         <div className="grid gap-5">
-          <DashboardFinanceProfile
+          <MobileDashboard
             accounts={accounts}
             summary={accountSummary}
             creditCards={creditCards}
             monthlyTransactions={monthlyTransactions.items}
-            profileImageSettings={settings.workshopSettings.dashboardProfileImage}
+            recentTransactions={recentTransactions.items}
+            goals={settings.goalSettings.goalBars}
+            displayName={user?.displayName ?? "admin"}
           />
-          <DashboardFinancialSummary summary={accountSummary} accounts={accounts} transactions={monthlyTransactions.items} />
-          <DashboardCreditCards cards={creditCards} />
-          <DashboardMissionBoard upcoming={upcoming} goals={settings.goalSettings.goalBars} accounts={accounts} />
-          <DashboardRecentTransactions transactions={recentTransactions.items} accounts={accounts} />
+          <div className="hidden gap-5 md:grid">
+            <DashboardFinanceProfile
+              accounts={accounts}
+              summary={accountSummary}
+              creditCards={creditCards}
+              monthlyTransactions={monthlyTransactions.items}
+              profileImageSettings={settings.workshopSettings.dashboardProfileImage}
+            />
+            <DashboardFinancialSummary summary={accountSummary} accounts={accounts} transactions={monthlyTransactions.items} />
+            <DashboardCreditCards cards={creditCards} />
+            <DashboardMissionBoard upcoming={upcoming} goals={settings.goalSettings.goalBars} accounts={accounts} />
+            <DashboardRecentTransactions transactions={recentTransactions.items} accounts={accounts} />
+          </div>
         </div>
       )}
     </section>
