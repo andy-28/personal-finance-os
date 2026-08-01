@@ -55,6 +55,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.CustomSchemaIds(type => type.FullName?.Replace("+", ".") ?? type.Name);
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -229,4 +230,3 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 app.Run();
 
 public partial class Program;
-
