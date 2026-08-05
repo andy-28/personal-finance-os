@@ -26,7 +26,7 @@ const stageCopy: Record<ServiceConnectionStage, { title: string; description: st
   },
   "waking-api": {
     title: "正在喚醒 API",
-    description: "Render 免費服務可能正在冷啟動，通常等待幾秒後就會恢復。"
+    description: "Render 免費服務可能正在冷啟動，通常需要 30～90 秒。"
   },
   "loading-data": {
     title: "正在載入資料",
@@ -38,7 +38,7 @@ const stageCopy: Record<ServiceConnectionStage, { title: string; description: st
   },
   "retryable-error": {
     title: "API 暫時無法連線",
-    description: "服務可能正在喚醒中，請稍後重試。"
+    description: "服務可能正在喚醒中，系統會自動重試。"
   },
   "fatal-error": {
     title: "系統發生問題",

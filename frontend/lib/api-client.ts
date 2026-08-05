@@ -199,13 +199,13 @@ export type UpcomingDto = { recurringOccurrences: RecurringOccurrenceDto[]; inst
 const apiBaseUrl = "";
 export const CONNECTION_NOTICE_DELAY_MS = 2_000;
 export const COLD_START_NOTICE_DELAY_MS = 5_000;
-export const REQUEST_TIMEOUT_MS = 60_000;
+export const REQUEST_TIMEOUT_MS = 120_000;
 
 function isAbortError(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
 }
 
-function isRetryableStatus(status: number) {
+export function isRetryableStatus(status: number) {
   return status === 408 || status === 502 || status === 503 || status === 504;
 }
 
@@ -237,6 +237,15 @@ export class ApiError extends Error {
   constructor(public status: number, public problem: ProblemDetails) {
     super(problem.detail ?? problem.title ?? `Request failed with HTTP ${status}`);
   }
+}
+
+export function isRetryableApiError(error: unknown) {
+  if (error instanceof ApiError) return error.problem.retryable === true || isRetryableStatus(error.status);
+  if (error && typeof error === "object") {
+    const problem = error as ProblemDetails;
+    return problem.retryable === true || (typeof problem.status === "number" && isRetryableStatus(problem.status));
+  }
+  return false;
 }
 
 export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {

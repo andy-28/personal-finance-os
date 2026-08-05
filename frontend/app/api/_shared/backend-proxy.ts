@@ -1,4 +1,4 @@
-export const REQUEST_TIMEOUT_MS = 60_000;
+export const REQUEST_TIMEOUT_MS = 120_000;
 
 export type BackendProblemCode = "BACKEND_UNAVAILABLE" | "BACKEND_TIMEOUT";
 
