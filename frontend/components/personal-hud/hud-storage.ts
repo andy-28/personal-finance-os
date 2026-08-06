@@ -1,4 +1,5 @@
 import type { HudWidgetInstance } from "./hud-widget-types";
+import { coinTerminology } from "@/lib/coin-engine-terminology";
 
 export const hudStorageKey = "coin-engine:personal-hud:v1";
 
@@ -19,7 +20,7 @@ export function readHudWidgets(): { widgets: HudWidgetInstance[]; error?: string
   if (!raw) return { widgets: [] };
   try {
     const parsed = JSON.parse(raw) as Partial<StoredHud>;
-    if (parsed.schemaVersion !== 1 || !Array.isArray(parsed.widgets)) return { widgets: [], error: "Personal HUD storage schema is not supported." };
+    if (parsed.schemaVersion !== 1 || !Array.isArray(parsed.widgets)) return { widgets: [], error: coinTerminology.emptyState.hudUnsupportedSchema.description };
     const ids = new Set<string>();
     const widgets = parsed.widgets.filter(isWidget).filter((widget) => {
       if (ids.has(widget.id)) return false;
@@ -28,7 +29,7 @@ export function readHudWidgets(): { widgets: HudWidgetInstance[]; error?: string
     }).sort((a, b) => a.position - b.position);
     return { widgets };
   } catch {
-    return { widgets: [], error: "Personal HUD storage is corrupted." };
+    return { widgets: [], error: coinTerminology.emptyState.hudStorageCorrupted.description };
   }
 }
 

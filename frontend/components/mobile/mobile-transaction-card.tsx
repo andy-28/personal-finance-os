@@ -52,10 +52,10 @@ export function MobileTransactionCard({
         </span>
       </button>
       <div className="mobile-transaction-detail" aria-hidden={!isExpanded}>
-        <p><span>Type</span><strong>{transactionTypeLabels[transaction.type]}</strong></p>
-        <p><span>Category</span><strong>{transaction.category?.name ?? "-"}</strong></p>
-        <p><span>Status</span><Badge tone={transaction.status === "Posted" ? "success" : "neutral"}>{transactionStatusLabels[transaction.status]}</Badge></p>
-        {transaction.note && <p><span>Note</span><strong>{transaction.note}</strong></p>}
+        <p><span>類型</span><strong>{transactionTypeLabels[transaction.type]}</strong></p>
+        <p><span>分類</span><strong>{transaction.category?.name ?? "-"}</strong></p>
+        <p><span>狀態</span><Badge tone={transaction.status === "Posted" ? "success" : "neutral"}>{transactionStatusLabels[transaction.status]}</Badge></p>
+        {transaction.note && <p><span>備註</span><strong>{transaction.note}</strong></p>}
         <div className="grid gap-1">
           {transaction.entries.map((entry) => (
             <p key={entry.accountId}>
@@ -65,7 +65,7 @@ export function MobileTransactionCard({
           ))}
         </div>
         <Button type="button" variant="outline" size="sm" onClick={() => onEdit(transaction)}>
-          Edit details
+          編輯詳細資料
         </Button>
       </div>
     </article>

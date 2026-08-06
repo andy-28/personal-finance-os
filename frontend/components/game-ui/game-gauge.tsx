@@ -27,7 +27,7 @@ export function GameGauge({ current, maximum, variant, size, showValue = false, 
           <strong>{showValue ? `${formatGameNumber(clampedCurrent)} / ${formatGameNumber(safeMaximum)}` : showPercentage ? readablePercent : ""}</strong>
         </div>
       )}
-      <div className="game-gauge-track" role="progressbar" aria-label={label ?? "Game gauge"} aria-valuemin={0} aria-valuemax={safeMaximum} aria-valuenow={clampedCurrent}>
+      <div className="game-gauge-track" role="progressbar" aria-label={label ?? "財務量表"} aria-valuemin={0} aria-valuemax={safeMaximum} aria-valuenow={clampedCurrent}>
         <span style={{ width: `${percent}%` }} />
       </div>
     </div>

@@ -90,14 +90,14 @@ export default function DashboardPage() {
       <div className="hidden md:block">
         <PageHeader title="儀表板" description="總覽資產、負債、信用卡、現金流與即將到來的財務任務。" />
       </div>
-      {errors.length > 0 && <ErrorState message={`Dashboard 部分資料載入失敗：${errors.join(" / ")}`} />}
+      {errors.length > 0 && <ErrorState message={`儀表板部分資料載入失敗：${errors.join(" / ")}`} />}
       {isLoading ? (
         <>
           <MobileDashboardSkeleton />
           <div className="hidden md:block"><DashboardSkeleton /></div>
         </>
       ) : accounts.length === 0 && creditCards.length === 0 && recentTransactions.items.length === 0 ? (
-        <Card><AetherEmptyState title="尚未建立 Dashboard 資料" description="建立帳戶、信用卡與交易後，這裡會顯示你的財務角色首頁。" /></Card>
+        <Card><AetherEmptyState title="尚無可顯示的財務資料" description="建立帳戶、信用卡與交易後，這裡會顯示你的財務角色首頁。" /></Card>
       ) : (
         <div className="grid gap-5">
           <MobileDashboard

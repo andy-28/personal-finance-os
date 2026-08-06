@@ -1,10 +1,13 @@
 import { HudWidgetGalleryPreview } from "./hud-widget-gallery-preview";
+import { coinTerminology } from "@/lib/coin-engine-terminology";
 import type { HudWidgetDefinition, HudWidgetType } from "./hud-widget-types";
 
+const { hud } = coinTerminology;
+
 const aetherVariants = [
-  { label: "Aether Cyan", value: "cyan" },
-  { label: "Adventure Green", value: "adventure" },
-  { label: "Quest Gold", value: "quest" }
+  { label: hud.variants.cyan, value: "cyan" },
+  { label: hud.variants.adventure, value: "adventure" },
+  { label: hud.variants.quest, value: "quest" }
 ];
 
 function gallery(widgetType: HudWidgetType) {
@@ -16,7 +19,7 @@ function gallery(widgetType: HudWidgetType) {
 export const hudWidgetRegistry: HudWidgetDefinition[] = [
   {
     type: "resource-guide",
-    name: "資源指引",
+    name: hud.widgetNames.resourceGuide.label,
     description: "以 RPG 資源條呈現財務目標進度。",
     category: "goal",
     supportedDataSources: ["goal"],
@@ -26,17 +29,17 @@ export const hudWidgetRegistry: HudWidgetDefinition[] = [
       { type: "text", key: "title", label: "標題", placeholder: "例如：日本旅遊基金", required: true, maxLength: 24 },
       { type: "text", key: "subtitle", label: "副標題", placeholder: "例如：旅遊儲備", maxLength: 32 },
       { type: "boolean", key: "showPercentage", label: "顯示百分比", defaultValue: true },
-      { type: "boolean", key: "showCurrent", label: "顯示目前金額", defaultValue: true },
-      { type: "boolean", key: "showMaximum", label: "顯示目標金額", defaultValue: true },
-      { type: "boolean", key: "showRemaining", label: "顯示剩餘金額", defaultValue: true },
-      { type: "select", key: "variant", label: "視覺樣式", options: aetherVariants, defaultValue: "cyan" }
+      { type: "boolean", key: "showCurrent", label: hud.fields.showCurrent, defaultValue: true },
+      { type: "boolean", key: "showMaximum", label: hud.fields.showMaximum, defaultValue: true },
+      { type: "boolean", key: "showRemaining", label: hud.fields.showRemaining, defaultValue: true },
+      { type: "select", key: "variant", label: hud.fields.resourceGuideStyle, options: aetherVariants, defaultValue: "cyan" }
     ],
     status: "stable",
     galleryPreviewComponent: gallery("resource-guide")
   },
   {
     type: "soul-interface",
-    name: "靈魂儀表",
+    name: hud.widgetNames.soulInterface.label,
     description: "呈現一個核心財務狀態，適合緊急預備金或主目標。",
     category: "status",
     supportedDataSources: ["goal"],
@@ -44,22 +47,22 @@ export const hudWidgetRegistry: HudWidgetDefinition[] = [
     preview: { aspectRatio: "16 / 10", minHeight: 128, preferredWidth: 320 },
     configurableFields: [
       { type: "text", key: "title", label: "標題", placeholder: "例如：核心狀態", required: true, maxLength: 24 },
-      { type: "text", key: "actionLabel", label: "Action Label", placeholder: "例如：HUD", maxLength: 10, defaultValue: "HUD" },
-      { type: "text", key: "bonusLabel", label: "Bonus Label", placeholder: "例如：目標進度", maxLength: 12, defaultValue: "目標進度" },
-      { type: "select", key: "numberStyle", label: "數字樣式", options: [
-        { label: "Aether", value: "aether" },
-        { label: "Default", value: "default" },
-        { label: "Damage", value: "damage" }
+      { type: "text", key: "actionLabel", label: hud.fields.actionLabel, placeholder: "例如：HUD", maxLength: 10, defaultValue: "HUD" },
+      { type: "text", key: "bonusLabel", label: hud.fields.bonusLabel, placeholder: "例如：目標進度", maxLength: 12, defaultValue: "目標進度" },
+      { type: "select", key: "numberStyle", label: hud.fields.numberStyle, options: [
+        { label: hud.variants.aether, value: "aether" },
+        { label: hud.variants.default, value: "default" },
+        { label: hud.variants.damage, value: "damage" }
       ], defaultValue: "aether" },
-      { type: "boolean", key: "showSlots", label: "顯示 Slots", defaultValue: true },
-      { type: "boolean", key: "showStateBadge", label: "顯示狀態 Badge", defaultValue: true }
+      { type: "boolean", key: "showSlots", label: hud.fields.showSlots, defaultValue: true },
+      { type: "boolean", key: "showStateBadge", label: hud.fields.showStateBadge, defaultValue: true }
     ],
     status: "experimental",
     galleryPreviewComponent: gallery("soul-interface")
   },
   {
     type: "game-number",
-    name: "數值面板",
+    name: hud.widgetNames.gameNumber.label,
     description: "顯示單一重要財務數字。",
     category: "number",
     supportedDataSources: ["goal"],
@@ -67,18 +70,18 @@ export const hudWidgetRegistry: HudWidgetDefinition[] = [
     preview: { aspectRatio: "16 / 7", minHeight: 96, preferredWidth: 280 },
     configurableFields: [
       { type: "text", key: "title", label: "標題", placeholder: "例如：目前進度", required: true, maxLength: 24 },
-      { type: "select", key: "valueMode", label: "數值模式", options: [
+      { type: "select", key: "valueMode", label: hud.fields.valueMode, options: [
         { label: "目前金額", value: "current" },
         { label: "目標金額", value: "maximum" },
         { label: "剩餘金額", value: "remaining" },
         { label: "完成百分比", value: "percentage" }
       ], defaultValue: "current" },
-      { type: "text", key: "prefix", label: "Prefix", maxLength: 6 },
-      { type: "text", key: "suffix", label: "Suffix", maxLength: 6 },
-      { type: "select", key: "numberStyle", label: "數字樣式", options: [
-        { label: "Finance", value: "default" },
-        { label: "Aether", value: "aether" },
-        { label: "Damage", value: "damage" }
+      { type: "text", key: "prefix", label: hud.fields.prefix, maxLength: 6 },
+      { type: "text", key: "suffix", label: hud.fields.suffix, maxLength: 6 },
+      { type: "select", key: "numberStyle", label: hud.fields.numberStyle, options: [
+        { label: hud.variants.finance, value: "default" },
+        { label: hud.variants.aether, value: "aether" },
+        { label: hud.variants.damage, value: "damage" }
       ], defaultValue: "default" }
     ],
     status: "stable",
@@ -86,7 +89,7 @@ export const hudWidgetRegistry: HudWidgetDefinition[] = [
   },
   {
     type: "goal-bar",
-    name: "目標血條",
+    name: hud.widgetNames.goalBar.label,
     description: "以精簡血條呈現財務目標進度。",
     category: "goal",
     supportedDataSources: ["goal"],
@@ -94,17 +97,17 @@ export const hudWidgetRegistry: HudWidgetDefinition[] = [
     preview: { aspectRatio: "16 / 7", minHeight: 92, preferredWidth: 320 },
     configurableFields: [
       { type: "text", key: "title", label: "標題", placeholder: "例如：目標血條", required: true, maxLength: 24 },
-      { type: "boolean", key: "showCurrent", label: "顯示金額", defaultValue: true },
-      { type: "boolean", key: "showPercentage", label: "顯示百分比", defaultValue: true },
-      { type: "boolean", key: "showRemaining", label: "顯示剩餘金額", defaultValue: true },
-      { type: "select", key: "barStyle", label: "Bar Style", options: aetherVariants, defaultValue: "cyan" }
+      { type: "boolean", key: "showCurrent", label: hud.fields.showAmount, defaultValue: true },
+      { type: "boolean", key: "showPercentage", label: hud.fields.showPercentage, defaultValue: true },
+      { type: "boolean", key: "showRemaining", label: hud.fields.showRemaining, defaultValue: true },
+      { type: "select", key: "barStyle", label: hud.fields.progressStyle, options: aetherVariants, defaultValue: "cyan" }
     ],
     status: "stable",
     galleryPreviewComponent: gallery("goal-bar")
   },
   {
     type: "game-gauge",
-    name: "財務量表",
+    name: hud.widgetNames.gameGauge.label,
     description: "適合百分比型資訊，例如目標進度或使用率。",
     category: "gauge",
     supportedDataSources: ["goal"],
@@ -112,12 +115,12 @@ export const hudWidgetRegistry: HudWidgetDefinition[] = [
     preview: { aspectRatio: "16 / 8", minHeight: 104, preferredWidth: 300 },
     configurableFields: [
       { type: "text", key: "title", label: "標題", placeholder: "例如：財務量表", required: true, maxLength: 24 },
-      { type: "boolean", key: "showCurrent", label: "顯示數值", defaultValue: true },
-      { type: "boolean", key: "showPercentage", label: "顯示百分比", defaultValue: true },
-      { type: "select", key: "gaugeVariant", label: "Gauge Variant", options: [
-        { label: "Cyan", value: "cyan" },
-        { label: "Purple", value: "purple" },
-        { label: "Yellow", value: "yellow" }
+      { type: "boolean", key: "showCurrent", label: hud.fields.showValue, defaultValue: true },
+      { type: "boolean", key: "showPercentage", label: hud.fields.showPercentage, defaultValue: true },
+      { type: "select", key: "gaugeVariant", label: hud.fields.gaugeStyle, options: [
+        { label: hud.variants.cyan, value: "cyan" },
+        { label: hud.variants.purple, value: "purple" },
+        { label: hud.variants.yellow, value: "yellow" }
       ], defaultValue: "cyan" }
     ],
     status: "experimental",

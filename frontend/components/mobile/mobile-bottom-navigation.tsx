@@ -72,18 +72,18 @@ export function MobileBottomNavigation({ onMore }: { onMore: () => void }) {
   const isHud = pathname.startsWith("/hud");
 
   return (
-    <nav className="mobile-bottom-nav lg:hidden" aria-label="Mobile primary navigation">
-      <Link className={`mobile-bottom-nav-item ${isHome ? "mobile-bottom-nav-item-active" : ""}`} href="/dashboard" aria-label="Home" aria-current={isHome ? "page" : undefined}>
+    <nav className="mobile-bottom-nav lg:hidden" aria-label="手機主要導覽">
+      <Link className={`mobile-bottom-nav-item ${isHome ? "mobile-bottom-nav-item-active" : ""}`} href="/dashboard" aria-label="首頁" aria-current={isHome ? "page" : undefined}>
         <span aria-hidden="true"><HomeIcon /></span>
       </Link>
-      <Link className={`mobile-bottom-nav-item ${isLedger ? "mobile-bottom-nav-item-active" : ""}`} href="/transactions" aria-label="Ledger" aria-current={isLedger ? "page" : undefined}>
+      <Link className={`mobile-bottom-nav-item ${isLedger ? "mobile-bottom-nav-item-active" : ""}`} href="/transactions" aria-label="交易紀錄" aria-current={isLedger ? "page" : undefined}>
         <span aria-hidden="true"><LedgerIcon /></span>
       </Link>
       <QuickAdd variant="mobile" />
       <Link className={`mobile-bottom-nav-item ${isHud ? "mobile-bottom-nav-item-active" : ""}`} href="/hud" aria-label="我的介面" aria-current={isHud ? "page" : undefined}>
         <span aria-hidden="true"><GoalsIcon /></span>
       </Link>
-      <button type="button" className="mobile-bottom-nav-item" onClick={onMore} aria-label="Open more navigation">
+      <button type="button" className="mobile-bottom-nav-item" onClick={onMore} aria-label="開啟更多選單">
         <span aria-hidden="true"><MoreIcon /></span>
       </button>
     </nav>

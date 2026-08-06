@@ -1,5 +1,6 @@
 import { GameGauge, GameNumber, ResourceGuide, SoulInterface } from "@/components/game-ui";
 import type { AccountDto, UserGoalBarDto } from "@/lib/api-client";
+import { coinTerminology } from "@/lib/coin-engine-terminology";
 import { getHudWidgetDefinition } from "./hud-widget-registry";
 import type { HudWidgetDisplayMode, HudWidgetInstance } from "./hud-widget-types";
 import { goalWidgetAdapter } from "./adapters/goal-widget-adapter";
@@ -17,11 +18,11 @@ export function HudWidgetRenderer({
 }) {
   const definition = getHudWidgetDefinition(widget.widgetType);
   if (!definition || definition.status === "workshop-only") return <HudWidgetUnavailable />;
-  if (widget.dataSource.type !== "goal") return <HudWidgetUnavailable detail="這個資料來源尚未開放。" />;
+  if (widget.dataSource.type !== "goal") return <HudWidgetUnavailable detail="這個資料來源目前仍在規劃中。" />;
   const goalBinding = widget.dataSource;
 
   const goal = goals.find((candidate) => candidate.id === goalBinding.goalId);
-  if (!goal) return <HudWidgetUnavailable detail="綁定的財務目標已不存在。" />;
+  if (!goal) return <HudWidgetUnavailable title={coinTerminology.emptyState.hudDataSourceLost.title} detail={coinTerminology.emptyState.hudDataSourceLost.description} />;
 
   const viewModel = goalWidgetAdapter(goal, accounts.find((account) => account.id === goal.accountId), widget.config);
 
@@ -31,7 +32,7 @@ export function HudWidgetRenderer({
         <ResourceGuide
         title={viewModel.title}
         description={viewModel.description}
-        resourceLabel="GOAL"
+        resourceLabel="財務目標"
         current={viewModel.current}
         maximum={viewModel.maximum}
         statusLabel={widget.config.showPercentage === false ? "進行中" : viewModel.statusLabel}
@@ -109,10 +110,16 @@ export function HudWidgetRenderer({
   return <HudWidgetUnavailable />;
 }
 
-export function HudWidgetUnavailable({ detail = "你可以重新設定或移除它。" }: { detail?: string }) {
+export function HudWidgetUnavailable({
+  title = coinTerminology.emptyState.hudUnsupportedWidget.title,
+  detail = coinTerminology.emptyState.hudUnsupportedWidget.description
+}: {
+  title?: string;
+  detail?: string;
+}) {
   return (
     <div className="hud-widget-unavailable" role="status">
-      <strong>此介面目前無法顯示</strong>
+      <strong>{title}</strong>
       <small>{detail}</small>
     </div>
   );

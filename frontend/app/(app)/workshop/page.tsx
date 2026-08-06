@@ -6,8 +6,9 @@ import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { AetherEnergyDivider } from "@/components/ui/aether-effect";
 import { Button } from "@/components/ui/button";
-import { GameGauge, GameNumber, ResourceGuide, SoulInterface, type GameGaugeVariant, type GameNumberSize, type GameNumberVariant } from "@/components/game-ui";
+import { GameGauge, ResourceGuide, SoulInterface, type GameGaugeVariant } from "@/components/game-ui";
 import { WorkshopCatalog, WorkshopComingSoon, WorkshopInspector, WorkshopPreviewStage, WorkshopPropertyGroup, WorkshopPropertyRow } from "@/components/workshop/workshop-shell";
+import { AetherNumberLab } from "@/components/workshop/number-lab";
 import { GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -31,15 +32,16 @@ import { defaultAetherWorkshopSettings, type AetherWorkshopSettings } from "@/li
 import { clearDesktopAppearanceStorage, clearDesktopLabStorage, defaultDesktopLayout, readDesktopLayout, readDesktopPreferences, writeDesktopPreference, writeDesktopPreferences } from "@/lib/desktop-lab/storage";
 import { defaultDesktopLabPreferences, desktopDockStylePresets, desktopHudStylePresets, desktopWallpaperPresets, desktopWindowSkinPresets, type DesktopDockStyle, type DesktopHudStyle, type DesktopLabPreferences, type DesktopWallpaperPreset, type DesktopWindowSkin } from "@/lib/desktop-lab/presets";
 import { useSettings, type SettingsSyncStatus } from "@/lib/settings/user-settings";
+import { coinTerminology } from "@/lib/coin-engine-terminology";
 
-type WorkshopAreaKey = "Appearance" | "Assets" | "UiLab" | "LayoutLab" | "DesktopLab";
+type WorkshopAreaKey = "Appearance" | "Assets" | "UiLab" | "NumberLab" | "LayoutLab" | "DesktopLab";
 type WorkshopSlotKey =
   | VisualSlotKey
   | "dashboard.profile-image"
   | "assets.library"
   | "ui-lab.resource-guide"
   | "ui-lab.soul-interface"
-  | "ui-lab.game-number"
+  | "number-lab"
   | "ui-lab.gauge"
   | "ui-lab.mission-panel"
   | "ui-lab.notification-panel"
@@ -81,53 +83,62 @@ type GaugeDemoState = {
   animated: boolean;
 };
 
+const { desktop, hud, status: statusTerms, workshop } = coinTerminology;
+
 const workshopAreas: Array<{ key: WorkshopAreaKey; label: string; description: string; slots: Array<{ key: WorkshopSlotKey; label: string; subtitle: string }> }> = [
   {
     key: "Appearance",
-    label: "Appearance",
+    label: workshop.sections.appearance.label,
     description: "正式外觀設定",
     slots: [
-      { key: visualSlots.favicon.key, label: "Favicon", subtitle: "Browser and app icon" },
-      { key: visualSlots.headerDivider.key, label: "Header Divider", subtitle: "Page energy divider" },
-      { key: "dashboard.profile-image", label: "Dashboard Profile Image", subtitle: "Finance profile visual" }
+      { key: visualSlots.favicon.key, label: "分頁圖示", subtitle: "瀏覽器與 PWA 圖示" },
+      { key: visualSlots.headerDivider.key, label: "頁首能量分隔線", subtitle: "頁面能量分隔光效" },
+      { key: "dashboard.profile-image", label: "儀表板角色圖像", subtitle: "財務首頁視覺圖像" }
     ]
   },
   {
     key: "Assets",
-    label: "Assets",
+    label: workshop.sections.assets.label,
     description: "素材索引",
     slots: [
-      { key: "assets.library", label: "Asset Library", subtitle: "Icons, effects, HUD images and wallpaper catalog" }
+      { key: "assets.library", label: workshop.assets.registry.label, subtitle: "圖示、特效、HUD 圖像與桌布素材索引" }
     ]
   },
   {
     key: "UiLab",
-    label: "UI Lab",
+    label: workshop.sections.uiLab.label,
     description: "MMORPG 元件試驗",
     slots: [
-      { key: "ui-lab.resource-guide", label: "Resource Guide", subtitle: "Mock enhancement guide card" },
-      { key: "ui-lab.soul-interface", label: "Soul Interface", subtitle: "Mock soul meter card" },
-      { key: "ui-lab.game-number", label: "Game Number", subtitle: "Reusable game number renderer" },
-      { key: "ui-lab.gauge", label: "Gauge", subtitle: "Reusable progress gauge" },
-      { key: "ui-lab.mission-panel", label: "Mission Panel", subtitle: "Coming later" },
-      { key: "ui-lab.notification-panel", label: "Notification Panel", subtitle: "Coming later" },
-      { key: "ui-lab.inventory-grid", label: "Inventory Grid", subtitle: "Coming later" }
+      { key: "ui-lab.resource-guide", label: hud.widgetNames.resourceGuide.label, subtitle: "模擬資源指引卡片" },
+      { key: "ui-lab.soul-interface", label: hud.widgetNames.soulInterface.label, subtitle: "模擬靈魂儀表卡片" },
+      { key: "ui-lab.gauge", label: hud.widgetNames.gameGauge.label, subtitle: "可重用的進度量表" },
+      { key: "ui-lab.mission-panel", label: workshop.widgets.missionPanel, subtitle: statusTerms.planned.label },
+      { key: "ui-lab.notification-panel", label: workshop.widgets.notificationPanel, subtitle: statusTerms.planned.label },
+      { key: "ui-lab.inventory-grid", label: workshop.widgets.inventoryGrid, subtitle: statusTerms.planned.label }
+    ]
+  },
+  {
+    key: "NumberLab",
+    label: workshop.numberLab.title,
+    description: "Aether Number System 編輯器骨架",
+    slots: [
+      { key: "number-lab", label: workshop.numberLab.title, subtitle: "Preset、Preview 與設定 Tabs" }
     ]
   },
   {
     key: "LayoutLab",
-    label: "Layout Lab",
+    label: workshop.sections.layoutLab.label,
     description: "頁面構圖預覽",
     slots: [
-      { key: "layout-lab.previews", label: "Layout Previews", subtitle: "Dashboard, accounts and credit terminal sketches" }
+      { key: "layout-lab.previews", label: workshop.layout.previews, subtitle: "儀表板、帳戶與信用卡終端構圖草圖" }
     ]
   },
   {
     key: "DesktopLab",
-    label: "Desktop Lab",
+    label: workshop.sections.desktopLab.label,
     description: "隔離桌面實驗",
     slots: [
-      { key: "desktop-lab", label: "Desktop Mode Prototype", subtitle: "Wallpaper, dock and draggable windows" }
+      { key: "desktop-lab", label: desktop.prototype, subtitle: "桌布、Dock 與可拖曳視窗" }
     ]
   }
 ];
@@ -141,16 +152,16 @@ export default function WorkshopPage() {
   const [resourceGuideDemo, setResourceGuideDemo] = useState<ResourceGuideDemoState>({
     title: "復活資金",
     description: "確認目前資源是否足以支援下一次任務。",
-    resourceLabel: "Mock Account 目前資源",
+    resourceLabel: "模擬帳戶目前資源",
     current: 68000,
     maximum: 100000,
     statusLabel: "NPC / 確認",
-    footerLabel: "Local Prototype",
+    footerLabel: workshop.prototype.notice,
     variant: "cyan",
     compact: false
   });
   const [soulDemo, setSoulDemo] = useState<SoulDemoState>({
-    title: "Soul Weapon",
+    title: "靈魂武器",
     current: 615,
     maximum: 1000,
     bonusLabel: "攻擊力",
@@ -159,8 +170,7 @@ export default function WorkshopPage() {
     numberStyle: "aether",
     actionLabel: "全靈魂填滿"
   });
-  const [gameNumberDemo, setGameNumberDemo] = useState({ value: "12,983", variant: "aether" as GameNumberVariant, size: "lg" as GameNumberSize, prefix: "", suffix: "", glow: true, outline: true });
-  const [gaugeDemo, setGaugeDemo] = useState<GaugeDemoState>({ current: 66, maximum: 100, variant: "cyan", size: "md", showValue: true, showPercentage: true, label: "Aether Gauge", animated: true });
+  const [gaugeDemo, setGaugeDemo] = useState<GaugeDemoState>({ current: 66, maximum: 100, variant: "cyan", size: "md", showValue: true, showPercentage: true, label: "Aether 量表", animated: true });
   const [previewVars, setPreviewVars] = useState({ glow: 1, radius: 8, gaugeHeight: 12, stroke: 1 });
   const [desktopPreferences, setDesktopPreferences] = useState<DesktopLabPreferences>(() => readDesktopPreferences());
 
@@ -183,18 +193,18 @@ export default function WorkshopPage() {
   return (
     <section className="grid gap-6">
       <PageHeader
-        title="介面工坊"
-        description="管理正式外觀，並隔離 UI Lab、Layout Lab 與 Desktop Lab 實驗。"
+        title={workshop.title}
+        description={workshop.description}
         actions={<Button type="button" variant="outline" onClick={() => updateWorkshopSettings(defaultAetherWorkshopSettings)} disabled={isDefault}>重設工坊</Button>}
       />
-      <GameWindow title="Visual Configuration" description="Aether Workshop">
+      <GameWindow title="視覺設定" description={workshop.systemLabel}>
         <div className="aether-management-window aether-workshop" aria-live="polite">
           <AetherPanelHeader
-            eyebrow="THEME EDITOR"
-            title="Aether 介面工坊"
-            subtitle="正式設定與實驗原型分區管理，避免 UI Lab 影響財務資料。"
+            eyebrow={workshop.systemLabel}
+            title={workshop.title}
+            subtitle="正式設定與實驗原型分區管理，避免介面實驗室影響財務資料。"
             status={<AetherStatusIndicator label={settingsStatusLabel(status)} tone={settingsStatusTone(status)} />}
-            summary="Server Settings"
+            summary="伺服器設定"
           />
           <AetherToolbar role="tablist" ariaLabel="介面工坊篩選">
             {workshopAreas.map((area) => (
@@ -218,11 +228,17 @@ export default function WorkshopPage() {
             </div>
           </AetherToolbar>
 
+          {activeArea === "NumberLab" ? (
+            <div className="aether-workshop-full-detail">
+              <AetherNumberLab />
+              <p className="text-sm text-muted">{workshop.prototype.notice}：此區不寫入使用者設定，也不呼叫 Finance API。</p>
+            </div>
+          ) : (
           <div className="aether-master-detail">
             <div className="aether-list-pane" aria-label="視覺槽位" role="listbox">
               <WorkshopCatalog
                 title={activeWorkshopArea.label}
-                meta={`${activeWorkshopArea.slots.length} items`}
+                meta={`${activeWorkshopArea.slots.length} 項`}
                 description={activeWorkshopArea.description}
                 items={activeWorkshopArea.slots.map((slot) => ({
                   key: slot.key,
@@ -235,7 +251,7 @@ export default function WorkshopPage() {
                 onSelect={setSelectedSlotKey}
               />
               <div className="rounded-ui border border-border/60 bg-background/30 p-3 text-sm text-muted">
-                Appearance 會同步到 User Settings；UI Lab、Layout Lab 與 Desktop Lab 只做隔離實驗，不寫入財務資料。
+                外觀設定會同步到使用者設定；介面實驗室、版面實驗室與桌面實驗室只做隔離實驗，不寫入財務資料。
               </div>
             </div>
 
@@ -247,8 +263,6 @@ export default function WorkshopPage() {
                   <ResourceGuideLabDetail state={resourceGuideDemo} previewVars={previewVars} onPreviewVarsChange={setPreviewVars} onChange={setResourceGuideDemo} />
                 ) : selectedSlotKey === "ui-lab.soul-interface" ? (
                   <SoulInterfaceLabDetail state={soulDemo} onChange={setSoulDemo} />
-                ) : selectedSlotKey === "ui-lab.game-number" ? (
-                  <GameNumberLabDetail state={gameNumberDemo} onChange={setGameNumberDemo} />
                 ) : selectedSlotKey === "ui-lab.gauge" ? (
                   <GaugeLabDetail state={gaugeDemo} onChange={setGaugeDemo} />
                 ) : selectedSlotKey === "ui-lab.mission-panel" || selectedSlotKey === "ui-lab.notification-panel" || selectedSlotKey === "ui-lab.inventory-grid" ? (
@@ -280,7 +294,7 @@ export default function WorkshopPage() {
                 )}
 
                 <p className={`text-sm ${status === "error" && isServerSettingSlot(selectedSlotKey) ? "text-warning" : "text-muted"}`}>
-                  {isServerSettingSlot(selectedSlotKey) ? settingsStatusMessage(status, error) : "Local Prototype / Mock Only：此區不寫入 User Settings，也不呼叫 Finance API。"}
+                  {isServerSettingSlot(selectedSlotKey) ? settingsStatusMessage(status, error) : `${workshop.prototype.notice}：此區不寫入使用者設定，也不呼叫 Finance API。`}
                 </p>
 
                 <AetherActionBar>
@@ -299,6 +313,7 @@ export default function WorkshopPage() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </GameWindow>
     </section>
@@ -319,14 +334,14 @@ function FaviconSlotDetail({ selectedAsset, availableAssets, failedPreviewIds, o
       </div>
 
       <AetherDefinitionList>
-        <AetherDefinitionRow label="Slot Key" value={visualSlots.favicon.key} />
-        <AetherDefinitionRow label="儲存方式" value="Server User Settings" />
+        <AetherDefinitionRow label="槽位 Key" value={visualSlots.favicon.key} />
+        <AetherDefinitionRow label="儲存方式" value="伺服器使用者設定" />
         <AetherDefinitionRow label="目前素材" value={selectedAsset.name} />
         <AetherDefinitionRow label="素材路徑" value={<span className="break-all">{selectedAsset.src}</span>} />
       </AetherDefinitionList>
 
       <section className="grid gap-3">
-        <AetherSectionHeader title="可用素材" meta={`${availableAssets.length} assets`} />
+        <AetherSectionHeader title="可用素材" meta={`${availableAssets.length} 個素材`} />
         <div className="grid gap-2 sm:grid-cols-2">
           {availableAssets.map((asset) => {
             const isSelected = selectedAsset.id === asset.id;
@@ -377,17 +392,17 @@ function HeaderDividerSlotDetail({ enabled, onToggle }: { enabled: boolean; onTo
       </div>
 
       <AetherDefinitionList>
-        <AetherDefinitionRow label="Slot Key" value={visualSlots.headerDivider.key} />
-        <AetherDefinitionRow label="類型" value="Animated WebP" />
-        <AetherDefinitionRow label="儲存方式" value="Server User Settings" />
+        <AetherDefinitionRow label="槽位 Key" value={visualSlots.headerDivider.key} />
+        <AetherDefinitionRow label="類型" value="動態 WebP" />
+        <AetherDefinitionRow label="儲存方式" value="伺服器使用者設定" />
         <AetherDefinitionRow label="預設值" value={visualSlots.headerDivider.defaultEnabled ? "啟用" : "停用"} />
         <AetherDefinitionRow label="素材路徑" value={<span className="break-all">{visualSlots.headerDivider.assetPath}</span>} />
       </AetherDefinitionList>
 
       <section className="grid gap-3">
-        <AetherSectionHeader title="效果預覽" meta={enabled ? "Preview enabled" : "Preview disabled"} />
+        <AetherSectionHeader title={workshop.preview.effect} meta={enabled ? "預覽啟用" : "預覽停用"} />
         <div className="aether-divider-preview">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Visual Slot</p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">VISUAL SLOT</p>
           <h3 className="text-2xl font-bold text-foreground">Aether Divider</h3>
           <p className="text-sm text-muted">此效果只作為裝飾，不影響頁面資料與操作。</p>
           {enabled ? <AetherEnergyDivider className="-mb-2 -mt-2" intensity="normal" /> : <div className="rounded-ui border border-dashed border-border/70 p-4 text-center text-sm text-muted">光效已停用。</div>}
@@ -410,29 +425,29 @@ function DashboardProfileImageSlotDetail({
 }) {
   return (
     <>
-      <AetherSectionHeader title="Dashboard Appearance" meta="dashboard.profile-image" />
+      <AetherSectionHeader title="儀表板外觀" meta="dashboard.profile-image" />
       <div className="grid gap-3 rounded-ui border border-border/60 bg-background/35 p-3">
         <div className="flex flex-wrap items-center gap-3">
           <span className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-ui border border-primary/50 bg-background/70">
             <img className="h-full w-full object-contain p-2" src={resolvedImage.src} alt="" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-foreground">Dashboard Profile Image</h2>
-            <p className="mt-1 text-sm text-muted">控制儀表板 Finance Profile 中央圖片，並由 User Settings 同步。</p>
+            <h2 className="text-xl font-bold text-foreground">儀表板角色圖像</h2>
+            <p className="mt-1 text-sm text-muted">控制儀表板財務角色區的中央圖片，並由使用者設定同步。</p>
           </div>
           <AetherStatusIndicator label="已同步" tone="success" />
         </div>
       </div>
 
       <AetherDefinitionList>
-        <AetherDefinitionRow label="Slot Key" value="dashboard.profile-image" />
-        <AetherDefinitionRow label="儲存方式" value="Server User Settings" />
+        <AetherDefinitionRow label="槽位 Key" value="dashboard.profile-image" />
+        <AetherDefinitionRow label="儲存方式" value="伺服器使用者設定" />
         <AetherDefinitionRow label="目前圖片" value={resolvedImage.name} />
         <AetherDefinitionRow label="圖片路徑" value={<span className="break-all">{resolvedImage.src}</span>} />
       </AetherDefinitionList>
 
       <section className="grid gap-3">
-        <AetherSectionHeader title="內建圖片" meta={`${dashboardProfileImageOptions.length} assets`} />
+        <AetherSectionHeader title="內建圖片" meta={`${dashboardProfileImageOptions.length} 個素材`} />
         <div className="grid gap-2 sm:grid-cols-2">
           {dashboardProfileImageOptions.map((option) => {
             const isSelected = settings.imageId === option.id;
@@ -459,7 +474,7 @@ function DashboardProfileImageSlotDetail({
       </section>
 
       <section className="grid gap-3">
-        <AetherSectionHeader title="自訂圖片 URL" meta="optional" />
+        <AetherSectionHeader title="自訂圖片 URL" meta="選填" />
         <label className="grid gap-2 text-sm font-semibold text-foreground">
           圖片網址
           <input
@@ -473,7 +488,7 @@ function DashboardProfileImageSlotDetail({
       </section>
 
       <AetherActionBar>
-        <Button type="button" variant="outline" onClick={onReset}>Reset</Button>
+        <Button type="button" variant="outline" onClick={onReset}>重設圖片</Button>
       </AetherActionBar>
     </>
   );
@@ -492,16 +507,16 @@ function DesktopLabSlotDetail({ preferences, onChange }: { preferences: DesktopL
 
   return (
     <>
-      <AetherSectionHeader title="Desktop Mode Status" meta="Local Prototype / Mock Only" />
+      <AetherSectionHeader title="桌面模式狀態" meta={workshop.prototype.notice} />
       <div className="grid gap-4 rounded-ui border border-primary/45 bg-primary/8 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="mb-2 inline-flex rounded-full border border-warning/45 bg-warning/12 px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em] text-warning">
-              Experimental
+              {statusTerms.experimental.label}
             </div>
-            <h2 className="text-2xl font-black text-foreground">Desktop Mode</h2>
+            <h2 className="text-2xl font-black text-foreground">{desktop.mode}</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              以 Wallpaper、Dock 與浮動視窗測試另一種操作模式。不會影響目前 Classic UI 與財務資料。
+              以桌布、Dock 與浮動視窗測試另一種操作模式。不會影響目前正式介面與財務資料。
             </p>
           </div>
           <Link className="game-button game-button-primary ui-focus inline-flex min-h-10 items-center justify-center px-4 py-2 text-sm font-semibold" href="/desktop-lab">
@@ -509,27 +524,27 @@ function DesktopLabSlotDetail({ preferences, onChange }: { preferences: DesktopL
           </Link>
         </div>
         <AetherDefinitionList>
-          <AetherDefinitionRow label="資料來源" value="Mock Data Only" />
+          <AetherDefinitionRow label="資料來源" value={desktop.mockOnly} />
           <AetherDefinitionRow label="隔離範圍" value="不修改 Backend / API / Ledger / Finance UI" />
-          <AetherDefinitionRow label="測試互動" value="Wallpaper、Dock、Window 拖曳、最小化、關閉、Z-index" />
+          <AetherDefinitionRow label="測試互動" value="桌布、Dock、視窗拖曳、最小化、關閉、Z-index" />
           <AetherDefinitionRow label="儲存方式" value="desktop-lab.preferences + desktop-lab.window-layout" />
           <AetherDefinitionRow label="目前桌布" value={currentWallpaper.label} />
-          <AetherDefinitionRow label="Window Skin" value={preferences.windowSkin} />
-          <AetherDefinitionRow label="Dock Style" value={preferences.dockStyle} />
-          <AetherDefinitionRow label="HUD Style" value={preferences.hudStyle} />
-          <AetherDefinitionRow label="開啟視窗" value={`${openWindows} open / ${minimizedWindows} minimized`} />
+          <AetherDefinitionRow label={desktop.windowSkin} value={preferences.windowSkin} />
+          <AetherDefinitionRow label="Dock 樣式" value={preferences.dockStyle} />
+          <AetherDefinitionRow label="HUD 樣式" value={preferences.hudStyle} />
+          <AetherDefinitionRow label="開啟視窗" value={`${openWindows} 個開啟 / ${minimizedWindows} 個最小化`} />
         </AetherDefinitionList>
         <div className="aether-ui-lab-controls">
-          <label>Wallpaper<select value={preferences.wallpaper} onChange={(event) => updatePreference("wallpaper", event.target.value as DesktopWallpaperPreset)}>
+          <label>{desktop.wallpaper}<select value={preferences.wallpaper} onChange={(event) => updatePreference("wallpaper", event.target.value as DesktopWallpaperPreset)}>
             {desktopWallpaperPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
           </select></label>
-          <label>Window Skin<select value={preferences.windowSkin} onChange={(event) => updatePreference("windowSkin", event.target.value as DesktopWindowSkin)}>
+          <label>{desktop.windowSkin}<select value={preferences.windowSkin} onChange={(event) => updatePreference("windowSkin", event.target.value as DesktopWindowSkin)}>
             {desktopWindowSkinPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
           </select></label>
-          <label>Dock Style<select value={preferences.dockStyle} onChange={(event) => updatePreference("dockStyle", event.target.value as DesktopDockStyle)}>
+          <label>Dock 樣式<select value={preferences.dockStyle} onChange={(event) => updatePreference("dockStyle", event.target.value as DesktopDockStyle)}>
             {desktopDockStylePresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
           </select></label>
-          <label>HUD Style<select value={preferences.hudStyle} onChange={(event) => updatePreference("hudStyle", event.target.value as DesktopHudStyle)}>
+          <label>HUD 樣式<select value={preferences.hudStyle} onChange={(event) => updatePreference("hudStyle", event.target.value as DesktopHudStyle)}>
             {desktopHudStylePresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
           </select></label>
         </div>
@@ -542,7 +557,7 @@ function DesktopLabSlotDetail({ preferences, onChange }: { preferences: DesktopL
               window.dispatchEvent(new StorageEvent("storage", { key: "desktop-lab.window-layout", newValue: JSON.stringify(defaultDesktopLayout()) }));
             }}
           >
-            Reset Desktop Layout
+            {desktop.resetLayout}
           </Button>
           <Button
             type="button"
@@ -552,10 +567,10 @@ function DesktopLabSlotDetail({ preferences, onChange }: { preferences: DesktopL
               onChange(defaultDesktopLabPreferences);
             }}
           >
-            Reset Desktop Appearance
+            {desktop.resetAppearance}
           </Button>
         </AetherActionBar>
-        <p className="text-sm text-muted">此功能目前為 Prototype，只使用模擬資料。Reset Layout 不會清除外觀 preference。</p>
+        <p className="text-sm text-muted">此功能目前為原型，只使用模擬資料。重設版面不會清除外觀偏好。</p>
       </div>
     </>
   );
@@ -564,7 +579,7 @@ function DesktopLabSlotDetail({ preferences, onChange }: { preferences: DesktopL
 function AssetLibraryDetail({ assets, failedPreviewIds, onImageError }: { assets: ReturnType<typeof getAetherAssetRegistry>; failedPreviewIds: string[]; onImageError: (assetId: string) => void }) {
   return (
     <>
-      <AetherSectionHeader title="Asset Registry" meta={`${assets.length} built-in assets`} />
+      <AetherSectionHeader title={workshop.assets.registry.label} meta={`${assets.length} 個內建素材`} />
       <div className="aether-asset-library">
         {assets.map((asset) => (
           <article key={asset.id} className="aether-asset-card">
@@ -575,56 +590,56 @@ function AssetLibraryDetail({ assets, failedPreviewIds, onImageError }: { assets
             )}
             <div>
               <strong>{asset.name}</strong>
-              <span>{asset.category} / {asset.builtIn ? "Built-in" : "External"}</span>
+              <span>{asset.category} / {asset.builtIn ? workshop.assets.builtIn : workshop.assets.external}</span>
               <small>{asset.usage}</small>
               <small className="break-all">{asset.path}</small>
               <small>{asset.tags.join(", ")}</small>
-              {asset.isCurrent && <AetherStatusIndicator label="Current" tone="success" />}
+              {asset.isCurrent && <AetherStatusIndicator label={workshop.assets.current} tone="success" />}
             </div>
           </article>
         ))}
       </div>
-      <p className="text-sm text-muted">素材庫只索引專案內建合法素材；Window Skin 與 HUD 目前為 CSS preset，沒有圖片素材時不捏造資產。</p>
+      <p className="text-sm text-muted">素材註冊表只索引專案內建合法素材；視窗外觀與 HUD 目前為 CSS preset，沒有圖片素材時不捏造資產。</p>
     </>
   );
 }
 
 function ResourceGuideLabDetail({ state, previewVars, onPreviewVarsChange, onChange }: { state: ResourceGuideDemoState; previewVars: { glow: number; radius: number; gaugeHeight: number; stroke: number }; onPreviewVarsChange: (vars: { glow: number; radius: number; gaugeHeight: number; stroke: number }) => void; onChange: (state: ResourceGuideDemoState) => void }) {
-  const resetState = () => onChange({ title: "復活資金", description: "確認目前資源是否足以支援下一次任務。", resourceLabel: "Mock Account 目前資源", current: 68000, maximum: 100000, statusLabel: "NPC / 確認", footerLabel: "Local Prototype", variant: "cyan", compact: false });
+  const resetState = () => onChange({ title: "復活資金", description: "確認目前資源是否足以支援下一次任務。", resourceLabel: "模擬帳戶目前資源", current: 68000, maximum: 100000, statusLabel: "NPC / 確認", footerLabel: workshop.prototype.notice, variant: "cyan", compact: false });
 
   return (
     <>
-      <WorkshopInspector title="Resource Guide Inspector" meta="Local Prototype / Mock Only" actions={<Button type="button" variant="outline" onClick={resetState}>Reset Preview</Button>}>
+      <WorkshopInspector title={workshop.inspector.resourceGuide} meta={workshop.prototype.notice} actions={<Button type="button" variant="outline" onClick={resetState}>{workshop.preview.reset}</Button>}>
         <div className="aether-ui-lab-controls">
-          <label>Title<input value={state.title} onChange={(event) => onChange({ ...state, title: event.target.value })} /></label>
-          <label>Description<textarea value={state.description} onChange={(event) => onChange({ ...state, description: event.target.value })} /></label>
-          <label>Resource Label<input value={state.resourceLabel} onChange={(event) => onChange({ ...state, resourceLabel: event.target.value })} /></label>
-          <label>Current<input type="number" value={state.current} onChange={(event) => onChange({ ...state, current: Number(event.target.value) })} /></label>
-          <label>Maximum<input type="number" value={state.maximum} onChange={(event) => onChange({ ...state, maximum: Number(event.target.value) })} /></label>
-          <label>Status Label<input value={state.statusLabel} onChange={(event) => onChange({ ...state, statusLabel: event.target.value })} /></label>
-          <label>Footer Label<input value={state.footerLabel} onChange={(event) => onChange({ ...state, footerLabel: event.target.value })} /></label>
-          <label>Variant<select value={state.variant} onChange={(event) => onChange({ ...state, variant: event.target.value as "cyan" | "aether" | "warning" })}>
-            <option value="cyan">cyan</option>
-            <option value="aether">aether</option>
-            <option value="warning">warning</option>
+          <label>{workshop.fields.title}<input value={state.title} onChange={(event) => onChange({ ...state, title: event.target.value })} /></label>
+          <label>{workshop.fields.description}<textarea value={state.description} onChange={(event) => onChange({ ...state, description: event.target.value })} /></label>
+          <label>{workshop.fields.resourceLabel}<input value={state.resourceLabel} onChange={(event) => onChange({ ...state, resourceLabel: event.target.value })} /></label>
+          <label>{workshop.fields.current}<input type="number" value={state.current} onChange={(event) => onChange({ ...state, current: Number(event.target.value) })} /></label>
+          <label>{workshop.fields.maximum}<input type="number" value={state.maximum} onChange={(event) => onChange({ ...state, maximum: Number(event.target.value) })} /></label>
+          <label>{workshop.fields.statusLabel}<input value={state.statusLabel} onChange={(event) => onChange({ ...state, statusLabel: event.target.value })} /></label>
+          <label>{workshop.fields.footerLabel}<input value={state.footerLabel} onChange={(event) => onChange({ ...state, footerLabel: event.target.value })} /></label>
+          <label>{workshop.fields.variant}<select value={state.variant} onChange={(event) => onChange({ ...state, variant: event.target.value as "cyan" | "aether" | "warning" })}>
+            <option value="cyan">{hud.variants.cyan}</option>
+            <option value="aether">{hud.variants.aether}</option>
+            <option value="warning">警示橘</option>
           </select></label>
-          <label className="aether-checkbox-row"><input type="checkbox" checked={state.compact} onChange={(event) => onChange({ ...state, compact: event.target.checked })} /> Compact</label>
+          <label className="aether-checkbox-row"><input type="checkbox" checked={state.compact} onChange={(event) => onChange({ ...state, compact: event.target.checked })} /> {workshop.fields.compact}</label>
         </div>
-        <WorkshopPropertyGroup title="Safe CSS Variables">
-          <WorkshopPropertyRow label="Glow"><input type="range" min="0" max="2" step="0.1" value={previewVars.glow} onChange={(event) => onPreviewVarsChange({ ...previewVars, glow: Number(event.target.value) })} /></WorkshopPropertyRow>
-          <WorkshopPropertyRow label="Radius"><input type="range" min="4" max="18" value={previewVars.radius} onChange={(event) => onPreviewVarsChange({ ...previewVars, radius: Number(event.target.value) })} /></WorkshopPropertyRow>
-          <WorkshopPropertyRow label="Gauge Height"><input type="range" min="6" max="18" value={previewVars.gaugeHeight} onChange={(event) => onPreviewVarsChange({ ...previewVars, gaugeHeight: Number(event.target.value) })} /></WorkshopPropertyRow>
-          <WorkshopPropertyRow label="Number Stroke"><input type="range" min="0" max="2" step="0.25" value={previewVars.stroke} onChange={(event) => onPreviewVarsChange({ ...previewVars, stroke: Number(event.target.value) })} /></WorkshopPropertyRow>
+        <WorkshopPropertyGroup title="安全樣式變數">
+          <WorkshopPropertyRow label={workshop.fields.glow}><input type="range" min="0" max="2" step="0.1" value={previewVars.glow} onChange={(event) => onPreviewVarsChange({ ...previewVars, glow: Number(event.target.value) })} /></WorkshopPropertyRow>
+          <WorkshopPropertyRow label={workshop.fields.radius}><input type="range" min="4" max="18" value={previewVars.radius} onChange={(event) => onPreviewVarsChange({ ...previewVars, radius: Number(event.target.value) })} /></WorkshopPropertyRow>
+          <WorkshopPropertyRow label={workshop.fields.gaugeHeight}><input type="range" min="6" max="18" value={previewVars.gaugeHeight} onChange={(event) => onPreviewVarsChange({ ...previewVars, gaugeHeight: Number(event.target.value) })} /></WorkshopPropertyRow>
+          <WorkshopPropertyRow label={workshop.fields.numberStroke}><input type="range" min="0" max="2" step="0.25" value={previewVars.stroke} onChange={(event) => onPreviewVarsChange({ ...previewVars, stroke: Number(event.target.value) })} /></WorkshopPropertyRow>
         </WorkshopPropertyGroup>
       </WorkshopInspector>
-      <WorkshopPreviewStage title="Live Preview" meta="Normal / edge cases" style={{ "--aether-glow-strength": previewVars.glow, "--aether-radius": `${previewVars.radius}px`, "--aether-gauge-height": `${previewVars.gaugeHeight}px`, "--aether-number-stroke": `${previewVars.stroke}px` } as CSSProperties}>
+      <WorkshopPreviewStage title={workshop.preview.live} meta={`${workshop.preview.normal} / ${workshop.preview.edgeCases}`} style={{ "--aether-glow-strength": previewVars.glow, "--aether-radius": `${previewVars.radius}px`, "--aether-gauge-height": `${previewVars.gaugeHeight}px`, "--aether-number-stroke": `${previewVars.stroke}px` } as CSSProperties}>
         <div className="aether-preview-matrix">
           {[
-            ["Normal", state.current, state.maximum],
-            ["Low Progress", 5, 100],
-            ["Almost Complete", 95, 100],
-            ["Completed", 100, 100],
-            ["Overflow Test", 999999999, 100000]
+            ["一般狀態", state.current, state.maximum],
+            ["低進度", 5, 100],
+            ["接近完成", 95, 100],
+            ["已完成", 100, 100],
+            ["溢位測試", 999999999, 100000]
           ].map(([label, current, maximum]) => (
             <div key={String(label)} className="grid gap-2">
               <AetherStatusIndicator label={String(label)} tone="neutral" />
@@ -638,31 +653,31 @@ function ResourceGuideLabDetail({ state, previewVars, onPreviewVarsChange, onCha
 }
 
 function SoulInterfaceLabDetail({ state, onChange }: { state: SoulDemoState; onChange: (state: SoulDemoState) => void }) {
-  const resetState = () => onChange({ title: "Soul Weapon", current: 615, maximum: 1000, bonusLabel: "攻擊力", bonusValue: "+20", state: "off", numberStyle: "aether", actionLabel: "全靈魂填滿" });
+  const resetState = () => onChange({ title: "靈魂武器", current: 615, maximum: 1000, bonusLabel: "攻擊力", bonusValue: "+20", state: "off", numberStyle: "aether", actionLabel: "全靈魂填滿" });
 
   return (
     <>
-      <WorkshopInspector title="Soul Interface Inspector" meta="Local Prototype / Mock Only" actions={<Button type="button" variant="outline" onClick={resetState}>Reset Preview</Button>}>
+      <WorkshopInspector title={workshop.inspector.soulInterface} meta={workshop.prototype.notice} actions={<Button type="button" variant="outline" onClick={resetState}>{workshop.preview.reset}</Button>}>
         <div className="aether-ui-lab-controls">
-          <label>Title<input value={state.title} onChange={(event) => onChange({ ...state, title: event.target.value })} /></label>
-          <label>Current<input type="number" value={state.current} onChange={(event) => onChange({ ...state, current: Number(event.target.value) })} /></label>
-          <label>Maximum<input type="number" value={state.maximum} onChange={(event) => onChange({ ...state, maximum: Number(event.target.value) })} /></label>
-          <label>Bonus Label<input value={state.bonusLabel} onChange={(event) => onChange({ ...state, bonusLabel: event.target.value })} /></label>
-          <label>Bonus Value<input value={state.bonusValue} onChange={(event) => onChange({ ...state, bonusValue: event.target.value })} /></label>
-          <label>Action Label<input value={state.actionLabel} onChange={(event) => onChange({ ...state, actionLabel: event.target.value })} /></label>
-          <label>State<select value={state.state} onChange={(event) => onChange({ ...state, state: event.target.value as "off" | "active" | "complete" })}>
-            <option value="off">off</option>
-            <option value="active">active</option>
-            <option value="complete">complete</option>
+          <label>{workshop.fields.title}<input value={state.title} onChange={(event) => onChange({ ...state, title: event.target.value })} /></label>
+          <label>{workshop.fields.current}<input type="number" value={state.current} onChange={(event) => onChange({ ...state, current: Number(event.target.value) })} /></label>
+          <label>{workshop.fields.maximum}<input type="number" value={state.maximum} onChange={(event) => onChange({ ...state, maximum: Number(event.target.value) })} /></label>
+          <label>{workshop.fields.bonusLabel}<input value={state.bonusLabel} onChange={(event) => onChange({ ...state, bonusLabel: event.target.value })} /></label>
+          <label>{workshop.fields.bonusValue}<input value={state.bonusValue} onChange={(event) => onChange({ ...state, bonusValue: event.target.value })} /></label>
+          <label>{workshop.fields.actionLabel}<input value={state.actionLabel} onChange={(event) => onChange({ ...state, actionLabel: event.target.value })} /></label>
+          <label>{workshop.fields.state}<select value={state.state} onChange={(event) => onChange({ ...state, state: event.target.value as "off" | "active" | "complete" })}>
+            <option value="off">{statusTerms.inactive.label}</option>
+            <option value="active">{statusTerms.active.label}</option>
+            <option value="complete">{statusTerms.completed.label}</option>
           </select></label>
-          <label>Number Style<select value={state.numberStyle} onChange={(event) => onChange({ ...state, numberStyle: event.target.value as "default" | "aether" | "damage" })}>
-            <option value="default">default</option>
-            <option value="aether">aether</option>
-            <option value="damage">damage</option>
+          <label>{workshop.fields.numberStyle}<select value={state.numberStyle} onChange={(event) => onChange({ ...state, numberStyle: event.target.value as "default" | "aether" | "damage" })}>
+            <option value="default">{hud.variants.default}</option>
+            <option value="aether">{hud.variants.aether}</option>
+            <option value="damage">{hud.variants.damage}</option>
           </select></label>
         </div>
       </WorkshopInspector>
-      <WorkshopPreviewStage title="Live Preview" meta="Number overflow cases">
+      <WorkshopPreviewStage title={workshop.preview.live} meta="數值溢位案例">
         <div className="aether-preview-matrix aether-preview-matrix-compact">
           {[
             [state.current, state.maximum],
@@ -676,59 +691,36 @@ function SoulInterfaceLabDetail({ state, onChange }: { state: SoulDemoState; onC
   );
 }
 
-function GameNumberLabDetail({ state, onChange }: { state: { value: string; variant: GameNumberVariant; size: GameNumberSize; prefix: string; suffix: string; glow: boolean; outline: boolean }; onChange: (state: { value: string; variant: GameNumberVariant; size: GameNumberSize; prefix: string; suffix: string; glow: boolean; outline: boolean }) => void }) {
-  return (
-    <>
-      <WorkshopInspector title="Game Number Inspector" meta="Local Prototype / Mock Only" actions={<Button type="button" variant="outline" onClick={() => onChange({ value: "12,983", variant: "aether", size: "lg", prefix: "", suffix: "", glow: true, outline: true })}>Reset Preview</Button>}>
-        <div className="aether-ui-lab-controls">
-          <label>Value<input value={state.value} onChange={(event) => onChange({ ...state, value: event.target.value })} /></label>
-          <label>Prefix<input value={state.prefix} onChange={(event) => onChange({ ...state, prefix: event.target.value })} /></label>
-          <label>Suffix<input value={state.suffix} onChange={(event) => onChange({ ...state, suffix: event.target.value })} /></label>
-          <label>Variant<select value={state.variant} onChange={(event) => onChange({ ...state, variant: event.target.value as GameNumberVariant })}>
-            {(["finance", "aether", "damage", "success", "warning"] as GameNumberVariant[]).map((variant) => <option key={variant} value={variant}>{variant}</option>)}
-          </select></label>
-          <label>Size<select value={state.size} onChange={(event) => onChange({ ...state, size: event.target.value as GameNumberSize })}>
-            {(["sm", "md", "lg", "xl"] as GameNumberSize[]).map((size) => <option key={size} value={size}>{size}</option>)}
-          </select></label>
-          <label className="aether-checkbox-row"><input type="checkbox" checked={state.glow} onChange={(event) => onChange({ ...state, glow: event.target.checked })} /> Glow</label>
-          <label className="aether-checkbox-row"><input type="checkbox" checked={state.outline} onChange={(event) => onChange({ ...state, outline: event.target.checked })} /> Outline</label>
-        </div>
-      </WorkshopInspector>
-      <WorkshopPreviewStage title="Preview Matrix" meta="Game format, not finance format">
-        <div className="game-number-matrix">
-          {[state.value, "615", "1,000", "12,983", "100,000", "999,999,999", "-24,495"].map((value, index) => (
-            <GameNumber key={`${index}-${value}`} value={value} variant={state.variant} size={state.size} prefix={state.prefix} suffix={state.suffix} glow={state.glow} outline={state.outline} />
-          ))}
-        </div>
-      </WorkshopPreviewStage>
-    </>
-  );
-}
-
 function GaugeLabDetail({ state, onChange }: { state: GaugeDemoState; onChange: (state: GaugeDemoState) => void }) {
   return (
     <>
-      <WorkshopInspector title="Gauge Inspector" meta="Local Prototype / Mock Only" actions={<Button type="button" variant="outline" onClick={() => onChange({ current: 66, maximum: 100, variant: "cyan", size: "md", showValue: true, showPercentage: true, label: "Aether Gauge", animated: true })}>Reset Preview</Button>}>
+      <WorkshopInspector title={workshop.inspector.gameGauge} meta={workshop.prototype.notice} actions={<Button type="button" variant="outline" onClick={() => onChange({ current: 66, maximum: 100, variant: "cyan", size: "md", showValue: true, showPercentage: true, label: "Aether 量表", animated: true })}>{workshop.preview.reset}</Button>}>
         <div className="aether-ui-lab-controls">
-          <label>Label<input value={state.label} onChange={(event) => onChange({ ...state, label: event.target.value })} /></label>
-          <label>Current<input type="number" value={state.current} onChange={(event) => onChange({ ...state, current: Number(event.target.value) })} /></label>
-          <label>Maximum<input type="number" value={state.maximum} onChange={(event) => onChange({ ...state, maximum: Number(event.target.value) })} /></label>
-          <label>Variant<select value={state.variant} onChange={(event) => onChange({ ...state, variant: event.target.value as GameGaugeVariant })}>
-            {(["cyan", "purple", "green", "yellow", "red"] as GameGaugeVariant[]).map((variant) => <option key={variant} value={variant}>{variant}</option>)}
+          <label>{workshop.fields.label}<input value={state.label} onChange={(event) => onChange({ ...state, label: event.target.value })} /></label>
+          <label>{workshop.fields.current}<input type="number" value={state.current} onChange={(event) => onChange({ ...state, current: Number(event.target.value) })} /></label>
+          <label>{workshop.fields.maximum}<input type="number" value={state.maximum} onChange={(event) => onChange({ ...state, maximum: Number(event.target.value) })} /></label>
+          <label>{workshop.fields.variant}<select value={state.variant} onChange={(event) => onChange({ ...state, variant: event.target.value as GameGaugeVariant })}>
+            <option value="cyan">{hud.variants.cyan}</option>
+            <option value="purple">{hud.variants.purple}</option>
+            <option value="green">成功綠</option>
+            <option value="yellow">{hud.variants.yellow}</option>
+            <option value="red">警示紅</option>
           </select></label>
-          <label>Size<select value={state.size} onChange={(event) => onChange({ ...state, size: event.target.value as "sm" | "md" | "lg" })}>
-            {(["sm", "md", "lg"] as const).map((size) => <option key={size} value={size}>{size}</option>)}
+          <label>{workshop.fields.size}<select value={state.size} onChange={(event) => onChange({ ...state, size: event.target.value as "sm" | "md" | "lg" })}>
+            <option value="sm">小</option>
+            <option value="md">中</option>
+            <option value="lg">大</option>
           </select></label>
-          <label className="aether-checkbox-row"><input type="checkbox" checked={state.showValue} onChange={(event) => onChange({ ...state, showValue: event.target.checked })} /> Show value</label>
-          <label className="aether-checkbox-row"><input type="checkbox" checked={state.showPercentage} onChange={(event) => onChange({ ...state, showPercentage: event.target.checked })} /> Show percentage</label>
-          <label className="aether-checkbox-row"><input type="checkbox" checked={state.animated} onChange={(event) => onChange({ ...state, animated: event.target.checked })} /> Animated</label>
+          <label className="aether-checkbox-row"><input type="checkbox" checked={state.showValue} onChange={(event) => onChange({ ...state, showValue: event.target.checked })} /> {workshop.fields.showValue}</label>
+          <label className="aether-checkbox-row"><input type="checkbox" checked={state.showPercentage} onChange={(event) => onChange({ ...state, showPercentage: event.target.checked })} /> {workshop.fields.showPercentage}</label>
+          <label className="aether-checkbox-row"><input type="checkbox" checked={state.animated} onChange={(event) => onChange({ ...state, animated: event.target.checked })} /> {workshop.fields.animated}</label>
         </div>
       </WorkshopInspector>
-      <WorkshopPreviewStage title="Gauge Preview" meta="ARIA progressbar">
+      <WorkshopPreviewStage title={workshop.preview.live} meta="ARIA progressbar">
         <div className="grid gap-4">
           <GameGauge {...state} />
-          <GameGauge {...state} current={0} maximum={0} label="Maximum Zero" />
-          <GameGauge {...state} current={999} maximum={100} label="Overflow Clamp" />
+          <GameGauge {...state} current={0} maximum={0} label="最大值為零" />
+          <GameGauge {...state} current={999} maximum={100} label="溢位限制" />
         </div>
       </WorkshopPreviewStage>
     </>
@@ -737,13 +729,13 @@ function GaugeLabDetail({ state, onChange }: { state: GaugeDemoState; onChange: 
 
 function FutureComponentsDetail({ selectedKey }: { selectedKey: WorkshopSlotKey }) {
   const items = [
-    ["Mission Panel", "任務列表與狀態徽章，下一階段再做互動。"],
-    ["Notification Panel", "浮動通知、Toast 與系統提示。"],
-    ["Inventory Grid", "格狀道具欄與財務資源格。"]
+    [workshop.widgets.missionPanel, "任務列表與狀態徽章，下一階段再做互動。"],
+    [workshop.widgets.notificationPanel, "浮動通知、Toast 與系統提示。"],
+    [workshop.widgets.inventoryGrid, "格狀道具欄與財務資源格。"]
   ];
   return (
     <>
-      <AetherSectionHeader title="Future Components" meta={selectedKey} />
+      <AetherSectionHeader title="未來元件" meta={selectedKey} />
       <div className="aether-layout-lab-grid">
         {items.map(([title, description]) => (
           <WorkshopComingSoon key={title} title={title} description={description} />
@@ -755,15 +747,15 @@ function FutureComponentsDetail({ selectedKey }: { selectedKey: WorkshopSlotKey 
 
 function LayoutLabDetail() {
   const previews = [
-    ["Dashboard Profile Layout", "正式 Dashboard 已使用", "Active", "Avatar + resource bars + mission hints", "Desktop / Mobile"],
-    ["Account Overview Layout", "正式 Accounts 資訊層級", "Active", "Summary card + compact account slots", "Desktop / Mobile"],
-    ["Credit Terminal Layout", "信用卡主從式布局", "Prototype", "Statement cards + import console", "Desktop first"],
-    ["Desktop Workspace Layout", "Desktop Lab 隔離桌面", "Experimental", "Wallpaper + HUD + Windows + Dock", "Desktop"]
+    ["儀表板角色版面", "正式儀表板已使用", statusTerms.active.label, "角色圖像 + 資源條 + 任務提示", "桌面 / 手機"],
+    ["帳戶總覽版面", "正式帳戶頁資訊層級", statusTerms.active.label, "摘要卡片 + 精簡帳戶槽位", "桌面 / 手機"],
+    ["信用卡終端版面", "信用卡主從式布局", statusTerms.prototype.label, "帳單卡片 + 匯入控制台", "桌面優先"],
+    ["桌面工作區版面", "桌面實驗室隔離桌面", statusTerms.experimental.label, "桌布 + HUD + 視窗 + Dock", "桌面"]
   ];
 
   return (
     <>
-      <AetherSectionHeader title="Layout Lab" meta="Structure sketches" />
+      <AetherSectionHeader title={workshop.sections.layoutLab.label} meta={workshop.layout.structureSketches} />
       <div className="aether-layout-lab-grid">
         {previews.map(([title, purpose, status, description, viewport]) => (
           <article key={title} className="aether-layout-preview-card">
@@ -773,11 +765,11 @@ function LayoutLabDetail() {
             <small>{purpose}</small>
             <small>狀態：{status}</small>
             <small>適合：{viewport}</small>
-            <small>Mock / Static Preview</small>
+            <small>{workshop.layout.mockStaticPreview}</small>
           </article>
         ))}
       </div>
-      <p className="text-sm text-muted">Layout Lab 只做構圖比較；成熟後才逐頁搬進正式 Finance UI。</p>
+      <p className="text-sm text-muted">版面實驗室只做構圖比較；成熟後才逐頁搬進正式財務介面。</p>
     </>
   );
 }
@@ -788,7 +780,7 @@ function PreviewIcon({ assetId, src, name, failedPreviewIds, onError, size = "no
 
   return (
     <span className={`grid shrink-0 place-items-center rounded-ui border border-border/75 bg-background/80 ${sizeClass}`}>
-      {hasFailedPreview ? <span className="text-xs font-bold text-muted">ICON</span> : <img className="h-8 w-8 object-contain" src={src} alt={`${name} preview`} onError={() => onError(assetId)} />}
+      {hasFailedPreview ? <span className="text-xs font-bold text-muted">圖示</span> : <img className="h-8 w-8 object-contain" src={src} alt={`${name} 預覽`} onError={() => onError(assetId)} />}
     </span>
   );
 }
@@ -796,7 +788,7 @@ function PreviewIcon({ assetId, src, name, failedPreviewIds, onError, size = "no
 function slotSubtitle(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings, savedAssetName: string, dashboardImageName: string, fallback: string) {
   if (slotKey === visualSlots.favicon.key) return `目前：${savedAssetName}`;
   if (slotKey === "dashboard.profile-image") return `目前：${dashboardImageName}`;
-  if (slotKey === "desktop-lab") return "Prototype / Mock Data Only";
+  if (slotKey === "desktop-lab") return workshop.prototype.notice;
   if (slotKey === visualSlots.headerDivider.key) return settings.headerDividerEnabled ? "頁首光效啟用" : "頁首光效停用";
   return fallback;
 }
@@ -804,8 +796,8 @@ function slotSubtitle(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings
 function slotStatusLabel(slotKey: WorkshopSlotKey, settings: AetherWorkshopSettings) {
   if (slotKey === visualSlots.favicon.key) return "同步";
   if (slotKey === "dashboard.profile-image") return "同步";
-  if (slotKey === "desktop-lab") return "Experimental";
-  if (slotKey.startsWith("ui-lab.") || slotKey === "layout-lab.previews") return slotKey === "ui-lab.mission-panel" || slotKey === "ui-lab.notification-panel" || slotKey === "ui-lab.inventory-grid" ? "Coming Later" : "Mock";
+  if (slotKey === "desktop-lab") return statusTerms.experimental.label;
+  if (slotKey.startsWith("ui-lab.") || slotKey === "layout-lab.previews") return slotKey === "ui-lab.mission-panel" || slotKey === "ui-lab.notification-panel" || slotKey === "ui-lab.inventory-grid" ? statusTerms.planned.label : statusTerms.mockOnly.label;
   if (slotKey === "assets.library") return "索引";
   return settings.headerDividerEnabled ? "啟用" : "停用";
 }

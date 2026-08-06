@@ -56,7 +56,7 @@ export function MobileDashboard({
           <span>早安，{displayName}</span>
           <small>{today}</small>
         </div>
-        <p className="mobile-section-eyebrow">FINANCIAL STATUS</p>
+        <p className="mobile-section-eyebrow">財務狀態</p>
         <div className="mobile-net-worth">
           <span>淨值</span>
           <strong className={primary && primary.netBalance >= 0 ? "text-income" : "text-warning"}>
@@ -70,11 +70,11 @@ export function MobileDashboard({
         <p className="mobile-brand-line">Gold Engine · {currency}</p>
       </section>
 
-      <MobileCard title="本月 Cash Flow" meta="Monthly">
+      <MobileCard title="本月現金流" meta="本月">
         <div className="mobile-metric-grid">
           <MobileMetric label="本月收入" value={money(income, currency)} tone="success" />
           <MobileMetric label="本月支出" value={money(expense, currency)} tone="danger" />
-          <MobileMetric label="Cash Flow" value={money(cashFlow, currency)} tone={cashFlow >= 0 ? "success" : "warning"} wide />
+          <MobileMetric label="淨現金流" value={money(cashFlow, currency)} tone={cashFlow >= 0 ? "success" : "warning"} wide />
         </div>
       </MobileCard>
 
@@ -103,9 +103,9 @@ export function MobileDashboard({
         <DashboardGoals goals={goals} accounts={accounts} />
       </div>
 
-      <MobileCard title="最近三筆交易" meta="Latest">
+      <MobileCard title="最近三筆交易" meta="最近">
         {recentTransactions.length === 0 ? (
-          <MobileHudEmptyState title="尚無最近交易" description="按下底部 +，用 Quick Add 建立第一筆行動紀錄。" />
+          <MobileHudEmptyState title="尚無最近交易" description="按下底部 +，用快速新增建立第一筆行動紀錄。" />
         ) : (
           <div className="grid gap-2">
             {recentTransactions.slice(0, 3).map((transaction) => {

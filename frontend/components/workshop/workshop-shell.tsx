@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { AetherListRow, AetherSectionHeader, AetherStatusIndicator } from "@/components/ui/aether-management";
+import { coinTerminology } from "@/lib/coin-engine-terminology";
 
 export type WorkshopTone = "neutral" | "success" | "warning" | "danger" | "credit";
 
@@ -86,7 +87,7 @@ export function WorkshopPropertyRow({ label, children }: { label: string; childr
 export function WorkshopComingSoon({ title, description }: { title: string; description: string }) {
   return (
     <article className="workshop-coming-soon">
-      <span>Coming Later</span>
+      <span>{coinTerminology.status.planned.label}</span>
       <strong>{title}</strong>
       <p>{description}</p>
     </article>

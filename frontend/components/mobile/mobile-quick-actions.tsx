@@ -4,7 +4,7 @@ const actions = [
   { href: "/transactions/new", label: "新增交易", meta: "記一筆" },
   { href: "/credit-cards", label: "信用卡付款", meta: "卡片" },
   { href: "/credit-cards", label: "匯入帳單", meta: "PDF" },
-  { href: "/accounts", label: "管理目標", meta: "Goals" }
+  { href: "/accounts", label: "管理目標", meta: "財務目標" }
 ];
 
 export function MobileQuickActions() {

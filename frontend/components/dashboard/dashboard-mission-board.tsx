@@ -35,9 +35,9 @@ export function DashboardMissionBoard({ upcoming, goals, accounts }: { upcoming:
       actions={<Link href="/upcoming"><Button variant="outline" size="sm">開啟任務</Button></Link>}
     >
       <div className="dashboard-mission-grid">
-        <DashboardSection title="即將發生" meta={urgent > 0 ? `${urgent} 項已到期` : "排程任務"}>
+        <DashboardSection title="即將發生" meta={urgent > 0 ? `${urgent} 項已到期` : "排程任務"} className="dashboard-mission-section dashboard-mission-section-scroll">
           {rows.length === 0 ? <AetherEmptyState title="目前沒有待辦任務" description="固定交易、分期或信用卡提醒出現時，會自動加入任務列表。" /> : (
-            <div className="dashboard-row-list">
+            <div className="dashboard-row-list dashboard-mission-list">
               {rows.slice(0, 5).map((row) => (
                 <article key={row.id} className="dashboard-card-row dashboard-card-row-compact">
                   <div className="min-w-0">
@@ -51,15 +51,15 @@ export function DashboardMissionBoard({ upcoming, goals, accounts }: { upcoming:
           )}
         </DashboardSection>
 
-        <DashboardSection title="資金目標" meta="Resource Bars">
+        <DashboardSection title="資金目標" meta="Resource Bars" className="dashboard-mission-section dashboard-mission-section-scroll">
           {goals.length === 0 ? <AetherEmptyState title="尚未建立目標血條" description="到帳戶頁建立目標血條後，Dashboard 會顯示主要資金進度。" /> : (
-            <div className="dashboard-row-list">
+            <div className="dashboard-row-list dashboard-mission-list">
               {goals.slice(0, 3).map((goal) => <DashboardGoalBar key={goal.id} goal={goal} account={accounts.find((account) => account.id === goal.accountId)} />)}
             </div>
           )}
         </DashboardSection>
 
-        <DashboardSection title="任務摘要" meta="Status">
+        <DashboardSection title="任務摘要" meta="Status" className="dashboard-mission-section">
           <DashboardDataRow label="提醒 / 排程" value={`${rows.length} 項`} />
           <DashboardDataRow label="資金目標" value={`${goals.length} 個`} tone="credit" />
           <DashboardDataRow label="今日或逾期" value={`${urgent} 項`} tone={urgent > 0 ? "warning" : "success"} />

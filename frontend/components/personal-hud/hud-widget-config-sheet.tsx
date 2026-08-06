@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import type { AccountDto, UserGoalBarDto } from "@/lib/api-client";
+import { coinTerminology } from "@/lib/coin-engine-terminology";
 import { availableHudWidgetDefinitions, getHudWidgetDefinition } from "./hud-widget-registry";
 import { createHudWidgetId } from "./hud-storage";
 import type {
@@ -19,28 +20,29 @@ import type {
 import { HudWidgetRenderer } from "./hud-widget-renderer";
 
 type SheetStep = "select" | "source" | "configure" | "preview";
-type SourceAvailability = "available" | "selected" | "unavailable" | "coming-later";
+type SourceAvailability = "available" | "selected" | "unavailable" | "planned";
 
 const steps: SheetStep[] = ["select", "source", "configure", "preview"];
+const { actions, hud, status } = coinTerminology;
 const stepTitles: Record<SheetStep, string> = {
-  select: "選擇介面",
-  source: "選擇資料",
-  configure: "設定顯示",
-  preview: "確認預覽"
+  select: hud.wizard.steps.select.title,
+  source: hud.wizard.steps.source.title,
+  configure: hud.wizard.steps.configure.title,
+  preview: hud.wizard.steps.preview.title
 };
 
 const stepPurpose: Record<SheetStep, string> = {
-  select: "先挑一個要裝備到 Personal HUD 的介面。",
-  source: "這個介面要追蹤哪一項財務資訊？",
-  configure: "調整顯示文字與可見資訊。",
-  preview: "確認加入後會出現在你的 HUD。"
+  select: hud.wizard.steps.select.purpose,
+  source: hud.wizard.steps.source.purpose,
+  configure: hud.wizard.steps.configure.purpose,
+  preview: hud.wizard.steps.preview.purpose
 };
 
 const nextLabels: Record<SheetStep, string> = {
-  select: "下一步：選擇資料",
-  source: "下一步：設定顯示",
-  configure: "下一步：確認預覽",
-  preview: "加入我的介面"
+  select: hud.wizard.nextLabels.select,
+  source: hud.wizard.nextLabels.source,
+  configure: hud.wizard.nextLabels.configure,
+  preview: hud.wizard.nextLabels.preview
 };
 
 const stepHeightMode: Record<SheetStep, "large" | "medium" | "content"> = {
@@ -51,15 +53,15 @@ const stepHeightMode: Record<SheetStep, "large" | "medium" | "content"> = {
 };
 
 function statusLabel(status: HudWidgetDefinition["status"]) {
-  if (status === "stable") return "STABLE";
-  if (status === "experimental") return "EXPERIMENTAL · 實驗中";
-  return "WORKSHOP ONLY";
+  if (status === "stable") return coinTerminology.status.stable.label;
+  if (status === "experimental") return coinTerminology.status.experimental.label;
+  return coinTerminology.status.workshopOnly.label;
 }
 
 function createDefaultConfig(definition: HudWidgetDefinition | undefined, goal: UserGoalBarDto | undefined): HudWidgetConfig {
   const config: HudWidgetConfig = {
     schemaVersion: 1,
-    title: goal?.title ?? definition?.name ?? "個人介面"
+    title: goal?.title ?? definition?.name ?? hud.title
   };
   definition?.configurableFields.forEach((field) => {
     if (field.defaultValue !== undefined) {
@@ -143,7 +145,7 @@ export function HudWidgetConfigSheet({
   const validation = validateConfig(definition, config, selectedGoal);
   const canContinueSource = sourceChoice === "goal" && binding.type === "goal" && Boolean(selectedGoal);
   const canSave = Boolean(definition && canContinueSource && !validation.reason);
-  const sourceReason = canContinueSource ? "" : goals.length > 0 ? "請先選擇可使用的財務目標。" : "目前沒有可用的財務目標。請先到帳戶頁建立目標血條。";
+  const sourceReason = canContinueSource ? "" : goals.length > 0 ? "請先選擇可使用的財務目標。" : "目前沒有可用的財務目標。請先到帳戶頁建立財務目標。";
   const activeHeightMode = stepHeightMode[step];
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -155,7 +157,7 @@ export function HudWidgetConfigSheet({
       schemaVersion: 1,
       id: existing?.id ?? "hud-preview",
       widgetType,
-      title: config.title?.trim() || selectedGoal?.title || definition?.name || "個人介面",
+      title: config.title?.trim() || selectedGoal?.title || definition?.name || hud.title,
       dataSource: binding,
       config,
       position: existing?.position ?? nextPosition,
@@ -210,7 +212,7 @@ export function HudWidgetConfigSheet({
   function save() {
     if (!canSave) return;
     const now = new Date().toISOString();
-    setSuccessMessage(existing ? "已儲存介面變更" : "已加入我的介面");
+    setSuccessMessage(existing ? hud.feedback.saved : hud.feedback.added);
     onSave({
       ...previewWidget,
       id: existing?.id ?? createHudWidgetId(),
@@ -233,24 +235,24 @@ export function HudWidgetConfigSheet({
   }> = [
     {
       type: "goal",
-      title: "財務目標",
-      description: goals.length > 0 ? "追蹤一個已建立的目標血條。" : "目前尚未建立可使用的目標。",
-      badge: goals.length > 0 ? "AVAILABLE" : "UNAVAILABLE",
+      title: hud.dataSources.goal.title,
+      description: goals.length > 0 ? hud.dataSources.goal.description : hud.dataSources.goal.emptyDescription,
+      badge: goals.length > 0 ? status.available.label : status.unavailable.label,
       availability: goals.length > 0 ? (sourceChoice === "goal" && canContinueSource ? "selected" : "available") : "unavailable"
     },
     {
       type: "account",
-      title: "帳戶餘額",
-      description: "未來可顯示現金、銀行帳戶與其他帳戶餘額。",
-      badge: "COMING LATER",
-      availability: "coming-later"
+      title: hud.dataSources.account.title,
+      description: hud.dataSources.account.description,
+      badge: status.planned.label,
+      availability: "planned"
     },
     {
       type: "finance-summary",
-      title: "財務摘要",
-      description: "未來可顯示淨值、總資產、總負債與 Cash Flow。",
-      badge: "COMING LATER",
-      availability: "coming-later"
+      title: hud.dataSources.financeSummary.title,
+      description: hud.dataSources.financeSummary.description,
+      badge: status.planned.label,
+      availability: "planned"
     }
   ];
 
@@ -259,11 +261,11 @@ export function HudWidgetConfigSheet({
       <div className="game-window hud-config-sheet shadow-panel" data-step={step} data-height-mode={activeHeightMode} onClick={(event) => event.stopPropagation()}>
         <div className="hud-config-titlebar">
           <div className="hud-config-title-copy">
-            <p className="mobile-section-eyebrow">PERSONAL HUD</p>
-            <h2 id="hud-config-title" className="hud-config-heading">{existing ? "編輯介面" : "新增介面"}</h2>
+            <p className="mobile-section-eyebrow">{hud.systemLabel}</p>
+            <h2 id="hud-config-title" className="hud-config-heading">{existing ? actions.editHudWidget : actions.addHudWidget}</h2>
             <p className="hud-step-chip">步驟 {stepIndex + 1} / {steps.length} · {stepTitles[step]}</p>
           </div>
-          <button ref={closeButtonRef} type="button" className="game-window-close ui-focus" aria-label="關閉新增介面" onClick={onClose}>×</button>
+          <button ref={closeButtonRef} type="button" className="game-window-close ui-focus" aria-label={actions.close} onClick={onClose}>×</button>
         </div>
 
         <div className="hud-config-body">
@@ -299,9 +301,9 @@ export function HudWidgetConfigSheet({
                   type="button"
                   className={`hud-source-option hud-source-option-${option.availability}`}
                   aria-checked={option.availability === "selected"}
-                  aria-disabled={option.availability === "coming-later" || option.availability === "unavailable"}
+                  aria-disabled={option.availability === "planned" || option.availability === "unavailable"}
                   role="radio"
-                  disabled={option.availability === "coming-later"}
+                  disabled={option.availability === "planned" || option.availability === "unavailable"}
                   onClick={() => chooseSource(option.type)}
                 >
                   <span>
@@ -317,7 +319,7 @@ export function HudWidgetConfigSheet({
               ) : (
                 <div className="hud-source-notice" role="status">
                   <strong>目前沒有可用的財務目標。</strong>
-                  <small>請先到帳戶頁建立目標血條，再回來裝備到 Personal HUD。</small>
+                  <small>請先到帳戶頁建立目標血條，再回來加入我的介面。</small>
                   <Link className="hud-inline-cta ui-focus" href="/accounts" onClick={onClose}>前往建立目標</Link>
                 </div>
               )}
@@ -370,7 +372,7 @@ export function HudWidgetConfigSheet({
                 <div><dt>介面資訊</dt><dd>{definition.name} · {statusLabel(definition.status)}</dd></div>
                 <div><dt>資料來源</dt><dd>{selectedGoal ? `財務目標 · ${selectedGoal.title}` : "目前沒有可用資料來源"}</dd></div>
                 <div><dt>顯示設定</dt><dd>{configSummary(definition, config).join(" / ") || "使用預設設定"}</dd></div>
-                {definition.status === "experimental" && <div><dt>實驗中</dt><dd>此介面的設定格式未來可能調整。</dd></div>}
+                {definition.status === "experimental" && <div><dt>{status.experimental.label}</dt><dd>此介面的設定格式未來可能調整。</dd></div>}
               </dl>
             </div>
           )}
@@ -379,9 +381,9 @@ export function HudWidgetConfigSheet({
         <div className="hud-config-footer">
           <div className="hud-config-live" aria-live="polite">{successMessage || (step === "source" && !canContinueSource ? sourceReason : step === "configure" ? validation.reason : "")}</div>
           <div className="hud-config-actions">
-            {step !== "select" && <Button type="button" variant="outline" onClick={goBack}>上一步</Button>}
+            {step !== "select" && <Button type="button" variant="outline" onClick={goBack}>{actions.previousStep}</Button>}
             {step !== "preview" && <Button type="button" onClick={goNext} disabled={(step === "source" && !canContinueSource) || (step === "configure" && Boolean(validation.reason))}>{nextLabels[step]}</Button>}
-            {step === "preview" && <Button type="button" onClick={save} disabled={!canSave}>{existing ? "儲存變更" : nextLabels.preview}</Button>}
+            {step === "preview" && <Button type="button" onClick={save} disabled={!canSave}>{existing ? actions.saveChanges : nextLabels.preview}</Button>}
           </div>
         </div>
       </div>

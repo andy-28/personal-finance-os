@@ -1,5 +1,6 @@
 import { GameGauge } from "./game-gauge";
 import { GameNumber, type GameNumberVariant } from "./game-number";
+import { coinTerminology } from "@/lib/coin-engine-terminology";
 
 type SoulInterfaceProps = {
   title: string;
@@ -15,6 +16,12 @@ type SoulInterfaceProps = {
 };
 
 const soulSlots = ["◇", "◆", "⌂", "⌂", "商"];
+
+const stateLabels: Record<SoulInterfaceProps["state"], string> = {
+  off: coinTerminology.status.inactive.label,
+  active: coinTerminology.status.active.label,
+  complete: coinTerminology.status.completed.label
+};
 
 export function SoulInterface({ title, current, maximum, bonusLabel, bonusValue, state, numberStyle, actionLabel, showSlots = true, showStateBadge = true }: SoulInterfaceProps) {
   const safeMaximum = Number.isFinite(maximum) ? Math.max(0, maximum) : 0;
@@ -48,7 +55,7 @@ export function SoulInterface({ title, current, maximum, bonusLabel, bonusValue,
           {soulSlots.map((slot, index) => <span key={`${slot}-${index}`}>{slot}</span>)}
         </div>}
         {showStateBadge && <div className="game-ui-soul-state">
-          <span>{state}</span>
+          <span>{stateLabels[state]}</span>
         </div>}
       </div>
     </article>

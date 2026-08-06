@@ -2,7 +2,7 @@ import { backendProblem, fetchWithTimeout, isAbortError, isTransientBackendStatu
 
 const backendApiUrl = process.env.BACKEND_API_URL ?? "http://localhost:5000";
 
-type ProxyContext = { params: { backend: string[] } | Promise<{ backend: string[] }> };
+type ProxyContext = { params: Promise<{ backend: string[] }> };
 
 const hopByHopHeaders = new Set([
   "connection",

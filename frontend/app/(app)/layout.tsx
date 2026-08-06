@@ -28,8 +28,8 @@ const navGroups = [
   {
     title: t("planning"),
     links: [
-      ["/dashboard", "儀表板", "Dashboard"],
-      ["/hud", "我的介面", "Personal HUD"],
+      ["/dashboard", "儀表板", "財務指揮中心"],
+      ["/hud", "我的介面", "PERSONAL HUD"],
       ["/recurring-transactions", t("recurring"), t("recurringHint")],
       ["/categories", t("categories"), t("categoriesHint")]
     ]
@@ -38,7 +38,7 @@ const navGroups = [
     title: t("system"),
     links: [
       ["/system-status", t("health"), t("healthHint")],
-      ["/workshop", "介面工坊", "Aether Workshop"]
+      ["/workshop", "介面工坊", "AETHER WORKSHOP"]
     ]
   }
 ] as const;
@@ -53,7 +53,7 @@ function mobileTitle(pathname: string) {
   if (pathname.startsWith("/categories")) return "分類";
   if (pathname.startsWith("/upcoming")) return "待處理";
   if (pathname.startsWith("/workshop")) return "介面工坊";
-  if (pathname.startsWith("/desktop-lab")) return "Desktop Lab";
+  if (pathname.startsWith("/desktop-lab")) return "桌面實驗室";
   if (pathname.startsWith("/system-status")) return "系統狀態";
   return "Coin Engine";
 }
@@ -117,7 +117,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="min-h-screen text-foreground">
           <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border/70 bg-surface/72 px-4 py-5 shadow-panel backdrop-blur-xl lg:block">
             <div className="mb-8 border-b border-border/55 pb-5">
-              <p className="text-lg font-bold tracking-normal">PersonalFinanceOS</p>
+              <p className="text-lg font-bold tracking-normal">Coin Engine</p>
               <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">{t("aetherCommandMenu")}</p>
             </div>
             {nav}
@@ -128,7 +128,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="game-panel h-full w-72" onClick={(event) => event.stopPropagation()}>
                 <div className="mb-5 flex items-center justify-between border-b border-border/55 pb-4">
                   <div>
-                    <p className="font-bold">PersonalFinanceOS</p>
+                    <p className="font-bold">Coin Engine</p>
                     <p className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">{t("aetherCommandMenu")}</p>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(false)}>
