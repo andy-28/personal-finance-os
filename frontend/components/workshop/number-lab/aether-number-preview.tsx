@@ -1,13 +1,14 @@
 import { memo, type CSSProperties } from "react";
+import { getAetherTypography } from "./aether-number-typography";
 import type { AetherNumberEditorState } from "./aether-number-types";
 
 const sampleValues = [
-  { label: "一般數值", value: "+12,345" },
-  { label: "負數", value: "-12,345" },
-  { label: "貨幣", value: "NT$20,554" },
-  { label: "百分比", value: "75%" },
-  { label: "大型數值", value: "123,456,789" }
-];
+  { key: "income", label: "一般收入", value: "+12,345" },
+  { key: "expense", label: "一般支出", value: "-12,345" },
+  { key: "credit-card", label: "信用卡", value: "NT$20,554" },
+  { key: "percentage", label: "百分比", value: "75%" },
+  { key: "large-number", label: "大型數字", value: "123,456,789" }
+] as const;
 
 export const previewSampleValues = sampleValues;
 
@@ -23,9 +24,12 @@ export const AetherNumberPreview = memo(function AetherNumberPreview({
   onReset: () => void;
 }) {
   const formattedValue = formatPreviewValue(state);
+  const typography = getAetherTypography(state.appearance.typographyId);
   const modeClass = state.formatting.displayMode === "compact" ? "aether-number-preview-compact" : "";
   const effectClass = state.effects.reducedMotion ? "" : `aether-number-effect-${state.effects.preset}`;
   const previewStyle = {
+    "--number-font-family": typography.fontFamily,
+    "--number-font-weight": state.appearance.fontWeight,
     "--number-primary": state.appearance.primaryColor,
     "--number-outline": state.appearance.outlineColor,
     "--number-outline-width": `${state.appearance.outlineWidth}px`,
@@ -33,7 +37,9 @@ export const AetherNumberPreview = memo(function AetherNumberPreview({
     "--number-shadow": `${state.appearance.shadowStrength / 10}px`,
     "--number-opacity": state.appearance.opacity / 100,
     "--number-font-size": `${state.appearance.fontSize}px`,
-    "--number-letter-spacing": `${state.appearance.letterSpacing}px`,
+    "--number-letter-spacing": `${state.appearance.letterSpacing + state.appearance.numberSpacing}px`,
+    "--number-digit-width": `${state.appearance.digitWidth}%`,
+    "--number-text-transform": state.appearance.textTransform,
     "--number-duration": `${Math.round(state.effects.durationMs / state.playbackSpeed)}ms`,
     "--number-intensity": `${state.effects.intensity / 100}`,
     "--number-scale": state.previewScale
@@ -44,7 +50,7 @@ export const AetherNumberPreview = memo(function AetherNumberPreview({
       <div className="aether-number-preview-toolbar">
         <div>
           <span>即時預覽</span>
-          <strong>LIVE PREVIEW</strong>
+          <strong>LIVE PREVIEW · {typography.displayName}</strong>
         </div>
         <div className="aether-number-preview-actions">
           <label>
@@ -67,9 +73,14 @@ export const AetherNumberPreview = memo(function AetherNumberPreview({
         </span>
       </div>
 
-      <div className="aether-number-sample-bar" aria-label="預覽數字快速選項">
+      <div className="aether-number-sample-bar" aria-label="Preview Scene">
         {sampleValues.map((sample) => (
-          <button key={sample.label} type="button" onClick={() => onChange({ ...state, previewValue: sample.value })}>
+          <button
+            key={sample.label}
+            type="button"
+            className={state.previewScene === sample.key ? "aether-number-scene-active" : ""}
+            onClick={() => onChange({ ...state, previewScene: sample.key, previewValue: sample.value, replayKey: state.replayKey + 1 })}
+          >
             <span>{sample.label}</span>
             <strong>{sample.value}</strong>
           </button>

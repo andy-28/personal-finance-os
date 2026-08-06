@@ -1,22 +1,23 @@
 import { memo } from "react";
 import { AetherStatusIndicator } from "@/components/ui/aether-management";
 import { coinTerminology } from "@/lib/coin-engine-terminology";
+import { aetherTypographyRegistry } from "./aether-number-typography";
 import type { AetherNumberActiveTab, AetherNumberEditorState, AetherNumberEffectPreset } from "./aether-number-types";
 
 const tabs: Array<{ key: AetherNumberActiveTab; label: string; systemLabel: string }> = [
+  { key: "animation", label: "動畫設定", systemLabel: "ANIMATION" },
   { key: "appearance", label: "外觀設定", systemLabel: "APPEARANCE" },
-  { key: "effects", label: "特效設定", systemLabel: "EFFECTS" },
   { key: "layout", label: "排列設定", systemLabel: "LAYOUT" },
   { key: "advanced", label: "進階設定", systemLabel: "ADVANCED" }
 ];
 
 const effectOptions: Array<{ key: AetherNumberEffectPreset; label: string; planned?: boolean }> = [
   { key: "none", label: "無效果" },
-  { key: "impact", label: "撞擊彈出" },
-  { key: "rise", label: "上升淡出" },
-  { key: "elastic", label: "彈性放大", planned: true },
-  { key: "stagger", label: "逐字出現", planned: true },
-  { key: "critical-flash", label: "閃光爆擊", planned: true }
+  { key: "impact", label: "Impact / 撞擊彈出" },
+  { key: "rise", label: "Rise / 上升淡出" },
+  { key: "fade", label: "Fade / 淡入淡出" },
+  { key: "bounce", label: "Bounce / 彈跳", planned: true },
+  { key: "critical", label: "Critical / 爆擊", planned: true }
 ];
 
 export const AetherNumberSettings = memo(function AetherNumberSettings({ state, onChange }: { state: AetherNumberEditorState; onChange: (next: AetherNumberEditorState) => void }) {
@@ -39,7 +40,7 @@ export const AetherNumberSettings = memo(function AetherNumberSettings({ state, 
       </div>
       <div className="aether-number-settings-body">
         {state.activeTab === "appearance" && <AppearancePanel state={state} onChange={onChange} />}
-        {state.activeTab === "effects" && <EffectsPanel state={state} onChange={onChange} />}
+        {state.activeTab === "animation" && <AnimationPanel state={state} onChange={onChange} />}
         {state.activeTab === "layout" && <LayoutPanel state={state} onChange={onChange} />}
         {state.activeTab === "advanced" && <AdvancedPanel state={state} onChange={onChange} />}
       </div>
@@ -52,6 +53,29 @@ function AppearancePanel({ state, onChange }: { state: AetherNumberEditorState; 
 
   return (
     <div className="aether-number-control-grid">
+      <label className="aether-number-field">
+        Typography
+        <select value={state.appearance.typographyId} onChange={(event) => {
+          const typography = aetherTypographyRegistry.find((preset) => preset.id === event.target.value) ?? aetherTypographyRegistry[0];
+          updateAppearance({ typographyId: typography.id, fontWeight: typography.fontWeight });
+        }}>
+          {aetherTypographyRegistry.map((typography) => (
+            <option key={typography.id} value={typography.id}>{typography.displayName}</option>
+          ))}
+        </select>
+      </label>
+      <label className="aether-number-field">
+        Font Family
+        <select value={state.appearance.typographyId} onChange={(event) => {
+          const typography = aetherTypographyRegistry.find((preset) => preset.id === event.target.value) ?? aetherTypographyRegistry[0];
+          updateAppearance({ typographyId: typography.id, fontWeight: typography.fontWeight });
+        }}>
+          {aetherTypographyRegistry.map((typography) => (
+            <option key={typography.id} value={typography.id}>{typography.displayName} · {typography.systemLabel}</option>
+          ))}
+        </select>
+      </label>
+      <RangeField label="Weight" min={300} max={950} step={50} value={state.appearance.fontWeight} onChange={(fontWeight) => updateAppearance({ fontWeight })} />
       <ColorField label="主要顏色" value={state.appearance.primaryColor} onChange={(primaryColor) => updateAppearance({ primaryColor })} />
       <ColorField label="描邊顏色" value={state.appearance.outlineColor} onChange={(outlineColor) => updateAppearance({ outlineColor })} />
       <RangeField label="描邊粗細" min={0} max={8} value={state.appearance.outlineWidth} unit="px" onChange={(outlineWidth) => updateAppearance({ outlineWidth })} />
@@ -60,12 +84,21 @@ function AppearancePanel({ state, onChange }: { state: AetherNumberEditorState; 
       <RangeField label="透明度" min={30} max={100} value={state.appearance.opacity} unit="%" onChange={(opacity) => updateAppearance({ opacity })} />
       <RangeField label="字體大小" min={36} max={112} value={state.appearance.fontSize} unit="px" onChange={(fontSize) => updateAppearance({ fontSize })} />
       <RangeField label="字距" min={-4} max={8} value={state.appearance.letterSpacing} unit="px" onChange={(letterSpacing) => updateAppearance({ letterSpacing })} />
+      <RangeField label="Number Spacing" min={-4} max={8} value={state.appearance.numberSpacing} unit="px" onChange={(numberSpacing) => updateAppearance({ numberSpacing })} />
+      <RangeField label="Digit Width" min={70} max={130} value={state.appearance.digitWidth} unit="%" onChange={(digitWidth) => updateAppearance({ digitWidth })} />
+      <label className="aether-number-field">
+        Text Transform
+        <select value={state.appearance.textTransform} onChange={(event) => updateAppearance({ textTransform: event.target.value as "none" | "uppercase" })}>
+          <option value="none">None</option>
+          <option value="uppercase">Uppercase</option>
+        </select>
+      </label>
       <ToggleField label="漸層開關" checked={state.appearance.gradientEnabled} onChange={(gradientEnabled) => updateAppearance({ gradientEnabled })} />
     </div>
   );
 }
 
-function EffectsPanel({ state, onChange }: { state: AetherNumberEditorState; onChange: (next: AetherNumberEditorState) => void }) {
+function AnimationPanel({ state, onChange }: { state: AetherNumberEditorState; onChange: (next: AetherNumberEditorState) => void }) {
   const updateEffects = (effects: Partial<AetherNumberEditorState["effects"]>) => onChange({ ...state, effects: { ...state.effects, ...effects }, replayKey: state.replayKey + 1 });
 
   return (
@@ -84,7 +117,7 @@ function EffectsPanel({ state, onChange }: { state: AetherNumberEditorState; onC
           </button>
         ))}
       </div>
-      <RangeField label="動畫速度" min={0.5} max={2} step={0.1} value={state.playbackSpeed} unit="x" onChange={(playbackSpeed) => onChange({ ...state, playbackSpeed, replayKey: state.replayKey + 1 })} />
+      <RangeField label="Animation Speed" min={0.5} max={2} step={0.1} value={state.playbackSpeed} unit="x" onChange={(playbackSpeed) => onChange({ ...state, playbackSpeed, replayKey: state.replayKey + 1 })} />
       <RangeField label="持續時間" min={200} max={1800} step={50} value={state.effects.durationMs} unit="ms" onChange={(durationMs) => updateEffects({ durationMs })} />
       <RangeField label="字元延遲" min={0} max={120} step={5} value={state.effects.glyphDelayMs} unit="ms" onChange={(glyphDelayMs) => updateEffects({ glyphDelayMs })} />
       <RangeField label="動畫強度" min={0} max={100} value={state.effects.intensity} unit="%" onChange={(intensity) => updateEffects({ intensity })} />
@@ -126,9 +159,19 @@ function AdvancedPanel({ state, onChange }: { state: AetherNumberEditorState; on
 
   return (
     <div className="aether-number-control-grid">
-      <ReadonlyField label="Renderer" value="Web Font" />
-      <ReadonlyField label="SVG Sprite" value={coinTerminology.status.planned.label} />
-      <ReadonlyField label="Image Sprite" value={coinTerminology.status.planned.label} />
+      <label className="aether-number-field">
+        Renderer
+        <select value={state.formatting.renderer} onChange={(event) => updateFormatting({ renderer: event.target.value as AetherNumberEditorState["formatting"]["renderer"] })}>
+          <option value="web-font">Web Font · 目前使用</option>
+          <option value="svg-font" disabled>SVG Font · {coinTerminology.status.planned.label}</option>
+          <option value="sprite-atlas" disabled>Sprite Atlas · {coinTerminology.status.planned.label}</option>
+          <option value="bitmap-font" disabled>Bitmap Font · {coinTerminology.status.planned.label}</option>
+          <option value="image-sprite" disabled>Image Sprite · {coinTerminology.status.planned.label}</option>
+        </select>
+      </label>
+      <ReadonlyField label="目前 Renderer" value="Web Font" />
+      <ReadonlyField label="Sprite Atlas" value={coinTerminology.status.planned.label} />
+      <ReadonlyField label="Bitmap Font" value={coinTerminology.status.planned.label} />
       <label className="aether-number-field">
         Display Mode
         <select value={state.formatting.displayMode} onChange={(event) => updateFormatting({ displayMode: event.target.value as AetherNumberEditorState["formatting"]["displayMode"] })}>
