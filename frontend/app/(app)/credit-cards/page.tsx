@@ -468,7 +468,7 @@ export default function CreditCardsPage() {
                     </div>
                   )}
 
-                  {activeTab === "statement" && <StatementImportPanel batch={statementImport} history={statementImports} categories={expenseCategories} defaultCategoryId={defaultStatementCategoryId} isBusy={isStatementBusy} file={statementFile} password={statementPassword} onDefaultCategoryChange={setDefaultStatementCategoryId} onFileChange={setStatementFile} onPasswordChange={setStatementPassword} onParse={parseStatementImport} onSelectBatch={setStatementImport} onUpdateRow={updateStatementRow} onRetryFailed={retryFailedStatementRows} onPost={postStatementImport} onDiscard={discardStatementImport} />}
+                  {activeTab === "statement" && <StatementWorkspacePanel batch={statementImport} history={statementImports} categories={expenseCategories} defaultCategoryId={defaultStatementCategoryId} isBusy={isStatementBusy} file={statementFile} password={statementPassword} onDefaultCategoryChange={setDefaultStatementCategoryId} onFileChange={setStatementFile} onPasswordChange={setStatementPassword} onParse={parseStatementImport} onSelectBatch={setStatementImport} onUpdateRow={updateStatementRow} onRetryFailed={retryFailedStatementRows} onPost={postStatementImport} onDiscard={discardStatementImport} />}
 
                   {activeTab === "operations" && (
                     <div className="credit-card-operation-layout">
@@ -767,6 +767,249 @@ function InstallmentPanel({ detail, onPostInstallment }: { detail: CreditCardDet
     </Panel>
   );
 }
+
+function StatementWorkspacePanel({ batch, history, categories, defaultCategoryId, isBusy, file, password, onDefaultCategoryChange, onFileChange, onPasswordChange, onParse, onSelectBatch, onUpdateRow, onRetryFailed, onPost, onDiscard }: {
+  batch: StatementImportBatchDto | null;
+  history: StatementImportBatchDto[];
+  categories: CategoryDto[];
+  defaultCategoryId: string;
+  isBusy: boolean;
+  file: File | null;
+  password: string;
+  onDefaultCategoryChange: (value: string) => void;
+  onFileChange: (file: File | null) => void;
+  onPasswordChange: (value: string) => void;
+  onParse: (event: FormEvent) => void;
+  onSelectBatch: (batch: StatementImportBatchDto) => void;
+  onUpdateRow: (rowId: string, update: StatementRowUpdate) => void;
+  onRetryFailed: () => void;
+  onPost: () => void;
+  onDiscard: () => void;
+}) {
+  const readyRows = batch?.rows.filter((row) => row.reviewStatus === "ReadyToPost").length ?? 0;
+  const failedRows = batch?.rows.filter((row) => row.reviewStatus === "Failed").length ?? 0;
+  const postedRows = batch?.rows.filter((row) => row.reviewStatus === "Posted").length ?? 0;
+  const ignoredRows = batch?.rows.filter((row) => row.reviewStatus === "Ignored").length ?? 0;
+  const blockedRows = batch?.rows.filter((row) => row.reviewStatus === "New" || row.matchStatus !== "New" || row.type === "Unknown").length ?? 0;
+  const rowsMissingPostCategory = batch?.rows.filter((row) => row.reviewStatus === "ReadyToPost" && statementRowNeedsExpenseCategory(row.type) && !row.categoryId).length ?? 0;
+  const totalRows = batch?.rows.length ?? 0;
+  const importProgress = totalRows > 0 ? (postedRows / totalRows) * 100 : 0;
+  const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | StatementImportReviewStatus>("All");
+  const [typeFilter, setTypeFilter] = useState<"All" | StatementImportRowType>("All");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+
+  useEffect(() => {
+    setSelectedRowId(batch?.rows[0]?.id ?? null);
+  }, [batch?.id]);
+
+  const selectedRow = batch?.rows.find((row) => row.id === selectedRowId) ?? batch?.rows[0] ?? null;
+  const categoryById = new Map(categories.map((category) => [category.id, category.name]));
+  const filteredRows = batch?.rows.filter((row) => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const matchesQuery = normalizedQuery.length === 0
+      || row.normalizedDescription.toLowerCase().includes(normalizedQuery)
+      || row.rawDescription.toLowerCase().includes(normalizedQuery)
+      || (row.rawText ?? "").toLowerCase().includes(normalizedQuery);
+    const matchesStatus = statusFilter === "All" || row.reviewStatus === statusFilter;
+    const matchesType = typeFilter === "All" || row.type === typeFilter;
+    const matchesCategory = categoryFilter === "All" || (categoryFilter === "Uncategorized" ? !row.categoryId : row.categoryId === categoryFilter);
+    return matchesQuery && matchesStatus && matchesType && matchesCategory;
+  }) ?? [];
+
+  return (
+    <section className="statement-target-workspace">
+      <div className="statement-target-summary">
+        <label>
+          <span>帳單選擇</span>
+          {history.length > 0 ? (
+            <select className="ui-input" value={batch?.id ?? ""} onChange={(event) => {
+              const nextBatch = history.find((item) => item.id === event.target.value);
+              if (nextBatch) onSelectBatch(nextBatch);
+            }}>
+              {history.map((item) => <option key={item.id} value={item.id}>{item.provider} · {item.statementPeriodEnd ? formatDate(item.statementPeriodEnd).slice(0, 7) : item.originalFileName} · {item.rows.length} 筆</option>)}
+            </select>
+          ) : (
+            <strong>{t("noStatementParsed")}</strong>
+          )}
+        </label>
+        <div className="statement-target-summary-cell statement-target-summary-cell-primary"><span>帳單金額</span><strong>{batch?.statementAmount == null ? "-" : money(batch.statementAmount)}</strong></div>
+        <div className="statement-target-summary-cell"><span>繳款日</span><strong>{batch?.paymentDueDate ? formatDate(batch.paymentDueDate) : "-"}</strong></div>
+        <div className="statement-target-summary-cell statement-target-summary-cell-success"><span>已入帳</span><strong>{postedRows}</strong></div>
+        <div className="statement-target-summary-cell statement-target-summary-cell-warning"><span>待入帳</span><strong>{readyRows}</strong></div>
+        <div className="statement-target-summary-cell statement-target-summary-cell-danger"><span>失敗</span><strong>{failedRows}</strong></div>
+        <div className="statement-target-progress"><span>處理進度</span><strong>{totalRows > 0 ? `${Math.round(importProgress)}%` : "-"}</strong><GameProgress value={importProgress} label="入帳進度" /></div>
+      </div>
+
+      {!batch && (
+        <div className="statement-import-empty-workspace">
+          <EmptyState title={t("noStatementParsed")} description={t("noStatementParsedDescription")} />
+          <Button type="button" onClick={() => setIsImportPanelOpen((open) => !open)}>匯入新帳單</Button>
+        </div>
+      )}
+
+      {isImportPanelOpen && (
+        <form onSubmit={onParse} className="statement-import-drawer">
+          <div>
+            <p className="statement-target-kicker">IMPORT PDF</p>
+            <h3>匯入新帳單</h3>
+            <p className="text-xs text-muted">{t("passwordRequestOnly")}</p>
+          </div>
+          <label className="ui-label">銀行<select className="ui-input" defaultValue="auto" aria-label="銀行"><option value="auto">自動辨識（Richart、玉山）</option></select></label>
+          <label className="ui-label">PDF 檔案<input className="ui-input" type="file" accept="application/pdf,.pdf" onChange={(event) => onFileChange(event.target.files?.[0] ?? null)} /></label>
+          <label className="ui-label">{t("password")}<input className="ui-input" type="password" autoComplete="off" value={password} onChange={(event) => onPasswordChange(event.target.value)} /></label>
+          <p className="text-xs text-muted">{file ? `${file.name} / ${Math.ceil(file.size / 1024)} KB` : t("noFileSelected")}</p>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setIsImportPanelOpen(false)}>取消</Button>
+            <Button type="submit" isLoading={isBusy}>{t("parseStatement")}</Button>
+          </div>
+        </form>
+      )}
+
+      {batch && (
+        <>
+          <div className="statement-target-grid">
+            <main className="statement-target-main">
+              <div className="statement-target-toolbar">
+                <input className="ui-input" placeholder="搜尋商家、原始文字、金額..." value={query} onChange={(event) => setQuery(event.target.value)} />
+                <select className="ui-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "All" | StatementImportReviewStatus)}>
+                  <option value="All">全部狀態</option>
+                  <option value="New">待確認</option>
+                  <option value="ReadyToPost">待入帳</option>
+                  <option value="Posted">已入帳</option>
+                  <option value="Ignored">已略過</option>
+                  <option value="Failed">失敗</option>
+                </select>
+                <select className="ui-input" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as "All" | StatementImportRowType)}>
+                  <option value="All">全部類型</option>
+                  {statementRowTypeOptions.map((type) => <option key={type} value={type}>{statementImportRowTypeLabels[type]}</option>)}
+                </select>
+                <select className="ui-input" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                  <option value="All">全部分類</option>
+                  <option value="Uncategorized">未分類</option>
+                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+                <button type="button" className="statement-target-ghost-button" onClick={() => setIsImportPanelOpen((open) => !open)}>匯入新帳單</button>
+                <button type="button" className="statement-target-ghost-button" onClick={() => { setQuery(""); setStatusFilter("All"); setTypeFilter("All"); setCategoryFilter("All"); }}>重設篩選</button>
+              </div>
+              <div className="statement-target-table-shell">
+                <div className="statement-target-table">
+                  <div className="statement-target-table-head"><span></span><span>日期</span><span>商家 / 店名</span><span>分類</span><span>類型</span><span>金額</span><span>狀態</span><span></span></div>
+                  <div className="statement-target-table-body">
+                    {filteredRows.map((row) => {
+                      const isSelected = selectedRow?.id === row.id;
+                      return (
+                        <button key={row.id} type="button" className={`statement-target-row ${isSelected ? "statement-target-row-selected" : ""}`} onClick={() => setSelectedRowId(row.id)}>
+                          <span className="statement-target-checkbox" aria-hidden="true"></span>
+                          <span className="statement-target-date"><strong>{row.transactionDate ? formatDate(row.transactionDate).slice(5) : "-"}</strong><small>#{row.sourceRowNumber}</small></span>
+                          <span className="statement-target-merchant"><strong>{row.normalizedDescription}</strong><small>{row.rawDescription}</small></span>
+                          <span className="statement-target-muted">{row.categoryId ? categoryById.get(row.categoryId) ?? "已分類" : "未分類"}</span>
+                          <span className="statement-target-muted">{statementImportRowTypeLabels[row.type]}</span>
+                          <span className="statement-target-amount">{money(row.amount, row.currency)}</span>
+                          <span className={`statement-status-badge ${statementStatusTone(row)}`}>{statementImportReviewStatusLabels[row.reviewStatus]}</span>
+                          <span className="statement-target-chevron">›</span>
+                        </button>
+                      );
+                    })}
+                    {filteredRows.length === 0 && <div className="statement-target-empty-row">沒有符合條件的帳單明細。</div>}
+                  </div>
+                </div>
+                <div className="statement-target-pagination"><span>顯示 {filteredRows.length} / {totalRows} 筆</span><span>{batch.originalFileName}</span></div>
+              </div>
+            </main>
+            <StatementTargetInspector row={selectedRow} categories={categories} onUpdate={onUpdateRow} />
+          </div>
+          <footer className="statement-target-bottom-bar">
+            <div className="statement-target-bottom-item"><small>帳單金額</small><strong>{batch.statementAmount == null ? "-" : money(batch.statementAmount)}</strong></div>
+            <div className="statement-target-bottom-item"><small>入帳合計</small><strong>{money(batch.rows.reduce((sum, row) => row.reviewStatus === "Posted" ? sum + row.amount : sum, 0))}</strong></div>
+            <div className="statement-target-bottom-item"><small>已入帳</small><strong>{postedRows}</strong></div>
+            <div className="statement-target-bottom-item"><small>已略過</small><strong>{ignoredRows}</strong></div>
+            <div className="statement-target-bottom-item"><small>待確認</small><strong>{blockedRows}</strong></div>
+            <div className="statement-target-bottom-item"><small>差額待核對</small><strong>—</strong></div>
+            <label className="ui-label min-w-60">{t("defaultExpenseCategory")}<select className="ui-input" value={defaultCategoryId} onChange={(event) => onDefaultCategoryChange(event.target.value)}><option value="">{t("chooseWhenPostingPurchases")}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+            <Button type="button" variant="outline" disabled={isBusy || postedRows > 0} onClick={onDiscard}>{t("discard")}</Button>
+            <Button type="button" variant="outline" disabled={isBusy || failedRows === 0} onClick={onRetryFailed}>{t("retryFailedRows")}</Button>
+            <Button type="button" disabled={isBusy || readyRows === 0 || (rowsMissingPostCategory > 0 && !defaultCategoryId)} onClick={onPost}>{t("postReadyRows")}</Button>
+          </footer>
+        </>
+      )}
+    </section>
+  );
+}
+
+function statementStatusTone(row: StatementImportRowDto) {
+  if (row.reviewStatus === "Posted") return "statement-status-badge-success";
+  if (row.reviewStatus === "Failed") return "statement-status-badge-danger";
+  if (row.reviewStatus === "Ignored") return "statement-status-badge-warning";
+  return "statement-status-badge-neutral";
+}
+
+function StatementTargetInspector({ row, categories, onUpdate }: { row: StatementImportRowDto | null; categories: CategoryDto[]; onUpdate: (rowId: string, update: StatementRowUpdate) => void }) {
+  const [categoryId, setCategoryId] = useState(row?.categoryId ?? "");
+  const [amount, setAmount] = useState(row && row.amount > 0 ? String(row.amount) : "");
+  const [rowType, setRowType] = useState<StatementImportRowType>(row?.type ?? "Unknown");
+
+  useEffect(() => {
+    setCategoryId(row?.categoryId ?? "");
+    setAmount(row && row.amount > 0 ? String(row.amount) : "");
+    setRowType(row?.type ?? "Unknown");
+  }, [row?.id, row?.categoryId, row?.amount, row?.type]);
+
+  if (!row) {
+    return <aside className="statement-target-inspector statement-target-inspector-empty"><h3>尚未選取明細</h3><p>請從左側交易列表選擇一筆帳單明細。</p></aside>;
+  }
+
+  const parsedAmount = Number(amount);
+  const editable = row.reviewStatus !== "Posted";
+  const canMarkReady = editable && Number.isFinite(parsedAmount) && parsedAmount > 0 && rowType !== "Unknown";
+
+  return (
+    <aside className="statement-target-inspector">
+      <div className="statement-target-inspector-hero">
+        <div className="statement-target-inspector-meta"><span>{row.transactionDate ? formatDate(row.transactionDate) : "-"}</span><span>#{row.sourceRowNumber}</span></div>
+        <h3>{row.normalizedDescription}</h3>
+        <strong>{money(row.amount, row.currency)}</strong>
+        <p>入帳日 {row.postingDate ? formatDate(row.postingDate) : "-"}</p>
+      </div>
+      <div className="statement-target-inspector-section">
+        <div className="statement-target-section-title"><h4>基本資訊</h4><span className={`statement-status-badge ${statementStatusTone(row)}`}>{statementImportReviewStatusLabels[row.reviewStatus]}</span></div>
+        <div className="statement-target-kv">
+          <Row label="商家 / 對象" value={row.normalizedDescription} />
+          <Row label="原始描述" value={row.rawDescription} />
+          <Row label="交易日期" value={row.transactionDate ? formatDate(row.transactionDate) : "-"} />
+          <Row label="入帳日期" value={row.postingDate ? formatDate(row.postingDate) : "-"} />
+          <Row label="匹配狀態" value={statementImportMatchStatusLabels[row.matchStatus]} />
+        </div>
+      </div>
+      <div className="statement-target-inspector-section">
+        <div className="statement-target-section-title"><h4>審核操作</h4></div>
+        <div className="statement-target-edit-grid">
+          <select className="ui-input" value={rowType} disabled={!editable} onChange={(event) => setRowType(event.target.value as StatementImportRowType)}>{statementRowTypeOptions.map((type) => <option key={type} value={type}>{statementImportRowTypeLabels[type]}</option>)}</select>
+          <input className="ui-input" type="number" min="0.01" step="0.01" value={amount} disabled={!editable} onChange={(event) => setAmount(event.target.value)} />
+          <select className="ui-input" value={categoryId} disabled={!editable} onChange={(event) => setCategoryId(event.target.value)}><option value="">{t("noCategory")}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+        </div>
+      </div>
+      <details className="statement-target-technical">
+        <summary>Technical Data</summary>
+        <div className="statement-target-kv">
+          <Row label="Original Text" value={row.rawText ?? "-"} />
+          <Row label="Parser Row" value={`${row.sourceRowNumber}`} />
+          <Row label="Foreign Amount" value={row.foreignAmount == null ? "-" : `${row.foreignAmount} ${row.foreignCurrency ?? ""}`} />
+          <Row label="Installment Info" value={row.isInstallment ? `${row.installmentCurrentNumber ?? "-"} / ${row.installmentTotalNumber ?? "-"}` : "-"} />
+        </div>
+      </details>
+      <div className="statement-target-inspector-footer">
+        <Button type="button" variant="ghost" size="sm" disabled={!editable} onClick={() => onUpdate(row.id, { reviewStatus: "Ignored", categoryId: categoryId || null, amount: Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : undefined, type: rowType })}>{t("ignore")}</Button>
+        <Button type="button" size="sm" disabled={!canMarkReady} onClick={() => onUpdate(row.id, { reviewStatus: "ReadyToPost", categoryId: categoryId || null, amount: parsedAmount, type: rowType })}>{t("saveReady")}</Button>
+      </div>
+    </aside>
+  );
+}
+
+// Legacy statement import panel kept temporarily for safe rollback while the new workspace stabilizes.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function StatementImportPanel({ batch, history, categories, defaultCategoryId, isBusy, file, password, onDefaultCategoryChange, onFileChange, onPasswordChange, onParse, onSelectBatch, onUpdateRow, onRetryFailed, onPost, onDiscard }: {
   batch: StatementImportBatchDto | null;
   history: StatementImportBatchDto[];
