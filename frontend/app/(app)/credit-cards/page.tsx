@@ -3,12 +3,10 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AetherHeaderDividerSlot } from "@/components/ui/aether-effect";
 import { AetherListRow, AetherMetric, AetherPanelHeader, AetherSectionHeader, AetherSummaryGrid } from "@/components/ui/aether-management";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { GameBadge, GameProgress, GameTab, GameTabs, GameWindow } from "@/components/ui/game-theme";
-import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { apiFetch, money, problemMessage, type AccountDto, type CategoryDto, type CreditCardDetailDto, type CreditCardDto, type StatementImportBatchDto, type StatementImportReviewStatus, type StatementImportRowDto, type StatementImportRowType } from "@/lib/api-client";
 import { financeDataChangedEvent } from "@/lib/app-events";
@@ -357,12 +355,17 @@ export default function CreditCardsPage() {
   }
 
   return (
-    <section className="grid gap-6">
-      <PageHeader title={t("creditCardsTitle")} description={t("creditCardsDescription")} />
-      <AetherHeaderDividerSlot className="-mt-4 mb-1 sm:-mt-5 sm:mb-0" intensity="normal" />
+    <section className="grid gap-3 credit-card-page-workspace-full">
       {error && <ErrorState message={error} />}
 
-      <section className="aether-management-window">
+      <section className="aether-management-window credit-card-module-shell">
+        <GameTabs role="tablist" aria-label="信用卡工作區主導覽" className="credit-card-application-nav">
+          <GameTab role="tab" aria-selected={activeTab === "overview"} aria-controls="credit-card-tab-overview" isActive={activeTab === "overview"} onClick={() => setActiveTab("overview")}>概覽</GameTab>
+          <GameTab role="tab" aria-selected={activeTab === "statement"} aria-controls="credit-card-tab-statement" isActive={activeTab === "statement"} onClick={() => setActiveTab("statement")}>帳單</GameTab>
+          <GameTab role="tab" aria-selected={activeTab === "operations"} aria-controls="credit-card-tab-operations" isActive={activeTab === "operations"} onClick={() => setActiveTab("operations")}>操作</GameTab>
+          <GameTab role="tab" aria-selected={activeTab === "installments"} aria-controls="credit-card-tab-installments" isActive={activeTab === "installments"} onClick={() => setActiveTab("installments")}>分期</GameTab>
+        </GameTabs>
+
         <AetherPanelHeader
           eyebrow="CARD SLOTS"
           title="卡片管理"
@@ -370,6 +373,29 @@ export default function CreditCardsPage() {
           summary={`${cards.length} 張卡片`}
           actions={<Button type="button" onClick={openCreateCardModal}>{t("addCreditCard")}</Button>}
         />
+
+        <section className="credit-card-module-switcher" aria-label="信用卡切換">
+          <div className="credit-card-module-switcher-title">
+            <span>CREDIT CARDS</span>
+            <strong>信用卡</strong>
+          </div>
+          <div className="credit-card-module-card-list" role="listbox" aria-label="信用卡清單">
+            {cards.map((card) => {
+              const isActive = detail?.summary.accountId === card.accountId;
+              return (
+                <button key={card.accountId} type="button" className={`credit-card-module-card ${isActive ? "credit-card-module-card-active" : ""}`} onClick={() => { void selectCreditCard(card.accountId); }}>
+                  <span>{card.accountName}</span>
+                  <small>{cardMeta(card)}</small>
+                </button>
+              );
+            })}
+            {!isLoading && cards.length === 0 && <span className="text-sm text-muted">{t("noCreditCards")}</span>}
+          </div>
+          <div className="credit-card-module-actions">
+            <Button type="button" variant="outline" size="sm" onClick={openCreateCardModal}>{t("addCreditCard")}</Button>
+            {detail && <Button type="button" variant="ghost" size="sm" onClick={() => openEditCardModal(detail.summary)}>{t("editSettings")}</Button>}
+          </div>
+        </section>
 
         <div className="aether-master-detail credit-card-management-grid">
           <aside className="aether-list-pane" role="listbox" aria-label="信用卡清單">
@@ -399,7 +425,7 @@ export default function CreditCardsPage() {
             {cards.length > 0 && <CreditCardListSummary cards={cards} />}
           </aside>
 
-          <section className="aether-detail-pane">
+          <section className={`aether-detail-pane credit-card-workspace-mode credit-card-workspace-mode-${activeTab}`}>
             {detail ? (
               <>
                 <div className="credit-card-detail-header">
@@ -426,16 +452,19 @@ export default function CreditCardsPage() {
 
                 <div className="credit-card-tab-panel" id={`credit-card-tab-${activeTab}`} role="tabpanel">
                   {activeTab === "overview" && (
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-                      <Panel title={t("recentTransactions")}>{detail.recentTransactions.length === 0 ? <p className="text-sm text-muted">{t("noTransactions")}</p> : detail.recentTransactions.slice(0, 8).map((transaction) => <Row key={transaction.id} label={`${formatDate(transaction.transactionDate)} ${transactionTypeLabels[transaction.type]}`} value={money(transaction.displayAmount, detail.summary.currencyCode)} />)}</Panel>
-                      <Panel title="帳期資訊" variant="plain">
-                        <Row label={t("nextClosing")} value={formatDate(detail.summary.nextClosingDate)} />
-                        <Row label={t("nextDue")} value={formatDate(detail.summary.nextPaymentDueDate)} />
-                        <Row label={t("latestStatementAmount")} value={money(detail.summary.latestStatementAmount ?? billedOutstanding(detail.summary), detail.summary.currencyCode)} />
-                        <Row label={t("statementCharges")} value={money(detail.summary.statementCharges, detail.summary.currencyCode)} />
-                        <Row label={t("statementCredits")} value={money(detail.summary.statementCredits, detail.summary.currencyCode)} />
-                        <Row label={t("statementNet")} value={money(detail.summary.estimatedStatementNet, detail.summary.currencyCode)} />
-                      </Panel>
+                    <div className="grid gap-4">
+                      <CreditCardSummary summary={detail.summary} compact />
+                      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
+                        <Panel title={t("recentTransactions")}>{detail.recentTransactions.length === 0 ? <p className="text-sm text-muted">{t("noTransactions")}</p> : detail.recentTransactions.slice(0, 8).map((transaction) => <Row key={transaction.id} label={`${formatDate(transaction.transactionDate)} ${transactionTypeLabels[transaction.type]}`} value={money(transaction.displayAmount, detail.summary.currencyCode)} />)}</Panel>
+                        <Panel title="帳期資訊" variant="plain">
+                          <Row label={t("nextClosing")} value={formatDate(detail.summary.nextClosingDate)} />
+                          <Row label={t("nextDue")} value={formatDate(detail.summary.nextPaymentDueDate)} />
+                          <Row label={t("latestStatementAmount")} value={money(detail.summary.latestStatementAmount ?? billedOutstanding(detail.summary), detail.summary.currencyCode)} />
+                          <Row label={t("statementCharges")} value={money(detail.summary.statementCharges, detail.summary.currencyCode)} />
+                          <Row label={t("statementCredits")} value={money(detail.summary.statementCredits, detail.summary.currencyCode)} />
+                          <Row label={t("statementNet")} value={money(detail.summary.estimatedStatementNet, detail.summary.currencyCode)} />
+                        </Panel>
+                      </div>
                     </div>
                   )}
 
