@@ -3,16 +3,15 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AetherListRow, AetherMetric, AetherPanelHeader, AetherSectionHeader, AetherSummaryGrid } from "@/components/ui/aether-management";
+import { AetherMetric, AetherPanelHeader, AetherSummaryGrid } from "@/components/ui/aether-management";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { GameBadge, GameProgress, GameTab, GameTabs, GameWindow } from "@/components/ui/game-theme";
+import { GameProgress, GameTab, GameTabs, GameWindow } from "@/components/ui/game-theme";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { apiFetch, money, problemMessage, type AccountDto, type CategoryDto, type CreditCardDetailDto, type CreditCardDto, type StatementImportBatchDto, type StatementImportReviewStatus, type StatementImportRowDto, type StatementImportRowType } from "@/lib/api-client";
 import { financeDataChangedEvent } from "@/lib/app-events";
 import { formatDate, todayInputValue } from "@/lib/formatters";
 import { t } from "@/lib/i18n";
-import { installmentStatusLabels, statementImportBatchStatusLabels, statementImportMatchStatusLabels, statementImportReviewStatusLabels, statementImportRowTypeLabels, transactionTypeLabels } from "@/lib/labels";
+import { installmentStatusLabels, statementImportMatchStatusLabels, statementImportReviewStatusLabels, statementImportRowTypeLabels, transactionTypeLabels } from "@/lib/labels";
 import { useAuth } from "../../auth-context";
 
 const emptyCard = { accountId: "", accountName: "", currencyCode: "TWD", issuerName: "", cardName: "", lastFourDigits: "", creditLimit: "", statementClosingDay: 2, paymentDueDay: 20, paymentAccountId: "" };
@@ -129,6 +128,10 @@ export default function CreditCardsPage() {
   }
 
   useEffect(() => { if (accessToken) load(); }, [accessToken]);
+
+  useEffect(() => {
+    document.getElementById(`credit-card-tab-${activeTab}`)?.scrollTo({ top: 0 });
+  }, [activeTab, detail?.summary.accountId]);
   useEffect(() => {
     if (!accessToken) return;
     const onFinanceDataChanged = () => { void load(detail?.summary.accountId); };
@@ -397,62 +400,12 @@ export default function CreditCardsPage() {
           </div>
         </section>
 
-        <div className="aether-master-detail credit-card-management-grid">
-          <aside className="aether-list-pane" role="listbox" aria-label="信用卡清單">
-            <AetherSectionHeader title="卡片槽位" meta={`${cards.length} 張卡`} />
-            <div className="aether-detail-scroll credit-card-list-scroll">
-              {cards.map((card) => {
-                const isActive = detail?.summary.accountId === card.accountId;
-                return (
-                  <AetherListRow
-                    key={card.accountId}
-                    title={card.accountName}
-                    subtitle={cardMeta(card)}
-                    meta={isActive ? <GameBadge tone="credit">目前選取</GameBadge> : undefined}
-                    isActive={isActive}
-                    onClick={() => { void selectCreditCard(card.accountId); }}
-                  >
-                    <div className="mt-3 grid gap-1 text-xs text-muted">
-                      <Row label={t("outstanding")} value={money(card.outstandingAmount, card.currencyCode)} />
-                      <Row label={t("billedOutstanding")} value={money(billedOutstanding(card), card.currencyCode)} />
-                    </div>
-                    <CreditUtilization card={card} className="mt-3" compact />
-                  </AetherListRow>
-                );
-              })}
-              {!isLoading && cards.length === 0 && <EmptyState title={t("noCreditCards")} />}
-            </div>
-            {cards.length > 0 && <CreditCardListSummary cards={cards} />}
-          </aside>
-
-          <section className={`aether-detail-pane credit-card-workspace-mode credit-card-workspace-mode-${activeTab}`}>
+        <section className={`aether-detail-pane credit-card-workspace-mode credit-card-workspace-mode-${activeTab}`}>
             {detail ? (
-              <>
-                <div className="credit-card-detail-header">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">SELECTED CARD</p>
-                    <h2 className="truncate text-2xl font-bold">{detail.summary.accountName}</h2>
-                    <p className="text-sm text-muted">{cardMeta(detail.summary)}</p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <GameBadge tone="credit">{creditUtilizationPercent(detail.summary).toFixed(2)}%</GameBadge>
-                    <Button variant="outline" size="sm" onClick={() => openEditCardModal(detail.summary)}>{t("editSettings")}</Button>
-                  </div>
-                </div>
-
-                <CreditCardSummary summary={detail.summary} compact />
-
-                <div className="credit-card-tab-frame">
-                <GameTabs role="tablist" aria-label="信用卡管理分頁">
-                  <GameTab role="tab" aria-selected={activeTab === "overview"} aria-controls="credit-card-tab-overview" isActive={activeTab === "overview"} onClick={() => setActiveTab("overview")}>概覽</GameTab>
-                  <GameTab role="tab" aria-selected={activeTab === "statement"} aria-controls="credit-card-tab-statement" isActive={activeTab === "statement"} onClick={() => setActiveTab("statement")}>帳單匯入</GameTab>
-                  <GameTab role="tab" aria-selected={activeTab === "operations"} aria-controls="credit-card-tab-operations" isActive={activeTab === "operations"} onClick={() => setActiveTab("operations")}>操作</GameTab>
-                  <GameTab role="tab" aria-selected={activeTab === "installments"} aria-controls="credit-card-tab-installments" isActive={activeTab === "installments"} onClick={() => setActiveTab("installments")}>分期</GameTab>
-                </GameTabs>
-
-                <div className="credit-card-tab-panel" id={`credit-card-tab-${activeTab}`} role="tabpanel">
+              <div className="credit-card-workspace-viewport">
+                <div className="credit-card-tab-panel" id={`credit-card-tab-${activeTab}`} role="tabpanel" key={activeTab}>
                   {activeTab === "overview" && (
-                    <div className="grid gap-4">
+                    <div className="credit-card-overview-workspace">
                       <CreditCardSummary summary={detail.summary} compact />
                       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
                         <Panel title={t("recentTransactions")}>{detail.recentTransactions.length === 0 ? <p className="text-sm text-muted">{t("noTransactions")}</p> : detail.recentTransactions.slice(0, 8).map((transaction) => <Row key={transaction.id} label={`${formatDate(transaction.transactionDate)} ${transactionTypeLabels[transaction.type]}`} value={money(transaction.displayAmount, detail.summary.currencyCode)} />)}</Panel>
@@ -547,13 +500,11 @@ export default function CreditCardsPage() {
 
                   {activeTab === "installments" && <InstallmentPanel detail={detail} onPostInstallment={postInstallment} />}
                 </div>
-                </div>
-              </>
+              </div>
             ) : (
               <EmptyState title={t("noCreditCards")} />
             )}
-          </section>
-        </div>
+        </section>
       </section>
 
       {!isCardModalOpen && <button type="button" className="game-floating-add" aria-label={t("addCreditCard")} title={t("addCreditCard")} onClick={openCreateCardModal}>+</button>}
@@ -617,21 +568,6 @@ function CreditUtilization({ card, className = "", compact = false }: { card: Cr
         {compact && <span>{t("creditUtilization")}</span>}
         <span className="font-semibold text-primary">{percent.toFixed(compact ? 1 : 2)}%</span>
       </div>
-    </div>
-  );
-}
-
-function CreditCardListSummary({ cards }: { cards: CreditCardDto[] }) {
-  const currencyCode = cards[0]?.currencyCode ?? "TWD";
-  const totalLimit = cards.reduce((sum, card) => sum + (card.creditLimit ?? 0), 0);
-  const totalOutstanding = cards.reduce((sum, card) => sum + card.outstandingAmount, 0);
-  const totalBilled = cards.reduce((sum, card) => sum + billedOutstanding(card), 0);
-  return (
-    <div className="credit-card-list-summary">
-      <Row label="信用卡數量" value={`${cards.length}`} />
-      <Row label="總信用額度" value={money(totalLimit, currencyCode)} />
-      <Row label="總未繳" value={money(totalOutstanding, currencyCode)} />
-      <Row label="總已結帳應繳" value={money(totalBilled, currencyCode)} />
     </div>
   );
 }
@@ -794,19 +730,27 @@ function StatementWorkspacePanel({ batch, history, categories, defaultCategoryId
   const rowsMissingPostCategory = batch?.rows.filter((row) => row.reviewStatus === "ReadyToPost" && statementRowNeedsExpenseCategory(row.type) && !row.categoryId).length ?? 0;
   const totalRows = batch?.rows.length ?? 0;
   const importProgress = totalRows > 0 ? (postedRows / totalRows) * 100 : 0;
+  const postedTotal = batch?.rows.reduce((sum, row) => row.reviewStatus === "Posted" ? sum + row.amount : sum, 0) ?? 0;
   const [isImportPanelOpen, setIsImportPanelOpen] = useState(false);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | StatementImportReviewStatus>("All");
   const [typeFilter, setTypeFilter] = useState<"All" | StatementImportRowType>("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
+  const [isReconciliationOpen, setIsReconciliationOpen] = useState(false);
 
   useEffect(() => {
     setSelectedRowId(batch?.rows[0]?.id ?? null);
   }, [batch?.id]);
 
+  async function handleImportSubmit(event: FormEvent) {
+    await Promise.resolve(onParse(event));
+    setIsImportPanelOpen(false);
+  }
+
   const selectedRow = batch?.rows.find((row) => row.id === selectedRowId) ?? batch?.rows[0] ?? null;
   const categoryById = new Map(categories.map((category) => [category.id, category.name]));
+  const reconciliationDifference = batch?.statementAmount == null ? null : batch.statementAmount - postedTotal;
   const filteredRows = batch?.rows.filter((row) => {
     const normalizedQuery = query.trim().toLowerCase();
     const matchesQuery = normalizedQuery.length === 0
@@ -846,26 +790,32 @@ function StatementWorkspacePanel({ batch, history, categories, defaultCategoryId
       {!batch && (
         <div className="statement-import-empty-workspace">
           <EmptyState title={t("noStatementParsed")} description={t("noStatementParsedDescription")} />
-          <Button type="button" onClick={() => setIsImportPanelOpen((open) => !open)}>匯入新帳單</Button>
+          <Button type="button" onClick={() => setIsImportPanelOpen(true)}>匯入新帳單</Button>
         </div>
       )}
 
       {isImportPanelOpen && (
-        <form onSubmit={onParse} className="statement-import-drawer">
-          <div>
-            <p className="statement-target-kicker">IMPORT PDF</p>
-            <h3>匯入新帳單</h3>
-            <p className="text-xs text-muted">{t("passwordRequestOnly")}</p>
-          </div>
-          <label className="ui-label">銀行<select className="ui-input" defaultValue="auto" aria-label="銀行"><option value="auto">自動辨識（Richart、玉山）</option></select></label>
-          <label className="ui-label">PDF 檔案<input className="ui-input" type="file" accept="application/pdf,.pdf" onChange={(event) => onFileChange(event.target.files?.[0] ?? null)} /></label>
-          <label className="ui-label">{t("password")}<input className="ui-input" type="password" autoComplete="off" value={password} onChange={(event) => onPasswordChange(event.target.value)} /></label>
-          <p className="text-xs text-muted">{file ? `${file.name} / ${Math.ceil(file.size / 1024)} KB` : t("noFileSelected")}</p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setIsImportPanelOpen(false)}>取消</Button>
-            <Button type="submit" isLoading={isBusy}>{t("parseStatement")}</Button>
-          </div>
-        </form>
+        <div className="statement-dialog-backdrop" role="presentation" onMouseDown={() => setIsImportPanelOpen(false)}>
+          <form onSubmit={handleImportSubmit} className="statement-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="statement-import-title" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="statement-dialog-header">
+              <div>
+                <p className="statement-target-kicker">IMPORT PDF</p>
+                <h3 id="statement-import-title">匯入新帳單</h3>
+                <p>{t("passwordRequestOnly")}</p>
+              </div>
+            </div>
+            <div className="statement-upload-stack">
+              <label className="ui-label">銀行<select className="ui-input" defaultValue="auto" aria-label="銀行"><option value="auto">自動辨識（Richart、玉山）</option></select></label>
+              <label className="ui-label">PDF 檔案<input className="ui-input" type="file" accept="application/pdf,.pdf" onChange={(event) => onFileChange(event.target.files?.[0] ?? null)} /></label>
+              <label className="ui-label">{t("password")}<input className="ui-input" type="password" autoComplete="off" value={password} onChange={(event) => onPasswordChange(event.target.value)} /></label>
+              <p className="text-xs text-muted">{file ? `${file.name} / ${Math.ceil(file.size / 1024)} KB` : t("noFileSelected")}</p>
+            </div>
+            <div className="statement-dialog-footer">
+              <Button type="button" variant="ghost" onClick={() => setIsImportPanelOpen(false)}>取消</Button>
+              <Button type="submit" isLoading={isBusy}>{t("parseStatement")}</Button>
+            </div>
+          </form>
+        </div>
       )}
 
       {batch && (
@@ -891,8 +841,12 @@ function StatementWorkspacePanel({ batch, history, categories, defaultCategoryId
                   <option value="Uncategorized">未分類</option>
                   {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                 </select>
-                <button type="button" className="statement-target-ghost-button" onClick={() => setIsImportPanelOpen((open) => !open)}>匯入新帳單</button>
+                <label className="ui-label statement-target-default-category"><span>{t("defaultExpenseCategory")}</span><select className="ui-input" value={defaultCategoryId} onChange={(event) => onDefaultCategoryChange(event.target.value)}><option value="">{t("chooseWhenPostingPurchases")}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+                <button type="button" className="statement-target-ghost-button" onClick={() => setIsImportPanelOpen(true)}>匯入新帳單</button>
                 <button type="button" className="statement-target-ghost-button" onClick={() => { setQuery(""); setStatusFilter("All"); setTypeFilter("All"); setCategoryFilter("All"); }}>重設篩選</button>
+                <button type="button" className="statement-target-ghost-button" disabled={isBusy || postedRows > 0} onClick={onDiscard}>{t("discard")}</button>
+                <button type="button" className="statement-target-ghost-button" disabled={isBusy || failedRows === 0} onClick={onRetryFailed}>{t("retryFailedRows")}</button>
+                <button type="button" className="statement-target-ghost-button" disabled={isBusy || readyRows === 0 || (rowsMissingPostCategory > 0 && !defaultCategoryId)} onClick={onPost}>{t("postReadyRows")}</button>
               </div>
               <div className="statement-target-table-shell">
                 <div className="statement-target-table">
@@ -921,18 +875,37 @@ function StatementWorkspacePanel({ batch, history, categories, defaultCategoryId
             </main>
             <StatementTargetInspector row={selectedRow} categories={categories} onUpdate={onUpdateRow} />
           </div>
-          <footer className="statement-target-bottom-bar">
+          <footer className="statement-target-bottom-bar" aria-label="帳單核對摘要">
             <div className="statement-target-bottom-item"><small>帳單金額</small><strong>{batch.statementAmount == null ? "-" : money(batch.statementAmount)}</strong></div>
-            <div className="statement-target-bottom-item"><small>入帳合計</small><strong>{money(batch.rows.reduce((sum, row) => row.reviewStatus === "Posted" ? sum + row.amount : sum, 0))}</strong></div>
+            <div className="statement-target-bottom-item"><small>入帳合計</small><strong>{money(postedTotal)}</strong></div>
             <div className="statement-target-bottom-item"><small>已入帳</small><strong>{postedRows}</strong></div>
-            <div className="statement-target-bottom-item"><small>已略過</small><strong>{ignoredRows}</strong></div>
+            <div className="statement-target-bottom-item"><small>略過</small><strong>{ignoredRows}</strong></div>
             <div className="statement-target-bottom-item"><small>待確認</small><strong>{blockedRows}</strong></div>
-            <div className="statement-target-bottom-item"><small>差額待核對</small><strong>—</strong></div>
-            <label className="ui-label min-w-60">{t("defaultExpenseCategory")}<select className="ui-input" value={defaultCategoryId} onChange={(event) => onDefaultCategoryChange(event.target.value)}><option value="">{t("chooseWhenPostingPurchases")}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-            <Button type="button" variant="outline" disabled={isBusy || postedRows > 0} onClick={onDiscard}>{t("discard")}</Button>
-            <Button type="button" variant="outline" disabled={isBusy || failedRows === 0} onClick={onRetryFailed}>{t("retryFailedRows")}</Button>
-            <Button type="button" disabled={isBusy || readyRows === 0 || (rowsMissingPostCategory > 0 && !defaultCategoryId)} onClick={onPost}>{t("postReadyRows")}</Button>
+            <div className="statement-target-bottom-item"><small>差額待核對</small><strong>{reconciliationDifference == null ? "—" : money(reconciliationDifference)}</strong></div>
+            <button type="button" className="statement-summary-link" onClick={() => setIsReconciliationOpen(true)}>查看核對摘要</button>
           </footer>
+          {isReconciliationOpen && (
+            <div className="statement-dialog-backdrop" role="presentation" onMouseDown={() => setIsReconciliationOpen(false)}>
+              <div className="statement-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="statement-reconciliation-title" onMouseDown={(event) => event.stopPropagation()}>
+                <div className="statement-dialog-header">
+                  <div>
+                    <p className="statement-target-kicker">RECONCILIATION</p>
+                    <h3 id="statement-reconciliation-title">核對摘要</h3>
+                    <p>{batch.originalFileName}</p>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setIsReconciliationOpen(false)}>關閉</Button>
+                </div>
+                <div className="statement-summary-dialog-body">
+                  <Row label="帳單金額" value={batch.statementAmount == null ? "-" : money(batch.statementAmount)} />
+                  <Row label="入帳合計" value={money(postedTotal)} />
+                  <Row label="已入帳" value={`${postedRows}`} />
+                  <Row label="略過" value={`${ignoredRows}`} />
+                  <Row label="待確認" value={`${blockedRows}`} />
+                  <Row label="差額待核對" value={reconciliationDifference == null ? "—" : money(reconciliationDifference)} />
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </section>
@@ -1005,187 +978,5 @@ function StatementTargetInspector({ row, categories, onUpdate }: { row: Statemen
         <Button type="button" size="sm" disabled={!canMarkReady} onClick={() => onUpdate(row.id, { reviewStatus: "ReadyToPost", categoryId: categoryId || null, amount: parsedAmount, type: rowType })}>{t("saveReady")}</Button>
       </div>
     </aside>
-  );
-}
-
-// Legacy statement import panel kept temporarily for safe rollback while the new workspace stabilizes.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function StatementImportPanel({ batch, history, categories, defaultCategoryId, isBusy, file, password, onDefaultCategoryChange, onFileChange, onPasswordChange, onParse, onSelectBatch, onUpdateRow, onRetryFailed, onPost, onDiscard }: {
-  batch: StatementImportBatchDto | null;
-  history: StatementImportBatchDto[];
-  categories: CategoryDto[];
-  defaultCategoryId: string;
-  isBusy: boolean;
-  file: File | null;
-  password: string;
-  onDefaultCategoryChange: (value: string) => void;
-  onFileChange: (file: File | null) => void;
-  onPasswordChange: (value: string) => void;
-  onParse: (event: FormEvent) => void;
-  onSelectBatch: (batch: StatementImportBatchDto) => void;
-  onUpdateRow: (rowId: string, update: StatementRowUpdate) => void;
-  onRetryFailed: () => void;
-  onPost: () => void;
-  onDiscard: () => void;
-}) {
-  const readyRows = batch?.rows.filter((row) => row.reviewStatus === "ReadyToPost").length ?? 0;
-  const failedRows = batch?.rows.filter((row) => row.reviewStatus === "Failed").length ?? 0;
-  const rowsMissingPostCategory = batch?.rows.filter((row) => row.reviewStatus === "ReadyToPost" && statementRowNeedsExpenseCategory(row.type) && !row.categoryId).length ?? 0;
-  const postedRows = batch?.rows.filter((row) => row.reviewStatus === "Posted").length ?? 0;
-  const blockedRows = batch?.rows.filter((row) => row.reviewStatus === "New" || row.matchStatus !== "New" || row.type === "Unknown").length ?? 0;
-  const rowsNeedAttention = readyRows > 0 || failedRows > 0 || blockedRows > 0;
-  const totalRows = batch?.rows.length ?? 0;
-  const importProgress = totalRows > 0 ? (postedRows / totalRows) * 100 : 0;
-  const [rowsExpanded, setRowsExpanded] = useState(false);
-
-  useEffect(() => {
-    setRowsExpanded(rowsNeedAttention);
-  }, [batch?.id, rowsNeedAttention]);
-
-  return (
-    <Card>
-      <AetherPanelHeader
-        eyebrow="STATEMENT IMPORT"
-        title={t("statementImport")}
-        subtitle={t("statementImportDescription")}
-        summary={batch ? `${totalRows} 列` : t("noStatementParsed")}
-      />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.5fr)]">
-        <form onSubmit={onParse} className="game-inspect-panel">
-          <div className="game-inspect-header"><div><h3 className="font-bold">{t("uploadPdf")}</h3><p className="text-xs text-muted">{t("passwordRequestOnly")}</p></div></div>
-          <div className="game-inspect-body credit-card-statement-upload">
-            <label className="ui-label">來源銀行<select className="ui-input" defaultValue="auto" aria-label="來源銀行">
-              <option value="auto">自動辨識（Richart／台新、玉山）</option>
-            </select></label>
-            <label className="ui-label">PDF 檔案<input className="ui-input" type="file" accept="application/pdf,.pdf" onChange={(event) => onFileChange(event.target.files?.[0] ?? null)} /></label>
-            <label className="ui-label">{t("password")}<input className="ui-input" type="password" autoComplete="off" value={password} onChange={(event) => onPasswordChange(event.target.value)} /></label>
-            <p className="text-xs text-muted">{file ? `${file.name} / ${Math.ceil(file.size / 1024)} KB` : t("noFileSelected")}</p>
-            <div className="flex justify-end"><Button type="submit" isLoading={isBusy}>{t("parseStatement")}</Button></div>
-          </div>
-        </form>
-
-        <div className="grid gap-4">
-          {batch ? (
-            <div className="game-panel grid gap-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div className="min-w-0">
-                  <h3 className="text-lg font-bold">{batch.provider} / {batch.originalFileName}</h3>
-                  <p className="text-sm text-muted">{batch.statementPeriodStart ? formatDate(batch.statementPeriodStart) : "-"} {t("periodTo")} {batch.statementPeriodEnd ? formatDate(batch.statementPeriodEnd) : "-"} / {t("dueDate")} {batch.paymentDueDate ? formatDate(batch.paymentDueDate) : "-"}</p>
-                </div>
-                <span className="game-badge game-badge-credit shrink-0 whitespace-nowrap">{statementImportBatchStatusLabels[batch.status]}</span>
-              </div>
-              <div className="credit-card-definition-panel">
-                <Row label="檔名" value={batch.originalFileName} />
-                <Row label="帳單期間" value={`${batch.statementPeriodStart ? formatDate(batch.statementPeriodStart) : "-"} ～ ${batch.statementPeriodEnd ? formatDate(batch.statementPeriodEnd) : "-"}`} />
-                <Row label={t("dueDate")} value={batch.paymentDueDate ? formatDate(batch.paymentDueDate) : "-"} />
-                <Row label={t("statement")} value={batch.statementAmount == null ? "-" : money(batch.statementAmount)} />
-                <Row label={t("newCharges")} value={batch.newCharges == null ? "-" : money(batch.newCharges)} />
-                <Row label={t("rows")} value={`${totalRows}`} />
-                <Row label={t("posted")} value={`${postedRows}`} />
-                <Row label={t("ready")} value={`${readyRows}`} />
-                <Row label={t("failed")} value={`${failedRows}`} />
-                <Row label={t("needsReview")} value={`${blockedRows}`} />
-              </div>
-              <div className="credit-card-import-progress">
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="font-semibold">入帳進度</span>
-                  <span className="text-muted">{postedRows} / {totalRows}</span>
-                </div>
-                <GameProgress value={importProgress} label="入帳進度" />
-              </div>
-              {batch.warnings.length > 0 && <StatementReviewNotice warnings={batch.warnings} rows={batch.rows} />}
-              <div className="credit-card-action-bar">
-                <label className="ui-label min-w-64">{t("defaultExpenseCategory")}<select className="ui-input" value={defaultCategoryId} onChange={(event) => onDefaultCategoryChange(event.target.value)}><option value="">{t("chooseWhenPostingPurchases")}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-                <Button type="button" variant="outline" disabled={isBusy || postedRows > 0} onClick={onDiscard}>{t("discard")}</Button>
-                <Button type="button" variant="outline" disabled={isBusy || failedRows === 0} onClick={onRetryFailed}>{t("retryFailedRows")}</Button>
-                <Button type="button" disabled={isBusy || readyRows === 0 || (rowsMissingPostCategory > 0 && !defaultCategoryId)} onClick={onPost}>{t("postReadyRows")}</Button>
-              </div>
-              {rowsMissingPostCategory > 0 && !defaultCategoryId && <p className="text-sm text-warning">{t("rowMissingCategory")}</p>}
-              {failedRows > 0 && <p className="text-sm text-danger">{failedRows} {t("failedRowsHint")}</p>}
-              {blockedRows > 0 && <p className="text-sm text-warning">{blockedRows} {t("blockedRowsHint")}</p>}
-              <div className="rounded-ui border border-border/55 bg-surface-muted/25">
-                <button type="button" className="flex w-full flex-col gap-3 p-3 text-left transition hover:bg-surface-muted/45 sm:flex-row sm:items-center sm:justify-between" onClick={() => setRowsExpanded((expanded) => !expanded)} aria-expanded={rowsExpanded}>
-                  <div>
-                    <p className="font-semibold">{t("statementRows")}</p>
-                    <p className="text-xs text-muted">{batch.rows.length} {t("rows")} / {postedRows} {t("posted")} / {readyRows} {t("ready")} / {failedRows} {t("failed")} / {blockedRows} {t("needsReview")}</p>
-                  </div>
-                  <span className="game-badge game-badge-neutral">{rowsExpanded ? t("hideRows") : t("showRows")}</span>
-                </button>
-                {rowsExpanded && (
-                  <div className="grid max-h-[720px] gap-2 overflow-y-auto border-t border-border/55 p-3">
-                    {batch.rows.map((row) => <StatementRowReview key={row.id} row={row} categories={categories} onUpdate={onUpdateRow} />)}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : <EmptyState title={t("noStatementParsed")} description={t("noStatementParsedDescription")} />}
-
-          {history.length > 0 && (
-            <div className="game-panel">
-              <h3 className="mb-3 font-bold">{t("importHistory")}</h3>
-              <div className="grid gap-2">{history.map((item) => <button key={item.id} type="button" className="credit-card-import-history-row" onClick={() => onSelectBatch(item)}><span className="font-semibold">{item.originalFileName}</span><span className="text-muted">{statementImportBatchStatusLabels[item.status]} · {item.rows.length} {t("rows")}</span></button>)}</div>
-            </div>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function StatementReviewNotice({ warnings, rows }: { warnings: string[]; rows: StatementImportRowDto[] }) {
-  const unknownCount = rows.filter((row) => row.type === "Unknown" || row.amount <= 0).length;
-  const mismatch = warnings.find((warning) => warning.startsWith("SummaryMismatch"));
-  const manualReviewText = unknownCount > 0 ? `${unknownCount} ${t("rowsNeedAmountType")}` : t("reviewNotesAvailable");
-
-  return (
-    <div className="rounded-ui border border-primary/45 bg-primary/10 p-3 text-sm text-foreground">
-      <p className="font-semibold">{t("importedSuccessfullyReviewNeeded")}</p>
-      <p className="mt-1 text-muted">{manualReviewText}{mismatch ? ` ${t("totalsReconcileAfterReview")}` : ""}</p>
-      <p className="mt-2 break-words text-xs text-muted">{t("parserNotes")}：{warnings.join(" / ")}</p>
-    </div>
-  );
-}
-
-function StatementRowReview({ row, categories, onUpdate }: { row: StatementImportRowDto; categories: CategoryDto[]; onUpdate: (rowId: string, update: StatementRowUpdate) => void }) {
-  const [categoryId, setCategoryId] = useState(row.categoryId ?? "");
-  const [amount, setAmount] = useState(row.amount > 0 ? String(row.amount) : "");
-  const [rowType, setRowType] = useState<StatementImportRowType>(row.type);
-
-  useEffect(() => {
-    setCategoryId(row.categoryId ?? "");
-    setAmount(row.amount > 0 ? String(row.amount) : "");
-    setRowType(row.type);
-  }, [row.id, row.categoryId, row.amount, row.type]);
-
-  const parsedAmount = Number(amount);
-  const canMarkReady = row.reviewStatus !== "Posted" && Number.isFinite(parsedAmount) && parsedAmount > 0 && rowType !== "Unknown";
-  const editable = row.reviewStatus !== "Posted";
-
-  return (
-    <div className="rounded-ui border border-border/55 bg-surface-muted/35 p-3">
-      <div className="grid gap-2 lg:grid-cols-[1fr_auto_auto] lg:items-center">
-        <div className="min-w-0">
-          <p className="truncate font-semibold">{row.normalizedDescription}</p>
-          <p className="text-xs text-muted">#{row.sourceRowNumber} / {statementImportRowTypeLabels[row.type]} / {row.transactionDate ? formatDate(row.transactionDate) : "-"} / {t("posted")} {row.postingDate ? formatDate(row.postingDate) : "-"}</p>
-          {row.rawText && <p className="mt-1 text-xs text-muted">{t("rawText")}：{row.rawText}</p>}
-          {row.failureReason && <p className="mt-1 text-xs text-danger">{row.failureReason}</p>}
-        </div>
-        <div className="font-bold">{money(row.amount, row.currency)}</div>
-        <span className={`game-badge ${row.matchStatus === "New" ? "game-badge-neutral" : "game-badge-warning"}`}>{statementImportReviewStatusLabels[row.reviewStatus]} / {statementImportMatchStatusLabels[row.matchStatus]}</span>
-      </div>
-      <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_9rem_minmax(0,1fr)_auto_auto] md:items-center">
-        <select className="ui-input" value={rowType} disabled={!editable} onChange={(event) => setRowType(event.target.value as StatementImportRowType)}>
-          {statementRowTypeOptions.map((type) => <option key={type} value={type}>{statementImportRowTypeLabels[type]}</option>)}
-        </select>
-        <input className="ui-input" type="number" min="0.01" step="0.01" placeholder={t("amount")} value={amount} disabled={!editable} onChange={(event) => setAmount(event.target.value)} />
-        <select className="ui-input" value={categoryId} disabled={!editable} onChange={(event) => setCategoryId(event.target.value)}>
-          <option value="">{t("noCategory")}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-        </select>
-        <Button type="button" variant="outline" size="sm" disabled={!canMarkReady} onClick={() => onUpdate(row.id, { reviewStatus: "ReadyToPost", categoryId: categoryId || null, amount: parsedAmount, type: rowType })}>{t("saveReady")}</Button>
-        <Button type="button" variant="ghost" size="sm" disabled={!editable} onClick={() => onUpdate(row.id, { reviewStatus: "Ignored", categoryId: categoryId || null, amount: Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : undefined, type: rowType })}>{t("ignore")}</Button>
-      </div>
-      {rowType === "Unknown" && <p className="mt-2 text-xs text-muted">{t("chooseRowTypeAndAmount")}</p>}
-      {rowType === "Payment" && row.reviewStatus !== "Posted" && <p className="mt-2 text-xs text-warning">{t("paymentRowsManualReview")}</p>}
-    </div>
   );
 }

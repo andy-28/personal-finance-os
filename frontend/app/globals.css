@@ -4404,7 +4404,7 @@ body {
   position: relative;
   display: grid;
   min-height: clamp(42rem, calc(100dvh - 13.5rem), 58rem);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0.75rem;
   overflow: hidden;
   padding: 0.8rem;
@@ -4423,22 +4423,6 @@ body {
     rgb(var(--surface-muted) / 0.28);
   padding: 2rem;
   text-align: center;
-}
-
-.statement-import-drawer {
-  position: absolute;
-  z-index: 12;
-  top: 5rem;
-  right: 1rem;
-  display: grid;
-  width: min(26rem, calc(100% - 2rem));
-  gap: 0.85rem;
-  border: 1px solid rgb(var(--primary) / 0.42);
-  border-radius: 0.85rem;
-  background:
-    linear-gradient(180deg, rgb(var(--surface) / 0.98), rgb(var(--background) / 0.96));
-  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 0.42), inset 0 1px 0 rgb(255 255 255 / 0.06);
-  padding: 1rem;
 }
 
 .statement-target-card-context,
@@ -4594,7 +4578,7 @@ body {
 .statement-target-toolbar {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(14rem, 1fr) repeat(3, minmax(8rem, 0.56fr)) repeat(2, max-content);
+  grid-template-columns: minmax(14rem, 1fr) repeat(auto-fit, minmax(8rem, 12rem));
   gap: 0.55rem;
   align-items: center;
   border-bottom: 1px solid rgb(var(--border) / 0.35);
@@ -4606,6 +4590,10 @@ body {
   min-height: 2.25rem;
   border-color: rgb(var(--border) / 0.42);
   background: rgb(var(--background) / 0.36);
+}
+
+.statement-target-default-category {
+  min-width: min(18rem, 100%);
 }
 
 .statement-target-ghost-button {
@@ -4952,29 +4940,28 @@ body {
 
 .statement-target-bottom-bar {
   display: flex;
-  flex-wrap: wrap;
+  min-height: 4rem;
+  height: auto;
+  flex-shrink: 0;
   align-items: center;
-  gap: 0.85rem;
-  min-height: 3.35rem;
-  border-radius: 0.75rem;
-  padding: 0.55rem 0.75rem;
-}
-
-.statement-target-bottom-bar .ui-label {
-  min-width: min(18rem, 100%);
-  margin-left: auto;
+  gap: 0;
+  overflow-x: auto;
+  border-radius: 0.55rem;
+  padding: 0.45rem 0.6rem;
 }
 
 .statement-target-bottom-item {
   display: grid;
+  flex: 0 0 auto;
   gap: 0.12rem;
-  min-width: 6.5rem;
-  padding-right: 0.85rem;
-  border-right: 1px solid rgb(var(--border) / 0.32);
+  min-width: 6.75rem;
+  padding-inline: 0.72rem;
+  border-right: 1px solid rgb(var(--border) / 0.34);
 }
 
 .statement-target-bottom-bar .statement-summary-link {
   margin-left: auto;
+  white-space: nowrap;
 }
 
 .statement-target-import-button {
@@ -5211,7 +5198,7 @@ body {
   .credit-card-page-statement-full .statement-target-workspace {
     height: calc(100dvh - 4rem - 5.35rem);
     min-height: 42rem;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
     border-radius: 0.35rem;
     padding: 0.65rem;
   }
@@ -5257,10 +5244,6 @@ body {
     backdrop-filter: blur(10px);
   }
 
-  .credit-card-page-statement-full .statement-target-bottom-bar {
-    min-height: 3rem;
-    border-radius: 0.4rem;
-  }
 }
 
 @media (min-width: 1280px) {
@@ -5295,6 +5278,16 @@ body {
     max-height: 36rem;
   }
 
+  .statement-target-bottom-bar {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    row-gap: 0.45rem;
+  }
+
+  .statement-target-bottom-bar .statement-summary-link {
+    margin-left: 0.72rem;
+  }
+
   .statement-target-toolbar,
   .statement-target-summary {
     grid-template-columns: 1fr 1fr;
@@ -5309,14 +5302,12 @@ body {
 
 @media (max-width: 760px) {
   .statement-target-card-context,
-  .statement-target-bottom-bar,
   .statement-target-pagination {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .statement-target-card-actions,
-  .statement-target-bottom-bar .statement-summary-link {
+  .statement-target-card-actions {
     width: 100%;
     margin-left: 0;
   }
@@ -5324,6 +5315,26 @@ body {
   .statement-target-summary,
   .statement-target-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .statement-target-bottom-bar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow-x: visible;
+  }
+
+  .statement-target-bottom-item {
+    min-width: 0;
+    border-right: 0;
+    border-bottom: 1px solid rgb(var(--border) / 0.28);
+    padding-block: 0.35rem;
+  }
+
+  .statement-target-bottom-bar .statement-summary-link {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    margin-left: 0;
+    text-align: center;
   }
 
   .statement-target-table-head {
@@ -8283,10 +8294,6 @@ body {
   min-height: 0;
 }
 
-.credit-card-page-workspace-full .credit-card-management-grid > .aether-list-pane {
-  display: none;
-}
-
 .credit-card-page-workspace-full .aether-detail-pane {
   min-height: 0;
   overflow: hidden;
@@ -8295,44 +8302,11 @@ body {
   box-shadow: none;
 }
 
-.credit-card-page-workspace-full .credit-card-detail-header {
-  min-height: 3.5rem;
-  padding: 0.55rem 0.8rem;
-  border-bottom: 1px solid rgb(var(--border) / 0.36);
-  border-radius: 0;
-  background: rgb(var(--surface-muted) / 0.2);
-}
-
-.credit-card-page-workspace-full .credit-card-summary.compact {
-  display: none;
-}
-
-.credit-card-page-workspace-full .credit-card-tab-panel .credit-card-summary.compact {
+.credit-card-page-workspace-full .credit-card-workspace-viewport {
   display: grid;
-}
-
-.credit-card-page-workspace-full .credit-card-tab-frame {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   height: 100%;
-  margin-top: 0;
   overflow: hidden;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.credit-card-page-workspace-full .credit-card-tab-frame .game-tabs {
-  display: none;
-}
-
-.credit-card-page-workspace-full .credit-card-tab-frame .game-tab {
-  min-width: min(10.5rem, 18vw);
-  min-height: 2.25rem;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 .credit-card-page-workspace-full .credit-card-tab-panel {
@@ -8343,17 +8317,7 @@ body {
 
 .credit-card-page-workspace-full .credit-card-workspace-mode {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.credit-card-page-workspace-full .credit-card-workspace-mode-statement .credit-card-detail-header {
-  display: none;
-}
-
-.credit-card-page-workspace-full .credit-card-workspace-mode-statement .credit-card-tab-frame,
-.credit-card-page-workspace-full .credit-card-workspace-mode-statement .credit-card-tab-panel {
-  min-height: 0;
-  height: 100%;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .credit-card-page-workspace-full .credit-card-workspace-mode-statement .credit-card-tab-panel {
@@ -8368,12 +8332,7 @@ body {
 .credit-card-page-workspace-full .credit-card-workspace-mode-statement .statement-target-workspace {
   height: calc(100dvh - 5.25rem - 3.05rem - 3rem - 1.5rem);
   min-height: 38rem;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-}
-
-.credit-card-page-workspace-full .credit-card-workspace-mode-statement .statement-target-layout {
-  min-height: 0;
-  grid-template-columns: minmax(0, 1fr) clamp(18rem, 24vw, 22rem);
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .credit-card-page-workspace-full .credit-card-workspace-mode-statement .statement-target-main,
@@ -8385,10 +8344,6 @@ body {
 .credit-card-page-workspace-full .credit-card-workspace-mode-statement .statement-target-table-body,
 .credit-card-page-workspace-full .credit-card-workspace-mode-statement .statement-target-inspector {
   overflow-y: auto;
-}
-
-.credit-card-page-workspace-full .credit-card-workspace-mode-statement .statement-target-bottom-bar {
-  min-height: 3rem;
 }
 
 @media (min-width: 1024px) {
