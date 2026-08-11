@@ -277,9 +277,11 @@ export default function TransactionsPage() {
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-lg" onClick={closeEditor}>
-          <GameWindow title="編輯交易" description={`${transactionTypeLabels[selected.type]} / ${transactionStatusLabels[selected.status]}`} className="w-full max-w-3xl" onRequestClose={closeEditor} onClick={(event) => event.stopPropagation()}>
-            <form onSubmit={submitEdit} className="grid gap-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-background/70 px-4 py-6 backdrop-blur-lg md:px-6" onClick={closeEditor}>
+          <div className="mx-auto flex min-h-full w-full max-w-3xl items-start justify-center pb-6 pt-16 md:pt-20">
+            <GameWindow title="編輯交易" description={`${transactionTypeLabels[selected.type]} / ${transactionStatusLabels[selected.status]}`} className="w-full max-w-3xl" onRequestClose={closeEditor} onClick={(event) => event.stopPropagation()}>
+              <div className="max-h-[calc(100dvh-11rem)] overflow-y-auto pr-1">
+                <form onSubmit={submitEdit} className="grid gap-4 pb-1">
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="ui-label">日期<input className="ui-input" type="date" value={editForm.transactionDate} onChange={(e) => setEditForm({ ...editForm, transactionDate: e.target.value })} disabled={selected.status !== "Posted"} /></label>
                 <label className="ui-label">金額<input className="ui-input" type="number" step="0.01" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} disabled={selected.status !== "Posted"} /></label>
@@ -302,8 +304,10 @@ export default function TransactionsPage() {
                   <Button type="submit" isLoading={isSaving} disabled={selected.status !== "Posted"}>儲存變更</Button>
                 </div>
               </div>
-            </form>
-          </GameWindow>
+                </form>
+              </div>
+            </GameWindow>
+          </div>
         </div>
       )}
     </section>
