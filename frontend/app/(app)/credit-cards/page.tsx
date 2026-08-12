@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AetherMetric, AetherPanelHeader, AetherSummaryGrid } from "@/components/ui/aether-management";
 import { Button } from "@/components/ui/button";
 import { GameProgress, GameTab, GameTabs, GameWindow } from "@/components/ui/game-theme";
@@ -69,6 +69,8 @@ export default function CreditCardsPage() {
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [categories, setCategories] = useState<CategoryDto[]>([]);
   const [detail, setDetail] = useState<CreditCardDetailDto | null>(null);
+  const [detailCache, setDetailCache] = useState<Record<string, CreditCardDetailDto>>({});
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [cardForm, setCardForm] = useState(emptyCard);
   const [purchaseForm, setPurchaseForm] = useState(emptyPurchase);
   const [refundForm, setRefundForm] = useState(emptyRefund);
@@ -86,6 +88,7 @@ export default function CreditCardsPage() {
   const [activeTab, setActiveTab] = useState<CreditCardTab>("overview");
   const [activeOperation, setActiveOperation] = useState<CreditCardOperation>("purchase");
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
+  const loadRequestId = useRef(0);
 
   const activePaymentAccounts = useMemo(() => accounts.filter((account) => !account.isArchived && account.type !== "CreditCard"), [accounts]);
   const existingCardAccountIds = useMemo(() => new Set(cards.map((card) => card.accountId)), [cards]);
@@ -93,6 +96,7 @@ export default function CreditCardsPage() {
   const expenseCategories = useMemo(() => categories.filter((category) => category.type === "Expense"), [categories]);
 
   async function load(selectedId?: string | null) {
+    const requestId = ++loadRequestId.current;
     setIsLoading(true);
     try {
       const [nextCards, nextAccounts, nextCategories] = await Promise.all([
@@ -100,30 +104,41 @@ export default function CreditCardsPage() {
         apiFetch<AccountDto[]>("/api/accounts", accessToken, {}, refreshSession),
         apiFetch<CategoryDto[]>("/api/categories?type=Expense", accessToken, {}, refreshSession)
       ]);
+      if (requestId !== loadRequestId.current) return;
       setCards(nextCards);
       setAccounts(nextAccounts);
       setCategories(nextCategories);
-      const detailId = selectedId ?? detail?.summary.accountId ?? nextCards[0]?.accountId ?? null;
-      setDetail(detailId ? await apiFetch<CreditCardDetailDto>(`/api/credit-cards/${detailId}`, accessToken, {}, refreshSession) : null);
+      const detailId = selectedId ?? selectedCardId ?? detail?.summary.accountId ?? nextCards[0]?.accountId ?? null;
+      setSelectedCardId(detailId);
+      const nextDetail = detailId ? await apiFetch<CreditCardDetailDto>(`/api/credit-cards/${detailId}`, accessToken, {}, refreshSession) : null;
+      if (requestId !== loadRequestId.current) return;
+      setDetail(nextDetail);
+      if (nextDetail) setDetailCache((cache) => ({ ...cache, [nextDetail.summary.accountId]: nextDetail }));
       setError(null);
     } catch (err) {
-      setError(problemMessage(err));
+      if (requestId === loadRequestId.current) setError(problemMessage(err));
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestId.current) setIsLoading(false);
     }
   }
 
   async function selectCreditCard(accountId: string) {
+    setSelectedCardId(accountId);
     if (detail?.summary.accountId === accountId) return;
+    const requestId = ++loadRequestId.current;
     selectDefaults(accountId);
     setStatementImport(null);
     setStatementImports([]);
+    const cachedDetail = detailCache[accountId];
+    if (cachedDetail) setDetail(cachedDetail);
     try {
       const nextDetail = await apiFetch<CreditCardDetailDto>(`/api/credit-cards/${accountId}`, accessToken, {}, refreshSession);
+      if (requestId !== loadRequestId.current) return;
       setDetail(nextDetail);
+      setDetailCache((cache) => ({ ...cache, [accountId]: nextDetail }));
       setError(null);
     } catch (err) {
-      setError(problemMessage(err));
+      if (requestId === loadRequestId.current) setError(problemMessage(err));
     }
   }
 
@@ -384,7 +399,7 @@ export default function CreditCardsPage() {
           </div>
           <div className="credit-card-module-card-list" role="listbox" aria-label="信用卡清單">
             {cards.map((card) => {
-              const isActive = detail?.summary.accountId === card.accountId;
+              const isActive = (selectedCardId ?? detail?.summary.accountId) === card.accountId;
               return (
                 <button key={card.accountId} type="button" className={`credit-card-module-card ${isActive ? "credit-card-module-card-active" : ""}`} onClick={() => { void selectCreditCard(card.accountId); }}>
                   <span>{card.accountName}</span>

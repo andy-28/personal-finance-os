@@ -8297,6 +8297,7 @@ body {
   min-width: 0;
   gap: 0.8rem;
   overflow-x: auto;
+  padding-block: 0.35rem 0.45rem;
   scroll-padding-inline: 0.25rem;
   scroll-snap-type: x proximity;
   scrollbar-width: thin;
@@ -8357,7 +8358,7 @@ body {
 }
 
 .credit-card-page-workspace-full .credit-card-module-card-active {
-  transform: translateY(-2px);
+  transform: none;
   box-shadow: 0 1rem 2.6rem rgb(var(--primary) / 0.18), 0 0 0 1px rgb(var(--primary) / 0.22), inset 0 1px 0 rgb(255 255 255 / 0.07);
 }
 
