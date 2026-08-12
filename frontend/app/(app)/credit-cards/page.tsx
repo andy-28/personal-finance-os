@@ -421,7 +421,7 @@ export default function CreditCardsPage() {
                     </div>
                   )}
 
-                  {activeTab === "statement" && <StatementWorkspacePanel batch={statementImport} history={statementImports} categories={expenseCategories} defaultCategoryId={defaultStatementCategoryId} isBusy={isStatementBusy} file={statementFile} password={statementPassword} onDefaultCategoryChange={setDefaultStatementCategoryId} onFileChange={setStatementFile} onPasswordChange={setStatementPassword} onParse={parseStatementImport} onSelectBatch={setStatementImport} onUpdateRow={updateStatementRow} onRetryFailed={retryFailedStatementRows} onPost={postStatementImport} onDiscard={discardStatementImport} />}
+                  {activeTab === "statement" && <StatementWorkspacePanel selectedCard={detail.summary} batch={statementImport} history={statementImports} categories={expenseCategories} defaultCategoryId={defaultStatementCategoryId} isBusy={isStatementBusy} file={statementFile} password={statementPassword} onDefaultCategoryChange={setDefaultStatementCategoryId} onFileChange={setStatementFile} onPasswordChange={setStatementPassword} onParse={parseStatementImport} onSelectBatch={setStatementImport} onUpdateRow={updateStatementRow} onRetryFailed={retryFailedStatementRows} onPost={postStatementImport} onDiscard={discardStatementImport} />}
 
                   {activeTab === "operations" && (
                     <div className="credit-card-operation-layout">
@@ -704,7 +704,8 @@ function InstallmentPanel({ detail, onPostInstallment }: { detail: CreditCardDet
   );
 }
 
-function StatementWorkspacePanel({ batch, history, categories, defaultCategoryId, isBusy, file, password, onDefaultCategoryChange, onFileChange, onPasswordChange, onParse, onSelectBatch, onUpdateRow, onRetryFailed, onPost, onDiscard }: {
+function StatementWorkspacePanel({ selectedCard, batch, history, categories, defaultCategoryId, isBusy, file, password, onDefaultCategoryChange, onFileChange, onPasswordChange, onParse, onSelectBatch, onUpdateRow, onRetryFailed, onPost, onDiscard }: {
+  selectedCard: CreditCardDto;
   batch: StatementImportBatchDto | null;
   history: StatementImportBatchDto[];
   categories: CategoryDto[];
@@ -785,11 +786,17 @@ function StatementWorkspacePanel({ batch, history, categories, defaultCategoryId
         <div className="statement-target-summary-cell statement-target-summary-cell-warning"><span>待入帳</span><strong>{readyRows}</strong></div>
         <div className="statement-target-summary-cell statement-target-summary-cell-danger"><span>失敗</span><strong>{failedRows}</strong></div>
         <div className="statement-target-progress"><span>處理進度</span><strong>{totalRows > 0 ? `${Math.round(importProgress)}%` : "-"}</strong><GameProgress value={importProgress} label="入帳進度" /></div>
+        <button type="button" className="statement-target-primary-action" onClick={() => setIsImportPanelOpen(true)}>匯入新帳單</button>
       </div>
 
       {!batch && (
         <div className="statement-import-empty-workspace">
-          <EmptyState title={t("noStatementParsed")} description={t("noStatementParsedDescription")} />
+          <div className="statement-empty-card-context">
+            <span>SELECTED CARD</span>
+            <strong>{selectedCard.accountName}</strong>
+            <small>{cardMeta(selectedCard) || "尚未設定卡片資訊"}</small>
+          </div>
+          <EmptyState title="目前沒有帳單" description={`尚未匯入 ${selectedCard.accountName} 的信用卡帳單。`} />
           <Button type="button" onClick={() => setIsImportPanelOpen(true)}>匯入新帳單</Button>
         </div>
       )}
@@ -842,7 +849,6 @@ function StatementWorkspacePanel({ batch, history, categories, defaultCategoryId
                   {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                 </select>
                 <label className="ui-label statement-target-default-category"><span>{t("defaultExpenseCategory")}</span><select className="ui-input" value={defaultCategoryId} onChange={(event) => onDefaultCategoryChange(event.target.value)}><option value="">{t("chooseWhenPostingPurchases")}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-                <button type="button" className="statement-target-ghost-button" onClick={() => setIsImportPanelOpen(true)}>匯入新帳單</button>
                 <button type="button" className="statement-target-ghost-button" onClick={() => { setQuery(""); setStatusFilter("All"); setTypeFilter("All"); setCategoryFilter("All"); }}>重設篩選</button>
                 <button type="button" className="statement-target-ghost-button" disabled={isBusy || postedRows > 0} onClick={onDiscard}>{t("discard")}</button>
                 <button type="button" className="statement-target-ghost-button" disabled={isBusy || failedRows === 0} onClick={onRetryFailed}>{t("retryFailedRows")}</button>
