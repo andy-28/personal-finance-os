@@ -12,7 +12,7 @@ export function DashboardMonthlySummary({ transactions, currency = "TWD" }: { tr
     <Card>
       <AetherPanelHeader eyebrow="MONTHLY FLOW" title="本月現金流" subtitle="依本月已入帳交易計算收入、支出與淨流量。" summary={money(net, currency)} />
       <AetherSummaryGrid>
-        <AetherMetric label="本月收入" value={money(income, currency)} tone="success" />
+        <AetherMetric asset="coin" label="本月收入" value={money(income, currency)} tone="success" />
         <AetherMetric label="本月支出" value={money(expense, currency)} tone="danger" />
         <AetherMetric label="退款 / 折讓" value={money(refunds, currency)} tone="credit" />
         <AetherMetric label="本月淨流量" value={money(net, currency)} tone={net >= 0 ? "primary" : "warning"} />

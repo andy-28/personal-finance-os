@@ -90,6 +90,9 @@ body {
   }
 
   .aether-asset-img {
+    display: inline-block;
+    width: var(--aether-asset-size, 1.5rem);
+    height: var(--aether-asset-size, 1.5rem);
     object-fit: contain;
   }
 
