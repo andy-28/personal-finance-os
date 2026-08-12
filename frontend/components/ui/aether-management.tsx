@@ -1,4 +1,6 @@
 import type { HTMLAttributes, ReactNode } from "react";
+import { AetherAsset } from "@/components/aether/aether-asset";
+import type { AetherAssetKey } from "@/lib/aether/asset-registry";
 import { Badge } from "./badge";
 
 type StatusTone = "neutral" | "success" | "warning" | "danger" | "credit";
@@ -115,10 +117,10 @@ export function AetherSummaryGrid({ children, className = "" }: { children: Reac
   return <div className={`aether-summary-grid ${className}`}>{children}</div>;
 }
 
-export function AetherMetric({ label, value, hint, tone = "neutral" }: { label: ReactNode; value: ReactNode; hint?: ReactNode; tone?: MetricTone }) {
+export function AetherMetric({ label, value, hint, tone = "neutral", asset }: { label: ReactNode; value: ReactNode; hint?: ReactNode; tone?: MetricTone; asset?: AetherAssetKey }) {
   return (
     <div className={`aether-metric aether-metric-${tone}`}>
-      <span>{label}</span>
+      <span className="aether-metric-label">{asset && <AetherAsset name={asset} size="sm" className="aether-resource-icon" />}<span>{label}</span></span>
       <strong>{value}</strong>
       {hint && <small>{hint}</small>}
     </div>

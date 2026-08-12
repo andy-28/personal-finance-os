@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AetherIcon } from "@/components/aether/aether-asset";
 import { FaviconController } from "@/components/aether/favicon-controller";
 import { MobileAppHeader } from "@/components/mobile/mobile-app-header";
 import { MobileBottomNavigation } from "@/components/mobile/mobile-bottom-navigation";
@@ -15,33 +16,36 @@ import { t } from "@/lib/i18n";
 import { SettingsProvider } from "@/lib/settings/user-settings";
 import { QuickAdd } from "./quick-add";
 import { QuestLog } from "./quest-log";
+import type { AetherAssetKey } from "@/lib/aether/asset-registry";
+
+type NavLink = readonly [href: string, label: string, hint: string, icon: AetherAssetKey];
 
 const navGroups = [
   {
     title: t("finance"),
     links: [
-      ["/accounts", t("accounts"), t("accountsHint")],
-      ["/transactions", t("ledger"), t("ledgerHint")],
-      ["/credit-cards", t("creditCards"), t("creditCardsHint")]
+      ["/accounts", t("accounts"), t("accountsHint"), "account"],
+      ["/transactions", t("ledger"), t("ledgerHint"), "ledger"],
+      ["/credit-cards", t("creditCards"), t("creditCardsHint"), "credit-card"]
     ]
   },
   {
     title: t("planning"),
     links: [
-      ["/dashboard", "儀表板", "財務指揮中心"],
-      ["/hud", "我的介面", "PERSONAL HUD"],
-      ["/recurring-transactions", t("recurring"), t("recurringHint")],
-      ["/categories", t("categories"), t("categoriesHint")]
+      ["/dashboard", "儀表板", "財務指揮中心", "dashboard"],
+      ["/hud", "我的介面", "PERSONAL HUD", "personal-hud"],
+      ["/recurring-transactions", t("recurring"), t("recurringHint"), "recurring"],
+      ["/categories", t("categories"), t("categoriesHint"), "category"]
     ]
   },
   {
     title: t("system"),
     links: [
-      ["/system-status", t("health"), t("healthHint")],
-      ["/workshop", "介面工坊", "AETHER WORKSHOP"]
+      ["/system-status", t("health"), t("healthHint"), "system-status"],
+      ["/workshop", "介面工坊", "AETHER WORKSHOP", "workshop"]
     ]
   }
-] as const;
+] satisfies readonly { title: string; links: readonly NavLink[] }[];
 
 function mobileTitle(pathname: string) {
   if (pathname === "/" || pathname.startsWith("/dashboard")) return "Coin Engine";
@@ -86,21 +90,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <section key={group.title} className="grid gap-2">
           <p className="px-2 text-xs font-bold uppercase tracking-[0.14em] text-primary/75">{group.title}</p>
           <div className="grid gap-1.5">
-            {group.links.map(([href, label, hint]) => {
+            {group.links.map(([href, label, hint, icon]) => {
               const isActive = pathname === href || pathname.startsWith(`${href}/`);
               return (
                 <Link
                   key={href}
                   href={href}
+                  aria-current={isActive ? "page" : undefined}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`ui-focus relative overflow-hidden rounded-ui border px-3 py-2 transition duration-200 ${
+                  className={`ui-focus aether-sidebar-link relative overflow-hidden rounded-ui border px-3 py-2 transition duration-200 ${
                     isActive
                       ? "border-primary/65 bg-primary/12 text-foreground shadow-panel before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary after:absolute after:inset-y-0 after:right-0 after:w-12 after:bg-gradient-to-l after:from-primary/10 after:to-transparent"
                       : "border-transparent text-muted hover:border-border/70 hover:bg-surface-muted/60 hover:text-foreground"
                   }`}
                 >
-                  <span className="block text-sm font-semibold">{label}</span>
-                  <span className={`block text-xs ${isActive ? "text-primary/85" : "text-muted"}`}>{hint}</span>
+                  <AetherIcon name={icon} size="sm" className="aether-sidebar-link-icon" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{label}</span>
+                    <span className={`block truncate text-xs ${isActive ? "text-primary/85" : "text-muted"}`}>{hint}</span>
+                  </span>
                 </Link>
               );
             })}

@@ -278,9 +278,9 @@ export default function AccountsPage() {
                   summary={money(row.netBalance, row.currencyCode)}
                 />
                 <AetherSummaryGrid>
-                  <AetherMetric label={commonLabels.assetBalance} value={money(row.assetBalance, row.currencyCode)} tone="success" />
-                  <AetherMetric label="負債餘額" value={money(row.liabilityBalance, row.currencyCode)} tone="danger" />
-                  <AetherMetric label={commonLabels.netWorth} value={money(row.netBalance, row.currencyCode)} tone={row.netBalance >= 0 ? "primary" : "warning"} />
+                  <AetherMetric asset="asset-crystal" label={commonLabels.assetBalance} value={money(row.assetBalance, row.currencyCode)} tone="success" />
+                  <AetherMetric asset="debt-shard" label="負債餘額" value={money(row.liabilityBalance, row.currencyCode)} tone="danger" />
+                  <AetherMetric asset="net-worth-core" label={commonLabels.netWorth} value={money(row.netBalance, row.currencyCode)} tone={row.netBalance >= 0 ? "primary" : "warning"} />
                 </AetherSummaryGrid>
               </Card>
             ))}

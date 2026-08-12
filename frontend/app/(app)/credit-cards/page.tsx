@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AetherAsset } from "@/components/aether/aether-asset";
 import { AetherMetric, AetherPanelHeader, AetherSummaryGrid } from "@/components/ui/aether-management";
 import { Button } from "@/components/ui/button";
 import { GameProgress, GameTab, GameTabs, GameWindow } from "@/components/ui/game-theme";
@@ -13,6 +14,7 @@ import { formatDate, todayInputValue } from "@/lib/formatters";
 import { t } from "@/lib/i18n";
 import { installmentStatusLabels, statementImportMatchStatusLabels, statementImportReviewStatusLabels, statementImportRowTypeLabels, transactionTypeLabels } from "@/lib/labels";
 import { useAuth } from "../../auth-context";
+import { creditCardAssetForIssuer } from "@/lib/aether/asset-registry";
 
 const emptyCard = { accountId: "", accountName: "", currencyCode: "TWD", issuerName: "", cardName: "", lastFourDigits: "", creditLimit: "", statementClosingDay: 2, paymentDueDay: 20, paymentAccountId: "" };
 const emptyPurchase = { creditCardAccountId: "", categoryId: "", amount: "", purchaseDate: todayInputValue(), postedDate: "", merchant: "", note: "" };
@@ -402,6 +404,8 @@ export default function CreditCardsPage() {
               const isActive = (selectedCardId ?? detail?.summary.accountId) === card.accountId;
               return (
                 <button key={card.accountId} type="button" className={`credit-card-module-card ${isActive ? "credit-card-module-card-active" : ""}`} onClick={() => { void selectCreditCard(card.accountId); }}>
+                  <span className="credit-card-module-card-emblem"><AetherAsset name={creditCardAssetForIssuer(card.issuerName)} size="md" /></span>
+                  {isActive && <span className="credit-card-module-card-status">ACTIVE</span>}
                   <span>{card.accountName}</span>
                   <small>{cardMeta(card)}</small>
                 </button>
