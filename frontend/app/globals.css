@@ -8234,7 +8234,7 @@ body {
   background:
     linear-gradient(180deg, rgb(var(--surface-muted) / 0.36), rgb(var(--surface-muted) / 0.14)),
     rgb(5 12 20 / 0.2);
-  padding: 0 0.75rem;
+  padding: 0;
 }
 
 .credit-card-page-workspace-full .credit-card-application-nav .game-tab {
