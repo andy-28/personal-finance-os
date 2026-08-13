@@ -11,6 +11,7 @@ import { WorkshopCatalog, WorkshopComingSoon, WorkshopInspector, WorkshopPreview
 import { AetherNumberLab } from "@/components/workshop/number-lab";
 import { GameWindow } from "@/components/ui/game-theme";
 import { PageHeader } from "@/components/ui/page-header";
+import { AetherAsset } from "@/components/aether/aether-asset";
 import {
   AetherActionBar,
   AetherDefinitionList,
@@ -20,6 +21,7 @@ import {
   AetherStatusIndicator,
   AetherToolbar
 } from "@/components/ui/aether-management";
+import { getP0AetherResourceAssets, type AetherAssetDefinition } from "@/lib/aether/asset-registry";
 import {
   dashboardProfileImageOptions,
   defaultDashboardProfileImageSettings,
@@ -27,6 +29,7 @@ import {
   type DashboardProfileImageSettings
 } from "@/lib/aether/dashboard-profile-settings";
 import { getAetherAssetRegistry } from "@/lib/aether/assets";
+import { personalReferenceAssetPacks, personalReferenceAssetRules, personalReferenceMappings } from "@/lib/aether/personal-reference-assets";
 import { builtInVisualAssets, getBuiltInVisualAsset, getDefaultVisualAsset, visualSlots, type VisualSlotKey } from "@/lib/aether/visual-slots";
 import { defaultAetherWorkshopSettings, type AetherWorkshopSettings } from "@/lib/aether/workshop-settings";
 import { clearDesktopAppearanceStorage, clearDesktopLabStorage, defaultDesktopLayout, readDesktopLayout, readDesktopPreferences, writeDesktopPreference, writeDesktopPreferences } from "@/lib/desktop-lab/storage";
@@ -181,6 +184,7 @@ export default function WorkshopPage() {
   const availableAssets = builtInVisualAssets.filter((asset) => asset.slotKeys.includes(visualSlots.favicon.key));
   const activeWorkshopArea = workshopAreas.find((area) => area.key === activeArea) ?? workshopAreas[0];
   const assetRegistry = getAetherAssetRegistry([appliedSettings.faviconAssetId, dashboardProfileSettings.imageId, desktopPreferences.wallpaper]);
+  const p0ResourceAssets = getP0AetherResourceAssets();
   const isDefault = appliedSettings.faviconAssetId === defaultAsset.id
     && appliedSettings.headerDividerEnabled === visualSlots.headerDivider.defaultEnabled
     && dashboardProfileSettings.imageId === defaultDashboardProfileImageSettings.imageId
@@ -258,7 +262,7 @@ export default function WorkshopPage() {
             <div className="aether-detail-pane">
               <div className="aether-detail-scroll">
                 {selectedSlotKey === "assets.library" ? (
-                  <AssetLibraryDetail assets={assetRegistry} failedPreviewIds={failedPreviewIds} onImageError={onImageError} />
+                  <AssetLibraryDetail assets={assetRegistry} p0Assets={p0ResourceAssets} failedPreviewIds={failedPreviewIds} onImageError={onImageError} />
                 ) : selectedSlotKey === "ui-lab.resource-guide" ? (
                   <ResourceGuideLabDetail state={resourceGuideDemo} previewVars={previewVars} onPreviewVarsChange={setPreviewVars} onChange={setResourceGuideDemo} />
                 ) : selectedSlotKey === "ui-lab.soul-interface" ? (
@@ -576,13 +580,128 @@ function DesktopLabSlotDetail({ preferences, onChange }: { preferences: DesktopL
   );
 }
 
-function AssetLibraryDetail({ assets, failedPreviewIds, onImageError }: { assets: ReturnType<typeof getAetherAssetRegistry>; failedPreviewIds: string[]; onImageError: (assetId: string) => void }) {
+const resourcePreviewSizes = ["md", "lg", "xl", "xxl", "hero"] as const;
+const resourcePreviewSurfaces = [
+  { key: "app", label: "App Background" },
+  { key: "workspace", label: "Workspace Surface" },
+  { key: "selected", label: "Selected / Cyan Surface" }
+] as const;
+
+function AssetLibraryDetail({ assets, p0Assets, failedPreviewIds, onImageError }: { assets: ReturnType<typeof getAetherAssetRegistry>; p0Assets: AetherAssetDefinition[]; failedPreviewIds: string[]; onImageError: (assetId: string) => void }) {
   return (
     <>
+      <AetherSectionHeader title="Aether Resource Artwork Review" meta={`${p0Assets.length} 個 P0 素材 / Visual Review`} />
+      <div className="aether-resource-review-workspace">
+        <div className="aether-resource-review-list">
+          {p0Assets.map((asset) => (
+            <article key={asset.key} className="aether-resource-review-card">
+              <div className="aether-resource-review-card-head">
+                <AetherAsset name={asset.key} size="lg" className="aether-resource-icon" />
+                <div>
+                  <strong>{asset.label}</strong>
+                  <span>{asset.key}</span>
+                </div>
+                <AetherStatusIndicator label={reviewStatusLabel(asset.reviewStatus)} tone={reviewStatusTone(asset.reviewStatus)} />
+              </div>
+              <p>{asset.visualDescription}</p>
+              <AetherDefinitionList>
+                <AetherDefinitionRow label="Category" value={asset.category} />
+                <AetherDefinitionRow label="Runtime Path" value={<span className="break-all">{asset.customSrc}</span>} />
+                <AetherDefinitionRow label="Format" value={`${asset.format ?? "WebP"} / ${asset.dimensions ?? "256x256"}`} />
+                <AetherDefinitionRow label="Primary Usage" value={asset.primaryUsage ?? asset.purpose} />
+                <AetherDefinitionRow label="Fallback" value={asset.fallback} />
+              </AetherDefinitionList>
+            </article>
+          ))}
+        </div>
+
+        <div className="aether-resource-review-inspector">
+          <AetherSectionHeader title="Size Preview" meta="24 / 32 / 48 / 64 / 96 px plus fallback" />
+          <div className="aether-resource-size-grid">
+            {p0Assets.map((asset) => (
+              <div key={`${asset.key}-sizes`} className="aether-resource-size-row">
+                <strong>{asset.key}</strong>
+                {resourcePreviewSizes.map((size) => (
+                  <span key={size} className="aether-resource-preview-slot">
+                    <AetherAsset name={asset.key} size={size} />
+                  </span>
+                ))}
+                <span className="aether-resource-preview-slot">
+                  <AetherAsset name={asset.key} size="lg" forceFallback />
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <AetherSectionHeader title="Surface Preview" meta="contrast / glow / dark frame" />
+          <div className="aether-resource-surface-grid">
+            {resourcePreviewSurfaces.map((surface) => (
+              <div key={surface.key} className={`aether-resource-surface aether-resource-surface-${surface.key}`}>
+                <span>{surface.label}</span>
+                <div>
+                  {p0Assets.map((asset) => <AetherAsset key={`${surface.key}-${asset.key}`} name={asset.key} size="lg" className="aether-resource-icon" />)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-ui border border-border/60 bg-background/35 p-3 text-sm text-muted">
+            目前四個 P0 素材只標記為 Visual Review，不標記 Approved。審核重點：Silhouette、Small-size readability、Contrast、Material consistency、Aether identity、UI fit。
+          </div>
+        </div>
+      </div>
+
+      <AetherSectionHeader title="Asset Pack" meta="Aether Core / Personal Reference" />
+      <div className="aether-reference-pack-grid">
+        {personalReferenceAssetPacks.map((pack) => (
+          <article key={pack.id} className={`aether-reference-pack-card aether-reference-pack-card-${pack.runtime}`}>
+            <div>
+              <strong>{pack.label}</strong>
+              <span>{pack.source} / {pack.runtime}</span>
+            </div>
+            <AetherStatusIndicator label={referencePackStatusLabel(pack.status)} tone={referencePackStatusTone(pack.status)} />
+            <p>{pack.description}</p>
+          </article>
+        ))}
+      </div>
+
+      <AetherSectionHeader title="Reference Mapping" meta="development-only comparison" />
+      <div className="aether-reference-mapping-grid">
+        {personalReferenceMappings.map((mapping) => (
+          <article key={`${mapping.semanticAsset}-${mapping.referenceKey}`} className="aether-reference-mapping-card">
+            <div className="aether-reference-mapping-assets">
+              <span>
+                <AetherAsset name={mapping.semanticAsset} size="lg" className="aether-resource-icon" />
+                <strong>Aether Original</strong>
+                <small>{mapping.semanticAsset}</small>
+              </span>
+              <span className="aether-reference-arrow">→</span>
+              <span>
+                <span className="aether-css-asset-preview">REF</span>
+                <strong>Personal Reference</strong>
+                <small>{mapping.referenceKey}</small>
+              </span>
+            </div>
+            <AetherDefinitionList>
+              <AetherDefinitionRow label="Pack" value={mapping.packId} />
+              <AetherDefinitionRow label="Status" value={mapping.status} />
+              <AetherDefinitionRow label="Focus" value={mapping.comparisonFocus.join(", ")} />
+            </AetherDefinitionList>
+          </article>
+        ))}
+      </div>
+
+      <div className="rounded-ui border border-warning/35 bg-warning/10 p-3 text-sm text-muted">
+        <strong className="mb-2 block text-warning">Personal Reference Pack is local-only</strong>
+        <ul className="grid gap-1">
+          {personalReferenceAssetRules.map((rule) => <li key={rule}>• {rule}</li>)}
+        </ul>
+      </div>
+
       <AetherSectionHeader title={workshop.assets.registry.label} meta={`${assets.length} 個內建素材`} />
       <div className="aether-asset-library">
         {assets.map((asset) => (
-          <article key={asset.id} className="aether-asset-card">
+          <article key={`${asset.category}-${asset.id}`} className="aether-asset-card">
             {asset.path.startsWith("/") ? (
               <PreviewIcon assetId={asset.id} src={asset.path} name={asset.name} failedPreviewIds={failedPreviewIds} onError={onImageError} />
             ) : (
@@ -602,6 +721,33 @@ function AssetLibraryDetail({ assets, failedPreviewIds, onImageError }: { assets
       <p className="text-sm text-muted">素材註冊表只索引專案內建合法素材；視窗外觀與 HUD 目前為 CSS preset，沒有圖片素材時不捏造資產。</p>
     </>
   );
+}
+
+function referencePackStatusLabel(status: (typeof personalReferenceAssetPacks)[number]["status"]) {
+  if (status === "available") return "Available";
+  if (status === "reference-only") return "Reference Only";
+  return "Empty";
+}
+
+function referencePackStatusTone(status: (typeof personalReferenceAssetPacks)[number]["status"]) {
+  if (status === "available") return "success";
+  if (status === "reference-only") return "warning";
+  return "neutral";
+}
+
+function reviewStatusLabel(status: AetherAssetDefinition["reviewStatus"]) {
+  if (status === "visual-review") return "Visual Review";
+  if (status === "approved") return "Approved";
+  if (status === "revision-required") return "Revision Required";
+  if (status === "integrated") return "Integrated";
+  return "Not Reviewed";
+}
+
+function reviewStatusTone(status: AetherAssetDefinition["reviewStatus"]) {
+  if (status === "approved") return "success";
+  if (status === "revision-required") return "warning";
+  if (status === "visual-review") return "credit";
+  return "neutral";
 }
 
 function ResourceGuideLabDetail({ state, previewVars, onPreviewVarsChange, onChange }: { state: ResourceGuideDemoState; previewVars: { glow: number; radius: number; gaugeHeight: number; stroke: number }; onPreviewVarsChange: (vars: { glow: number; radius: number; gaugeHeight: number; stroke: number }) => void; onChange: (state: ResourceGuideDemoState) => void }) {

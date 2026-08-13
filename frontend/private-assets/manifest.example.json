@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "runtime": "local-only",
+  "description": "Example manifest for personal reference assets. Copy to manifest.local.json for local experiments.",
+  "assets": [
+    {
+      "key": "reference-currency-example",
+      "pack": "personal-reference",
+      "category": "currency",
+      "file": "maplestory/icons/example.png",
+      "usage": "Coin Engine visual experiment",
+      "source": "personal-reference",
+      "ownership": "third-party-reference",
+      "runtime": "local-only",
+      "mapsTo": "coin",
+      "reviewStatus": "reference"
+    }
+  ]
+}

@@ -24,3 +24,16 @@ npm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# Personal / local reference artwork
+frontend/private-assets/**/*.png
+frontend/private-assets/**/*.jpg
+frontend/private-assets/**/*.jpeg
+frontend/private-assets/**/*.webp
+frontend/private-assets/**/*.gif
+frontend/private-assets/**/*.bmp
+frontend/private-assets/**/*.svg
+frontend/private-assets/manifest.local.json
+!frontend/private-assets/README.md
+!frontend/private-assets/manifest.example.json
+!frontend/private-assets/**/.gitkeep

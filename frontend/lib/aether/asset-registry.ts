@@ -1,5 +1,6 @@
 export type AetherAssetCategory = "system" | "resource" | "object" | "frame" | "effect";
 export type AetherAssetStatus = "custom" | "fallback" | "placeholder";
+export type AetherAssetReviewStatus = "integrated" | "visual-review" | "approved" | "revision-required" | "not-reviewed";
 export type AetherAssetTone = "cyan" | "emerald" | "amber" | "ruby" | "violet" | "muted";
 
 export type AetherAssetKey =
@@ -46,8 +47,13 @@ export type AetherAssetDefinition = {
   fallback: AetherAssetKey;
   tone: AetherAssetTone;
   status: AetherAssetStatus;
+  reviewStatus?: AetherAssetReviewStatus;
   expectedSize: "16-24" | "20-32" | "24-48" | "64-160";
   customSrc?: string;
+  dimensions?: string;
+  format?: string;
+  primaryUsage?: string;
+  visualDescription?: string;
 };
 
 export const aetherAssetRegistry: Record<AetherAssetKey, AetherAssetDefinition> = {
@@ -71,10 +77,10 @@ export const aetherAssetRegistry: Record<AetherAssetKey, AetherAssetDefinition> 
   warning: { key: "warning", category: "system", label: "Warning", purpose: "Warning and attention state.", fallback: "warning", tone: "amber", status: "fallback", expectedSize: "16-24" },
   success: { key: "success", category: "system", label: "Success", purpose: "Success state.", fallback: "success", tone: "emerald", status: "fallback", expectedSize: "16-24" },
   pending: { key: "pending", category: "system", label: "Pending", purpose: "Pending state.", fallback: "pending", tone: "amber", status: "fallback", expectedSize: "16-24" },
-  coin: { key: "coin", category: "resource", label: "Coin", purpose: "Cash and currency resource.", fallback: "coin", tone: "amber", status: "custom", expectedSize: "24-48", customSrc: "/aether/icons/resources/coin.webp" },
-  "asset-crystal": { key: "asset-crystal", category: "resource", label: "Asset Crystal", purpose: "Positive asset total and stored value.", fallback: "asset-crystal", tone: "emerald", status: "custom", expectedSize: "24-48", customSrc: "/aether/icons/resources/asset-crystal.webp" },
-  "debt-shard": { key: "debt-shard", category: "resource", label: "Debt Shard", purpose: "Liability and debt resource.", fallback: "debt-shard", tone: "ruby", status: "custom", expectedSize: "24-48", customSrc: "/aether/icons/resources/debt-shard.webp" },
-  "net-worth-core": { key: "net-worth-core", category: "resource", label: "Net Worth Core", purpose: "Net worth and overall financial core.", fallback: "net-worth-core", tone: "amber", status: "custom", expectedSize: "24-48", customSrc: "/aether/icons/resources/net-worth-core.webp" },
+  coin: { key: "coin", category: "resource", label: "Coin", purpose: "Cash and currency resource.", fallback: "coin", tone: "amber", status: "custom", reviewStatus: "visual-review", expectedSize: "24-48", customSrc: "/aether/icons/resources/coin.webp", dimensions: "256x256", format: "WebP", primaryUsage: "Dashboard monthly income and cash resource identity.", visualDescription: "Aged brass financial token with a dark steel inset and controlled cyan Aether core." },
+  "asset-crystal": { key: "asset-crystal", category: "resource", label: "Asset Crystal", purpose: "Positive asset total and stored value.", fallback: "asset-crystal", tone: "emerald", status: "custom", reviewStatus: "visual-review", expectedSize: "24-48", customSrc: "/aether/icons/resources/asset-crystal.webp", dimensions: "256x256", format: "WebP", primaryUsage: "Accounts asset total resource identity.", visualDescription: "Stable emerald and cyan crystal held by a dark steel arcane cradle." },
+  "debt-shard": { key: "debt-shard", category: "resource", label: "Debt Shard", purpose: "Liability and debt resource.", fallback: "debt-shard", tone: "ruby", status: "custom", reviewStatus: "visual-review", expectedSize: "24-48", customSrc: "/aether/icons/resources/debt-shard.webp", dimensions: "256x256", format: "WebP", primaryUsage: "Accounts liability total resource identity.", visualDescription: "Fractured ruby and obsidian liability shard with broken dark steel restraints." },
+  "net-worth-core": { key: "net-worth-core", category: "resource", label: "Net Worth Core", purpose: "Net worth and overall financial core.", fallback: "net-worth-core", tone: "amber", status: "custom", reviewStatus: "visual-review", expectedSize: "24-48", customSrc: "/aether/icons/resources/net-worth-core.webp", dimensions: "256x256", format: "WebP", primaryUsage: "Accounts net worth resource identity.", visualDescription: "Amber arcane balance core surrounded by aged brass and dark steel rings." },
   "available-energy": { key: "available-energy", category: "resource", label: "Available Energy", purpose: "Available credit or spendable energy.", fallback: "available-energy", tone: "cyan", status: "placeholder", expectedSize: "24-48" },
   "statement-scroll": { key: "statement-scroll", category: "resource", label: "Statement Scroll", purpose: "Statement document and import artifact.", fallback: "statement-scroll", tone: "amber", status: "placeholder", expectedSize: "24-48" },
   "goal-star": { key: "goal-star", category: "resource", label: "Goal Star", purpose: "Goals and target progress.", fallback: "goal-star", tone: "violet", status: "placeholder", expectedSize: "24-48" },
@@ -89,6 +95,10 @@ export const aetherAssetRegistry: Record<AetherAssetKey, AetherAssetDefinition> 
 
 export function getAetherAssetDefinition(name: AetherAssetKey) {
   return aetherAssetRegistry[name];
+}
+
+export function getP0AetherResourceAssets() {
+  return [aetherAssetRegistry.coin, aetherAssetRegistry["asset-crystal"], aetherAssetRegistry["debt-shard"], aetherAssetRegistry["net-worth-core"]];
 }
 
 export function creditCardAssetForIssuer(issuerName?: string | null): AetherAssetKey {

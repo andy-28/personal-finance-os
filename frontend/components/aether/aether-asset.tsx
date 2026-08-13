@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { getAetherAssetDefinition, type AetherAssetKey } from "@/lib/aether/asset-registry";
 
-type AetherAssetSize = "xs" | "sm" | "md" | "lg" | "xl";
+type AetherAssetSize = "xs" | "sm" | "md" | "lg" | "xl" | "xxl" | "hero";
 
 type AetherAssetProps = {
   name: AetherAssetKey;
@@ -12,6 +12,7 @@ type AetherAssetProps = {
   label?: string;
   decorative?: boolean;
   className?: string;
+  forceFallback?: boolean;
 };
 
 const sizeMap: Record<AetherAssetSize, number> = {
@@ -19,20 +20,23 @@ const sizeMap: Record<AetherAssetSize, number> = {
   sm: 20,
   md: 24,
   lg: 32,
-  xl: 48
+  xl: 48,
+  xxl: 64,
+  hero: 96
 };
 
 export function AetherIcon(props: AetherAssetProps) {
   return <AetherAsset {...props} variant="icon" />;
 }
 
-export function AetherAsset({ name, size = "md", label, decorative = true, className, variant = "asset" }: AetherAssetProps & { variant?: "icon" | "asset" }) {
+export function AetherAsset({ name, size = "md", label, decorative = true, className, forceFallback = false, variant = "asset" }: AetherAssetProps & { variant?: "icon" | "asset" }) {
   const definition = getAetherAssetDefinition(name);
+  const [hasImageError, setHasImageError] = useState(false);
   const pixelSize = sizeMap[size];
   const accessibleLabel = label ?? definition.label;
   const style = { "--aether-asset-size": `${pixelSize}px` } as CSSProperties;
 
-  if (definition.customSrc) {
+  if (definition.customSrc && !hasImageError && !forceFallback) {
     return (
       <Image
         src={definition.customSrc}
@@ -42,6 +46,7 @@ export function AetherAsset({ name, size = "md", label, decorative = true, class
         height={pixelSize}
         className={`aether-asset aether-asset-${variant} aether-asset-${size} aether-asset-${definition.tone} ${className ?? ""}`}
         style={style}
+        onError={() => setHasImageError(true)}
         unoptimized
       />
     );
