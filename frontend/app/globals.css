@@ -5214,6 +5214,23 @@ body {
   padding: 0.85rem 1rem;
 }
 
+.statement-target-save-feedback {
+  margin: 0.5rem 1rem 0;
+  border: 1px solid rgb(var(--primary) / 0.45);
+  border-radius: 0.55rem;
+  background: rgb(var(--primary) / 0.1);
+  color: rgb(var(--foreground));
+  padding: 0.55rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.statement-target-save-feedback-error {
+  border-color: rgb(var(--danger) / 0.5);
+  background: rgb(var(--danger) / 0.1);
+  color: rgb(var(--danger));
+}
+
 .statement-target-section-title {
   display: flex;
   align-items: center;
@@ -9074,3 +9091,4 @@ body {
     text-align: center;
   }
 }
+

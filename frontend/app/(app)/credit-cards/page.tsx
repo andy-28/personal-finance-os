@@ -273,9 +273,17 @@ export default function CreditCardsPage() {
     if (!statementImport) return;
     try {
       const row = await apiFetch<StatementImportRowDto>(`/api/statement-imports/${statementImport.id}/rows/${rowId}`, accessToken, { method: "PUT", body: JSON.stringify({ reviewStatus: update.reviewStatus, categoryId: update.categoryId || null, amount: update.amount, type: update.type }) }, refreshSession);
-      setStatementImport({ ...statementImport, rows: statementImport.rows.map((candidate) => candidate.id === row.id ? row : candidate) });
+      setStatementImport((current) => current && current.id === statementImport.id
+        ? { ...current, rows: current.rows.map((candidate) => candidate.id === row.id ? row : candidate) }
+        : current);
+      setStatementImports((current) => current.map((batch) => batch.id === statementImport.id
+        ? { ...batch, rows: batch.rows.map((candidate) => candidate.id === row.id ? row : candidate) }
+        : batch));
+      setError(null);
     } catch (err) {
-      setError(problemMessage(err));
+      const message = problemMessage(err);
+      setError(message);
+      throw new Error(message);
     }
   }
 
@@ -737,7 +745,7 @@ function StatementWorkspacePanel({ selectedCard, batch, history, categories, def
   onPasswordChange: (value: string) => void;
   onParse: (event: FormEvent) => void;
   onSelectBatch: (batch: StatementImportBatchDto) => void;
-  onUpdateRow: (rowId: string, update: StatementRowUpdate) => void;
+  onUpdateRow: (rowId: string, update: StatementRowUpdate) => Promise<void>;
   onRetryFailed: () => void;
   onPost: () => void;
   onDiscard: () => void;
@@ -944,15 +952,20 @@ function statementStatusTone(row: StatementImportRowDto) {
   return "statement-status-badge-neutral";
 }
 
-function StatementTargetInspector({ row, categories, onUpdate }: { row: StatementImportRowDto | null; categories: CategoryDto[]; onUpdate: (rowId: string, update: StatementRowUpdate) => void }) {
+function StatementTargetInspector({ row, categories, onUpdate }: { row: StatementImportRowDto | null; categories: CategoryDto[]; onUpdate: (rowId: string, update: StatementRowUpdate) => Promise<void> }) {
   const [categoryId, setCategoryId] = useState(row?.categoryId ?? "");
   const [amount, setAmount] = useState(row && row.amount > 0 ? String(row.amount) : "");
   const [rowType, setRowType] = useState<StatementImportRowType>(row?.type ?? "Unknown");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setCategoryId(row?.categoryId ?? "");
     setAmount(row && row.amount > 0 ? String(row.amount) : "");
     setRowType(row?.type ?? "Unknown");
+    setSaveMessage(null);
+    setSaveError(null);
   }, [row?.id, row?.categoryId, row?.amount, row?.type]);
 
   if (!row) {
@@ -960,8 +973,29 @@ function StatementTargetInspector({ row, categories, onUpdate }: { row: Statemen
   }
 
   const parsedAmount = Number(amount);
+  const rowId = row.id;
   const editable = row.reviewStatus !== "Posted";
-  const canMarkReady = editable && Number.isFinite(parsedAmount) && parsedAmount > 0 && rowType !== "Unknown";
+  const canMarkReady = editable && !isSaving && Number.isFinite(parsedAmount) && parsedAmount > 0 && rowType !== "Unknown";
+
+  async function handleUpdate(reviewStatus: StatementImportReviewStatus) {
+    if (!editable) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    setSaveError(null);
+    try {
+      await onUpdate(rowId, {
+        reviewStatus,
+        categoryId: categoryId || null,
+        amount: Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : undefined,
+        type: rowType
+      });
+      setSaveMessage(reviewStatus === "ReadyToPost" ? "已儲存，這筆會列入待入帳。" : "已略過這筆明細。");
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "儲存失敗，請稍後再試。");
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <aside className="statement-target-inspector">
@@ -998,10 +1032,12 @@ function StatementTargetInspector({ row, categories, onUpdate }: { row: Statemen
           <Row label="Installment Info" value={row.isInstallment ? `${row.installmentCurrentNumber ?? "-"} / ${row.installmentTotalNumber ?? "-"}` : "-"} />
         </div>
       </details>
+      {(saveMessage || saveError) && <p className={saveError ? "statement-target-save-feedback statement-target-save-feedback-error" : "statement-target-save-feedback"}>{saveError ?? saveMessage}</p>}
       <div className="statement-target-inspector-footer">
-        <Button type="button" variant="ghost" size="sm" disabled={!editable} onClick={() => onUpdate(row.id, { reviewStatus: "Ignored", categoryId: categoryId || null, amount: Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : undefined, type: rowType })}>{t("ignore")}</Button>
-        <Button type="button" size="sm" disabled={!canMarkReady} onClick={() => onUpdate(row.id, { reviewStatus: "ReadyToPost", categoryId: categoryId || null, amount: parsedAmount, type: rowType })}>{t("saveReady")}</Button>
+        <Button type="button" variant="ghost" size="sm" disabled={!editable || isSaving} onClick={() => handleUpdate("Ignored")}>{isSaving ? "處理中..." : t("ignore")}</Button>
+        <Button type="button" size="sm" disabled={!canMarkReady} onClick={() => handleUpdate("ReadyToPost")}>{isSaving ? "處理中..." : row.reviewStatus === "ReadyToPost" ? "儲存變更" : t("saveReady")}</Button>
       </div>
     </aside>
   );
 }
+
