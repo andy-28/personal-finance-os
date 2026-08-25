@@ -128,7 +128,7 @@ export const zhTW = {
   needsReview: "待確認",
   defaultExpenseCategory: "預設支出分類",
   chooseWhenPostingPurchases: "入帳消費時套用的分類",
-  postReadyRows: "入帳待處理列",
+    postReadyRows: "全部匯入可入帳列",
   retryFailedRows: "重試失敗列",
   chooseDefaultCategoryBeforePosting: "入帳前請先選擇預設支出分類，或替每筆消費/分期指定分類。",
   chooseDefaultCategoryBeforeRetry: "重試失敗列前，請先選擇預設支出分類。",

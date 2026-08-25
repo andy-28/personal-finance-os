@@ -37,6 +37,16 @@ function statementRowNeedsExpenseCategory(type: StatementImportRowType) {
   return type === "Purchase" || type === "Installment" || type === "Fee" || type === "Interest" || type === "Adjustment";
 }
 
+function defaultExpenseCategoryForStatement(categories: CategoryDto[], selectedCategoryId: string) {
+  if (selectedCategoryId) return selectedCategoryId;
+  const fallbackNames = ["待分類", "未分類", "其他支出", "日常"];
+  return categories.find((category) => fallbackNames.includes(category.name))?.id ?? "";
+}
+
+function statementRowCanAutoPost(row: StatementImportRowDto) {
+  return row.reviewStatus === "ReadyToPost" || (row.reviewStatus === "New" && row.matchStatus === "New" && row.type !== "Unknown");
+}
+
 function creditUtilizationPercent(card: CreditCardDto) {
   if (!card.creditLimit || card.creditLimit <= 0) return 0;
   return Math.max(0, Math.min(100, (card.outstandingAmount / card.creditLimit) * 100));
@@ -289,17 +299,38 @@ export default function CreditCardsPage() {
 
   async function postStatementImport() {
     if (!detail || !statementImport) return;
-    const rowsMissingCategory = statementImport.rows.filter((row) => row.reviewStatus === "ReadyToPost" && statementRowNeedsExpenseCategory(row.type) && !row.categoryId && !defaultStatementCategoryId);
+    const postingCategoryId = defaultExpenseCategoryForStatement(expenseCategories, defaultStatementCategoryId);
+    const rowsToPrepare = statementImport.rows.filter(statementRowCanAutoPost);
+    const rowsMissingCategory = rowsToPrepare.filter((row) => statementRowNeedsExpenseCategory(row.type) && !row.categoryId && !postingCategoryId);
     if (rowsMissingCategory.length > 0) {
       setError(t("chooseDefaultCategoryBeforePosting"));
       return;
     }
     setIsStatementBusy(true);
     try {
-      const batch = await apiFetch<StatementImportBatchDto>(`/api/statement-imports/${statementImport.id}/post`, accessToken, { method: "POST", body: JSON.stringify({ defaultCategoryId: defaultStatementCategoryId || null }) }, refreshSession);
+      let preparedBatch = statementImport;
+      if (rowsToPrepare.some((row) => row.reviewStatus !== "ReadyToPost" || (statementRowNeedsExpenseCategory(row.type) && !row.categoryId && postingCategoryId))) {
+        const updatedRows: StatementImportRowDto[] = [];
+        for (const row of rowsToPrepare) {
+          const nextCategoryId = row.categoryId || (statementRowNeedsExpenseCategory(row.type) ? postingCategoryId : null);
+          if (row.reviewStatus === "ReadyToPost" && row.categoryId === nextCategoryId) continue;
+          updatedRows.push(await apiFetch<StatementImportRowDto>(`/api/statement-imports/${statementImport.id}/rows/${row.id}`, accessToken, { method: "PUT", body: JSON.stringify({ reviewStatus: "ReadyToPost", categoryId: nextCategoryId, amount: row.amount, type: row.type }) }, refreshSession));
+        }
+        preparedBatch = { ...statementImport, rows: statementImport.rows.map((candidate) => updatedRows.find((row) => row.id === candidate.id) ?? candidate) };
+        setStatementImport(preparedBatch);
+      }
+
+      const readyRows = preparedBatch.rows.filter((row) => row.reviewStatus === "ReadyToPost");
+      if (readyRows.length === 0) {
+        setError("沒有可入帳的帳單列。請先修正待確認列，或略過不需要入帳的列。");
+        return;
+      }
+
+      const batch = await apiFetch<StatementImportBatchDto>(`/api/statement-imports/${statementImport.id}/post`, accessToken, { method: "POST", body: JSON.stringify({ defaultCategoryId: postingCategoryId || null }) }, refreshSession);
       setStatementImport(batch);
       await load(detail.summary.accountId);
       await loadStatementImports(detail.summary.accountId);
+      setError(null);
     } catch (err) {
       setError(problemMessage(err));
     } finally {
@@ -310,7 +341,8 @@ export default function CreditCardsPage() {
   async function retryFailedStatementRows() {
     if (!statementImport) return;
     const failedRows = statementImport.rows.filter((row) => row.reviewStatus === "Failed");
-    const rowsMissingCategory = failedRows.filter((row) => statementRowNeedsExpenseCategory(row.type) && !row.categoryId && !defaultStatementCategoryId);
+    const postingCategoryId = defaultExpenseCategoryForStatement(expenseCategories, defaultStatementCategoryId);
+    const rowsMissingCategory = failedRows.filter((row) => statementRowNeedsExpenseCategory(row.type) && !row.categoryId && !postingCategoryId);
     if (rowsMissingCategory.length > 0) {
       setError(t("chooseDefaultCategoryBeforeRetry"));
       return;
@@ -319,7 +351,7 @@ export default function CreditCardsPage() {
     try {
       const updatedRows: StatementImportRowDto[] = [];
       for (const row of failedRows) {
-        updatedRows.push(await apiFetch<StatementImportRowDto>(`/api/statement-imports/${statementImport.id}/rows/${row.id}`, accessToken, { method: "PUT", body: JSON.stringify({ reviewStatus: "ReadyToPost", categoryId: row.categoryId || (statementRowNeedsExpenseCategory(row.type) ? defaultStatementCategoryId : null), amount: row.amount, type: row.type }) }, refreshSession));
+        updatedRows.push(await apiFetch<StatementImportRowDto>(`/api/statement-imports/${statementImport.id}/rows/${row.id}`, accessToken, { method: "PUT", body: JSON.stringify({ reviewStatus: "ReadyToPost", categoryId: row.categoryId || (statementRowNeedsExpenseCategory(row.type) ? postingCategoryId : null), amount: row.amount, type: row.type }) }, refreshSession));
       }
       setStatementImport({ ...statementImport, rows: statementImport.rows.map((candidate) => updatedRows.find((row) => row.id === candidate.id) ?? candidate) });
       setError(null);
@@ -750,12 +782,14 @@ function StatementWorkspacePanel({ selectedCard, batch, history, categories, def
   onPost: () => void;
   onDiscard: () => void;
 }) {
-  const readyRows = batch?.rows.filter((row) => row.reviewStatus === "ReadyToPost").length ?? 0;
+  const rowsReadyToPost = batch?.rows.filter((row) => row.reviewStatus === "ReadyToPost").length ?? 0;
+  const rowsEligibleToPrepare = batch?.rows.filter(statementRowCanAutoPost).length ?? 0;
+  const postingCategoryId = defaultExpenseCategoryForStatement(categories, defaultCategoryId);
   const failedRows = batch?.rows.filter((row) => row.reviewStatus === "Failed").length ?? 0;
   const postedRows = batch?.rows.filter((row) => row.reviewStatus === "Posted").length ?? 0;
   const ignoredRows = batch?.rows.filter((row) => row.reviewStatus === "Ignored").length ?? 0;
   const blockedRows = batch?.rows.filter((row) => row.reviewStatus === "New" || row.matchStatus !== "New" || row.type === "Unknown").length ?? 0;
-  const rowsMissingPostCategory = batch?.rows.filter((row) => row.reviewStatus === "ReadyToPost" && statementRowNeedsExpenseCategory(row.type) && !row.categoryId).length ?? 0;
+  const rowsMissingPostCategory = batch?.rows.filter((row) => statementRowCanAutoPost(row) && statementRowNeedsExpenseCategory(row.type) && !row.categoryId && !postingCategoryId).length ?? 0;
   const totalRows = batch?.rows.length ?? 0;
   const importProgress = totalRows > 0 ? (postedRows / totalRows) * 100 : 0;
   const postedTotal = batch?.rows.reduce((sum, row) => row.reviewStatus === "Posted" ? sum + row.amount : sum, 0) ?? 0;
@@ -810,7 +844,7 @@ function StatementWorkspacePanel({ selectedCard, batch, history, categories, def
         <div className="statement-target-summary-cell statement-target-summary-cell-primary"><span>帳單金額</span><strong>{batch?.statementAmount == null ? "-" : money(batch.statementAmount)}</strong></div>
         <div className="statement-target-summary-cell"><span>繳款日</span><strong>{batch?.paymentDueDate ? formatDate(batch.paymentDueDate) : "-"}</strong></div>
         <div className="statement-target-summary-cell statement-target-summary-cell-success"><span>已入帳</span><strong>{postedRows}</strong></div>
-        <div className="statement-target-summary-cell statement-target-summary-cell-warning"><span>待入帳</span><strong>{readyRows}</strong></div>
+        <div className="statement-target-summary-cell statement-target-summary-cell-warning"><span>待入帳</span><strong>{rowsReadyToPost}</strong></div>
         <div className="statement-target-summary-cell statement-target-summary-cell-danger"><span>失敗</span><strong>{failedRows}</strong></div>
         <div className="statement-target-progress"><span>處理進度</span><strong>{totalRows > 0 ? `${Math.round(importProgress)}%` : "-"}</strong><GameProgress value={importProgress} label="入帳進度" /></div>
         <button type="button" className="statement-target-primary-action" onClick={() => setIsImportPanelOpen(true)}>匯入新帳單</button>
@@ -879,7 +913,7 @@ function StatementWorkspacePanel({ selectedCard, batch, history, categories, def
                 <button type="button" className="statement-target-ghost-button" onClick={() => { setQuery(""); setStatusFilter("All"); setTypeFilter("All"); setCategoryFilter("All"); }}>重設篩選</button>
                 <button type="button" className="statement-target-ghost-button" disabled={isBusy || postedRows > 0} onClick={onDiscard}>{t("discard")}</button>
                 <button type="button" className="statement-target-ghost-button" disabled={isBusy || failedRows === 0} onClick={onRetryFailed}>{t("retryFailedRows")}</button>
-                <button type="button" className="statement-target-ghost-button" disabled={isBusy || readyRows === 0 || (rowsMissingPostCategory > 0 && !defaultCategoryId)} onClick={onPost}>{t("postReadyRows")}</button>
+                <button type="button" className="statement-target-ghost-button" disabled={isBusy || rowsEligibleToPrepare === 0 || rowsMissingPostCategory > 0} onClick={onPost}>{t("postReadyRows")}</button>
               </div>
               <div className="statement-target-table-shell">
                 <div className="statement-target-table">
