@@ -17,6 +17,13 @@ FROM restore AS publish
 COPY backend/src backend/src
 RUN dotnet publish backend/src/PersonalFinance.Api/PersonalFinance.Api.csproj -c Release -o /app/publish --no-restore
 
+FROM restore AS migrate
+COPY backend/.config backend/.config
+COPY backend/src backend/src
+WORKDIR /src/backend
+RUN dotnet tool restore
+ENTRYPOINT ["dotnet", "ef", "database", "update", "--project", "src/PersonalFinance.Infrastructure", "--startup-project", "src/PersonalFinance.Api"]
+
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 

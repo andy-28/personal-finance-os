@@ -27,4 +27,15 @@ public sealed class AuthenticationEndpointTests : IClassFixture<WebApplicationFa
         var response = await client.PostAsync("/api/accounts", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"));
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Capture_Token_Cannot_Call_Normal_Protected_Api()
+    {
+        using var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "ce_capture_not-a-jwt");
+
+        var response = await client.GetAsync("/api/accounts");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

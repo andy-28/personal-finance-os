@@ -6,9 +6,11 @@ using PersonalFinance.Application.UserSettings.Models;
 using PersonalFinance.Domain.Accounts;
 using PersonalFinance.Domain.Categories;
 using PersonalFinance.Domain.CreditCards;
+using PersonalFinance.Domain.FinancialEvents;
 using PersonalFinance.Domain.Recurring;
 using PersonalFinance.Domain.StatementImports;
 using PersonalFinance.Domain.Transactions;
+using PersonalFinance.Domain.TransactionCaptures;
 using PersonalFinance.Domain.Users;
 using PersonalFinance.Domain.UserSettings;
 
@@ -85,6 +87,10 @@ public sealed class UserSettingsHandlerTests
         public IQueryable<Account> Accounts => AccountItems.AsQueryable();
         public IQueryable<Category> Categories => Enumerable.Empty<Category>().AsQueryable();
         public IQueryable<CreditCardAccount> CreditCardAccounts => Enumerable.Empty<CreditCardAccount>().AsQueryable();
+        public IQueryable<FinancialEvent> FinancialEvents => Enumerable.Empty<FinancialEvent>().AsQueryable();
+        public IQueryable<FinancialEventChecklistItem> FinancialEventChecklistItems => Enumerable.Empty<FinancialEventChecklistItem>().AsQueryable();
+        public IQueryable<FinancialEventActivity> FinancialEventActivities => Enumerable.Empty<FinancialEventActivity>().AsQueryable();
+        public IQueryable<FinancialEventCaptureLink> FinancialEventCaptureLinks => Enumerable.Empty<FinancialEventCaptureLink>().AsQueryable();
         public IQueryable<CreditCardTransactionMetadata> CreditCardTransactionMetadata => Enumerable.Empty<CreditCardTransactionMetadata>().AsQueryable();
         public IQueryable<InstallmentPlan> InstallmentPlans => Enumerable.Empty<InstallmentPlan>().AsQueryable();
         public IQueryable<InstallmentScheduleItem> InstallmentScheduleItems => Enumerable.Empty<InstallmentScheduleItem>().AsQueryable();
@@ -94,6 +100,8 @@ public sealed class UserSettingsHandlerTests
         public IQueryable<RecurringTransactionOccurrence> RecurringTransactionOccurrences => Enumerable.Empty<RecurringTransactionOccurrence>().AsQueryable();
         public IQueryable<Transaction> Transactions => Enumerable.Empty<Transaction>().AsQueryable();
         public IQueryable<TransactionEntry> TransactionEntries => Enumerable.Empty<TransactionEntry>().AsQueryable();
+        public IQueryable<TransactionCapture> TransactionCaptures => Enumerable.Empty<TransactionCapture>().AsQueryable();
+        public IQueryable<CaptureApiToken> CaptureApiTokens => Enumerable.Empty<CaptureApiToken>().AsQueryable();
         public IQueryable<UserSetting> UserSettings => UserSettingItems.AsQueryable();
 
         public void AddUser(User user) { }
@@ -101,6 +109,10 @@ public sealed class UserSettingsHandlerTests
         public void AddAccount(Account account) => AccountItems.Add(account);
         public void AddCategory(Category category) { }
         public void AddCreditCardAccount(CreditCardAccount creditCardAccount) { }
+        public void AddFinancialEvent(FinancialEvent financialEvent) { }
+        public void AddFinancialEventChecklistItem(FinancialEventChecklistItem item) { }
+        public void AddFinancialEventActivity(FinancialEventActivity activity) { }
+        public void AddFinancialEventCaptureLink(FinancialEventCaptureLink link) { }
         public void AddCreditCardTransactionMetadata(CreditCardTransactionMetadata metadata) { }
         public void AddInstallmentPlan(InstallmentPlan installmentPlan) { }
         public void AddStatementImportBatch(StatementImportBatch batch) { }
@@ -109,8 +121,11 @@ public sealed class UserSettingsHandlerTests
         public void AddRecurringTransactionOccurrence(RecurringTransactionOccurrence occurrence) { }
         public void AddTransaction(Transaction transaction) { }
         public void AddTransactionEntries(IEnumerable<TransactionEntry> entries) { }
+        public void AddTransactionCapture(TransactionCapture capture) { }
+        public void AddCaptureApiToken(CaptureApiToken token) { }
         public void AddUserSetting(UserSetting userSetting) => UserSettingItems.Add(userSetting);
         public void RemoveTransactionEntries(IEnumerable<TransactionEntry> entries) { }
+        public void RemoveFinancialEventCaptureLink(FinancialEventCaptureLink link) { }
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken) => Task.FromResult(1);
         public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken) => operation(cancellationToken);
     }

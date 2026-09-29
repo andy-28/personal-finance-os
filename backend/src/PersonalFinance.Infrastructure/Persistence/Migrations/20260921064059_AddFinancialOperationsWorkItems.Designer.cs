@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PersonalFinance.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using PersonalFinance.Infrastructure.Persistence;
 namespace PersonalFinance.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PersonalFinanceDbContext))]
-    partial class PersonalFinanceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260921064059_AddFinancialOperationsWorkItems")]
+    partial class AddFinancialOperationsWorkItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -440,12 +443,6 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("event_date");
 
-                    b.Property<bool>("IsCashFlowRealized")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_cash_flow_realized");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -493,9 +490,7 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PaymentSourceAccountId");
 
-                    b.HasIndex("RelatedTransactionId")
-                        .IsUnique()
-                        .HasFilter("related_transaction_id IS NOT NULL");
+                    b.HasIndex("RelatedTransactionId");
 
                     b.HasIndex("UserId", "EventDate");
 

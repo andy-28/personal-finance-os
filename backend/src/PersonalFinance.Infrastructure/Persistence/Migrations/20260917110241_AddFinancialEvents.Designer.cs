@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PersonalFinance.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using PersonalFinance.Infrastructure.Persistence;
 namespace PersonalFinance.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PersonalFinanceDbContext))]
-    partial class PersonalFinanceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260917110241_AddFinancialEvents")]
+    partial class AddFinancialEvents
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -440,12 +443,6 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("event_date");
 
-                    b.Property<bool>("IsCashFlowRealized")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false)
-                        .HasColumnName("is_cash_flow_realized");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -493,9 +490,7 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PaymentSourceAccountId");
 
-                    b.HasIndex("RelatedTransactionId")
-                        .IsUnique()
-                        .HasFilter("related_transaction_id IS NOT NULL");
+                    b.HasIndex("RelatedTransactionId");
 
                     b.HasIndex("UserId", "EventDate");
 
@@ -503,110 +498,6 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_financial_events_amount", "amount > 0");
                         });
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.FinancialEvents.FinancialEventActivity", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("description");
-
-                    b.Property<Guid>("FinancialEventId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("financial_event_id");
-
-                    b.Property<DateTimeOffset>("OccurredAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("occurred_at_utc");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("type");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FinancialEventId", "OccurredAtUtc");
-
-                    b.ToTable("financial_event_activities", (string)null);
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.FinancialEvents.FinancialEventCaptureLink", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<Guid>("FinancialEventId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("financial_event_id");
-
-                    b.Property<Guid>("TransactionCaptureId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("transaction_capture_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TransactionCaptureId")
-                        .IsUnique();
-
-                    b.HasIndex("FinancialEventId", "TransactionCaptureId")
-                        .IsUnique();
-
-                    b.ToTable("financial_event_capture_links", (string)null);
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.FinancialEvents.FinancialEventChecklistItem", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset?>("CompletedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at_utc");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<Guid>("FinancialEventId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("financial_event_id");
-
-                    b.Property<bool>("IsCompleted")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_completed");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasMaxLength(240)
-                        .HasColumnType("character varying(240)")
-                        .HasColumnName("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("FinancialEventId", "SortOrder");
-
-                    b.ToTable("financial_event_checklist_items", (string)null);
                 });
 
             modelBuilder.Entity("PersonalFinance.Domain.Recurring.RecurringTransactionOccurrence", b =>
@@ -1028,144 +919,6 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
                     b.ToTable("statement_import_rows", (string)null);
                 });
 
-            modelBuilder.Entity("PersonalFinance.Domain.TransactionCaptures.CaptureApiToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at_utc");
-
-                    b.Property<DateTimeOffset?>("LastUsedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_used_at_utc");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("name");
-
-                    b.Property<DateTimeOffset?>("RevokedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("revoked_at_utc");
-
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("token_hash");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TokenHash")
-                        .IsUnique();
-
-                    b.HasIndex("UserId", "RevokedAtUtc");
-
-                    b.ToTable("capture_api_tokens", (string)null);
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.TransactionCaptures.TransactionCapture", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)")
-                        .HasColumnName("amount");
-
-                    b.Property<DateTimeOffset>("CapturedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("captured_at_utc");
-
-                    b.Property<string>("CurrencyCode")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("character varying(3)")
-                        .HasColumnName("currency_code");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)")
-                        .HasColumnName("description");
-
-                    b.Property<DateTimeOffset?>("DismissedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("dismissed_at_utc");
-
-                    b.Property<string>("MerchantRaw")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("merchant_raw");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("note");
-
-                    b.Property<DateTimeOffset>("OccurredAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("occurred_at_utc");
-
-                    b.Property<Guid>("PaymentInstrumentId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("payment_instrument_id");
-
-                    b.Property<string>("PaymentInstrumentType")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("payment_instrument_type");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("source");
-
-                    b.Property<string>("SourceReference")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
-                        .HasColumnName("source_reference");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(24)
-                        .HasColumnType("character varying(24)")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PaymentInstrumentId");
-
-                    b.HasIndex("UserId", "Source", "SourceReference")
-                        .IsUnique()
-                        .HasFilter("source_reference IS NOT NULL");
-
-                    b.HasIndex("UserId", "Status", "CapturedAtUtc");
-
-                    b.ToTable("transaction_captures", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_transaction_captures_amount", "amount > 0");
-                        });
-                });
-
             modelBuilder.Entity("PersonalFinance.Domain.Transactions.Transaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1514,39 +1267,6 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("PersonalFinance.Domain.FinancialEvents.FinancialEventActivity", b =>
-                {
-                    b.HasOne("PersonalFinance.Domain.FinancialEvents.FinancialEvent", null)
-                        .WithMany()
-                        .HasForeignKey("FinancialEventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.FinancialEvents.FinancialEventCaptureLink", b =>
-                {
-                    b.HasOne("PersonalFinance.Domain.FinancialEvents.FinancialEvent", null)
-                        .WithMany()
-                        .HasForeignKey("FinancialEventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("PersonalFinance.Domain.TransactionCaptures.TransactionCapture", null)
-                        .WithMany()
-                        .HasForeignKey("TransactionCaptureId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.FinancialEvents.FinancialEventChecklistItem", b =>
-                {
-                    b.HasOne("PersonalFinance.Domain.FinancialEvents.FinancialEvent", null)
-                        .WithMany()
-                        .HasForeignKey("FinancialEventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("PersonalFinance.Domain.Recurring.RecurringTransactionOccurrence", b =>
                 {
                     b.HasOne("PersonalFinance.Domain.Transactions.Transaction", null)
@@ -1582,30 +1302,6 @@ namespace PersonalFinance.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.TransactionCaptures.CaptureApiToken", b =>
-                {
-                    b.HasOne("PersonalFinance.Domain.Users.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PersonalFinance.Domain.TransactionCaptures.TransactionCapture", b =>
-                {
-                    b.HasOne("PersonalFinance.Domain.Accounts.Account", null)
-                        .WithMany()
-                        .HasForeignKey("PaymentInstrumentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("PersonalFinance.Domain.Users.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

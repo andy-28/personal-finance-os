@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DashboardCreditCards } from "@/components/dashboard/dashboard-credit-cards";
 import { DashboardFinanceProfile } from "@/components/dashboard/dashboard-finance-profile";
+import { FinancialOperationsWorkspace } from "@/components/dashboard/financial-operations-workspace";
 import { DashboardFinancialSummary } from "@/components/dashboard/dashboard-financial-summary";
 import { DashboardMissionBoard } from "@/components/dashboard/dashboard-mission-board";
 import { DashboardRecentTransactions } from "@/components/dashboard/dashboard-recent-transactions";
@@ -109,7 +110,7 @@ export default function DashboardPage() {
             goals={settings.goalSettings.goalBars}
             displayName={user?.displayName ?? "admin"}
           />
-          <div className="hidden gap-5 md:grid">
+          <div className="hidden md:block">
             <DashboardFinanceProfile
               accounts={accounts}
               summary={accountSummary}
@@ -117,6 +118,9 @@ export default function DashboardPage() {
               monthlyTransactions={monthlyTransactions.items}
               profileImageSettings={settings.workshopSettings.dashboardProfileImage}
             />
+          </div>
+          <FinancialOperationsWorkspace accessToken={accessToken} refreshSession={refreshSession} accounts={accounts} />
+          <div className="hidden gap-5 md:grid">
             <DashboardFinancialSummary summary={accountSummary} accounts={accounts} transactions={monthlyTransactions.items} />
             <DashboardCreditCards cards={creditCards} />
             <DashboardMissionBoard upcoming={upcoming} goals={settings.goalSettings.goalBars} accounts={accounts} />

@@ -105,10 +105,18 @@ npm run dev
 
 ## Docker
 
-Docker Compose 會啟動 PostgreSQL 與 Redis。開發環境預設 port 由 `.env` 或 `.env.example` 控制。Sprint 5.5A 也新增 root production `Dockerfile`，用於 Render backend Docker service。
+Docker Compose 會建置並啟動 Frontend、Backend、PostgreSQL 與 Redis，並在 Backend 啟動前自動套用 EF Core migrations。預設 port 可由 `.env` 或 `.env.example` 覆寫。
 
 ```bash
-docker compose up -d --wait
+docker compose up -d --build --wait
+```
+
+啟動後可使用：
+
+```text
+Frontend: http://localhost:3100
+API:      http://localhost:5000
+Health:   http://localhost:5000/health
 ```
 
 停止：

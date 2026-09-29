@@ -1,14 +1,18 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using PersonalFinance.Api.Endpoints;
+using PersonalFinance.Api.Authentication;
 using PersonalFinance.Api.Services;
 using PersonalFinance.Application;
 using PersonalFinance.Application.Abstractions.Authentication;
@@ -109,8 +113,33 @@ builder.Services
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(1)
         };
+    })
+    .AddScheme<AuthenticationSchemeOptions, CaptureTokenAuthenticationHandler>(CaptureTokenAuthenticationDefaults.Scheme, _ => { });
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(CaptureTokenAuthenticationDefaults.Policy, policy =>
+    {
+        policy.AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme, CaptureTokenAuthenticationDefaults.Scheme);
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+            context.User.Identities.Any(identity => identity.IsAuthenticated &&
+                (identity.AuthenticationType != CaptureTokenAuthenticationDefaults.Scheme ||
+                 identity.HasClaim(CaptureTokenAuthenticationDefaults.ScopeClaim, CaptureTokenAuthenticationDefaults.CaptureScope))));
     });
-builder.Services.AddAuthorization();
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("capture", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+});
 
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
     ?? builder.Configuration.GetConnectionString("DefaultConnection")
@@ -178,6 +207,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Frontend");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -192,6 +222,8 @@ app.MapCreditCardEndpoints();
 app.MapRecurringTransactionEndpoints();
 app.MapStatementImportEndpoints();
 app.MapUserSettingsEndpoints();
+app.MapFinancialOperationsEndpoints();
+app.MapTransactionCaptureEndpoints();
 
 var exposeDetailedHealth = app.Environment.IsDevelopment();
 app.MapHealthChecks("/health", new HealthCheckOptions
