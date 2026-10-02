@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -18,6 +19,7 @@ using PersonalFinance.Application;
 using PersonalFinance.Application.Abstractions.Authentication;
 using PersonalFinance.Infrastructure;
 using PersonalFinance.Infrastructure.Authentication;
+using PersonalFinance.Infrastructure.Persistence;
 using PersonalFinance.Infrastructure.Seeding;
 using Serilog;
 
@@ -158,6 +160,18 @@ builder.Services
         tags: ["cache", "redis"]);
 
 var app = builder.Build();
+
+var migrateOnStartup = builder.Configuration.GetValue<bool?>("Database:MigrateOnStartup")
+    ?? app.Environment.IsProduction();
+if (migrateOnStartup)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<PersonalFinanceDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation("Applying pending database migrations before accepting traffic");
+    await dbContext.Database.MigrateAsync();
+    logger.LogInformation("Database migrations are up to date");
+}
 
 if (args.Contains("--seed-development", StringComparer.OrdinalIgnoreCase))
 {
